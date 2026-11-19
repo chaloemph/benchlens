@@ -98,12 +98,15 @@ impl fmt::Display for InboxEvent {
                 moved_to,
                 reason,
                 ..
-            } => write!(
-                f,
-                "FAILED    {name}: {} -> {}",
-                reason.lines().next().unwrap_or(""),
-                moved_to.display()
-            ),
+            } => {
+                let first = reason.lines().next().unwrap_or("");
+                // a result folder dropped as it is: its name already starts the reason
+                let first = first
+                    .strip_prefix(name.as_str())
+                    .and_then(|r| r.strip_prefix(": "))
+                    .unwrap_or(first);
+                write!(f, "FAILED    {name}: {first} -> {}", moved_to.display())
+            }
             InboxEvent::Error { name, message } => write!(f, "error     {name}: {message}"),
         }
     }
@@ -305,7 +308,14 @@ fn process(store: &Store, dir: &Path, name: &str, path: &Path) -> InboxEvent {
             let problems: Vec<String> = reports
                 .iter()
                 .filter(|r| r.outcome == Outcome::Failed)
-                .map(|r| format!("{}: {}", r.folder, r.message))
+                .map(|r| {
+                    // errors about a folder usually start with its name already
+                    if r.message.starts_with(&format!("{}:", r.folder)) {
+                        r.message.clone()
+                    } else {
+                        format!("{}: {}", r.folder, r.message)
+                    }
+                })
                 .collect();
             (reports, problems)
         }

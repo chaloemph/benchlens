@@ -181,6 +181,10 @@ fn broken_folder_goes_to_failed_with_reason() {
         assert!(!reason.trim().is_empty());
         if name == "half" {
             assert!(reason.contains("results.tsv"), "{reason}");
+            assert!(
+                !reason.contains(&format!("{name}: {name}:")),
+                "folder name repeated: {reason}"
+            );
         }
     }
     assert_eq!(names(&opts.dir), ["done", "failed"]);
