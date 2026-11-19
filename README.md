@@ -33,7 +33,7 @@ On Windows: `Get-FileHash benchlens-<version>-x86_64-pc-windows-msvc.zip` and co
 
 ### From source
 
-Rust 1.80 or later (and a C compiler, for the bundled SQLite):
+Rust 1.89 or later (and a C compiler, for the bundled SQLite):
 
 ```bash
 cargo install --path crates/cli
@@ -91,6 +91,32 @@ Any `key=value`. Give them with `--tag`, a registry, a `benchlens-tags.json` in 
 
 - `group`: the group, see above
 - `exclude`: stages whose values are not used, e.g. `web,net` (stages that failed are always left out)
+
+### Inbox
+
+`benchlens watch` imports whatever is dropped into a folder; `benchlens serve --inbox DIR` does the same in
+the background of the server.
+
+```bash
+benchlens watch --inbox inbox/ --registry registry.tsv --tag set=poc     # Ctrl-C to stop
+benchlens serve --inbox inbox/ --inbox-registry registry.tsv --inbox-tag set=poc
+```
+
+- Drop result folders, directories of them, or `.tar` / `.tar.gz` / `.tgz` archives at the top of the inbox.
+  An entry is imported once it stayed unchanged for one scan interval (`--interval` / `--inbox-interval`,
+  5 s), then moved to `done/`, or to `failed/` with a `.reason.txt`. Upload under a name ending in `.part`,
+  `.tmp` or `.partial` and rename when complete; dotfiles and links are ignored.
+- `--registry FILE` (`--inbox-registry` for `serve`, env `BENCHLENS_INBOX_REGISTRY` for both) and `--tag`
+  (`--inbox-tag`) tag inbox imports as `benchlens import` does, so a run dropped in again keeps its registry
+  group. The registry is read again whenever it changes, so rows can be added while the watcher runs; a file
+  that no longer parses is reported once and the previous registry stays in use.
+- One watcher per inbox: the watcher holds an advisory lock on `<inbox>/.benchlens.lock` (the file names the
+  holder's pid, host and start time). A second `watch` or `serve --inbox` on the same folder refuses to start
+  and names the holder. A lock left by a watcher that was killed is taken over with a warning; the OS
+  releases the lock with the process. On a network share whose file system ignores advisory locks, run only
+  one watcher per inbox.
+- `watch` stops on Ctrl-C or SIGTERM after the import in progress and exits 0; a second Ctrl-C stops at once
+  (an import is one transaction, so an interrupted entry is imported on the next run as already present).
 
 ## For other tools
 

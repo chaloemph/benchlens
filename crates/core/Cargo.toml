@@ -5,7 +5,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-rust-version.workspace = true
+# File::try_lock (the inbox lock) is std since 1.89.
+rust-version = "1.89"
 
 [dependencies]
 benchlens-rules = { path = "../rules" }

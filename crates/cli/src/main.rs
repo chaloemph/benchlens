@@ -85,6 +85,12 @@ enum Cmd {
         /// Seconds between two inbox scans.
         #[arg(long, value_name = "SECS", default_value_t = 5)]
         inbox_interval: u64,
+        /// Registry TSV for inbox imports (a `run` column and one column per tag); read again when it changes.
+        #[arg(long, env = "BENCHLENS_INBOX_REGISTRY", value_name = "FILE")]
+        inbox_registry: Option<PathBuf>,
+        /// Tag every run the inbox imports: --inbox-tag set=poc (wins over the registry).
+        #[arg(long = "inbox-tag", value_name = "KEY=VALUE")]
+        inbox_tags: Vec<String>,
     },
     /// Watch an inbox folder: import result folders and archives dropped into it, then move them to done/
     /// or failed/ (with a .reason.txt).
@@ -98,6 +104,12 @@ enum Cmd {
         /// Scan twice, one interval apart, then exit.
         #[arg(long)]
         once: bool,
+        /// Registry TSV (a `run` column and one column per tag); read again when it changes.
+        #[arg(long, env = "BENCHLENS_INBOX_REGISTRY", value_name = "FILE")]
+        registry: Option<PathBuf>,
+        /// Tag every imported run: --tag set=poc --tag round=2 (wins over the registry and benchlens-tags.json).
+        #[arg(long = "tag", value_name = "KEY=VALUE")]
+        tags: Vec<String>,
     },
     /// Metric tables of vmbench versions.
     Catalog {
@@ -123,6 +135,61 @@ fn parse_tags(list: &[String]) -> Result<BTreeMap<String, String>> {
         out.insert(k.trim().to_string(), v.trim().to_string());
     }
     Ok(out)
+}
+
+/// Set `stop` on Ctrl-C (and SIGTERM on unix) so `watch` ends after the import in progress; a second signal
+/// exits at once. Returns once the handlers are in place.
+fn stop_on_signal(stop: std::sync::Arc<std::sync::atomic::AtomicBool>) -> Result<()> {
+    use std::sync::atomic::Ordering;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<std::io::Result<()>>();
+    std::thread::Builder::new()
+        .name("benchlens-signals".into())
+        .spawn(move || {
+            rt.block_on(async move {
+                #[cfg(unix)]
+                let signals = {
+                    use tokio::signal::unix::{signal, SignalKind};
+                    signal(SignalKind::interrupt())
+                        .and_then(|i| Ok((i, signal(SignalKind::terminate())?)))
+                };
+                #[cfg(unix)]
+                let (mut int, mut term) = match signals {
+                    Ok(s) => {
+                        let _ = ready_tx.send(Ok(()));
+                        s
+                    }
+                    Err(e) => {
+                        let _ = ready_tx.send(Err(e));
+                        return;
+                    }
+                };
+                #[cfg(not(unix))]
+                let _ = ready_tx.send(Ok(()));
+                loop {
+                    #[cfg(unix)]
+                    tokio::select! {
+                        _ = int.recv() => {}
+                        _ = term.recv() => {}
+                    }
+                    #[cfg(not(unix))]
+                    if tokio::signal::ctrl_c().await.is_err() {
+                        return;
+                    }
+                    if stop.swap(true, Ordering::Relaxed) {
+                        eprintln!("stopping now");
+                        std::process::exit(130);
+                    }
+                    eprintln!("stopping after the import in progress (Ctrl-C again to stop now)");
+                }
+            })
+        })?;
+    ready_rx
+        .recv()
+        .context("signal handler thread ended")?
+        .context("installing signal handlers")
 }
 
 fn main() -> Result<()> {
@@ -273,6 +340,8 @@ fn main() -> Result<()> {
             listen,
             inbox,
             inbox_interval,
+            inbox_registry,
+            inbox_tags,
         } => {
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(benchlens_server::serve(benchlens_server::ServeConfig {
@@ -280,34 +349,58 @@ fn main() -> Result<()> {
                 listen,
                 inbox,
                 inbox_interval: std::time::Duration::from_secs(inbox_interval.max(1)),
+                inbox_registry,
+                inbox_tags: parse_tags(&inbox_tags)?,
             }))?;
         }
         Cmd::Watch {
             inbox,
             interval,
             once,
+            registry,
+            tags,
         } => {
+            use benchlens_core::inbox::{self, InboxLock, InboxOptions};
             let store =
                 Store::open(&cli.db).with_context(|| format!("opening {}", cli.db.display()))?;
-            let opts = benchlens_core::inbox::InboxOptions {
-                dir: inbox,
+            let opts = InboxOptions {
                 interval: std::time::Duration::from_secs(interval.max(1)),
+                tags: parse_tags(&tags)?,
+                registry,
+                ..InboxOptions::new(inbox)
             };
+            if let Some(p) = &opts.registry {
+                // refuse a registry that does not parse now; later edits are checked on every scan
+                Registry::parse(
+                    &fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?,
+                )
+                .with_context(|| format!("registry {}", p.display()))?;
+            }
             fs::create_dir_all(&opts.dir)
                 .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
+            let lock = InboxLock::acquire(&opts.dir)?;
+            if let Some(old) = lock.taken_over() {
+                eprintln!(
+                    "warning: took over the stale lock of {old} ({})",
+                    lock.path().display()
+                );
+            }
             if once {
-                for ev in benchlens_core::inbox::run_once(&store, &opts) {
+                for ev in inbox::run_once(&store, &opts) {
                     println!("{ev}");
                 }
             } else {
+                let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+                stop_on_signal(stop.clone())?;
                 eprintln!(
                     "watching {} every {}s (Ctrl-C to stop)",
                     opts.dir.display(),
                     opts.interval.as_secs()
                 );
-                let stop = std::sync::atomic::AtomicBool::new(false);
-                benchlens_core::inbox::watch(&store, &opts, &stop, |ev| println!("{ev}"));
+                inbox::watch(&store, &opts, &stop, |ev| println!("{ev}"));
+                eprintln!("stopped watching {}", opts.dir.display());
             }
+            drop(lock);
         }
         Cmd::Catalog { cmd } => {
             let store = Store::open(&cli.db)?;

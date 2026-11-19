@@ -36,6 +36,10 @@ pub struct ServeConfig {
     pub inbox: Option<PathBuf>,
     /// Time between two inbox scans.
     pub inbox_interval: std::time::Duration,
+    /// Registry TSV for inbox imports, read again when it changes.
+    pub inbox_registry: Option<PathBuf>,
+    /// Tags for every run the inbox imports (they win over the registry).
+    pub inbox_tags: std::collections::BTreeMap<String, String>,
 }
 
 /// Shared state of every handler. rusqlite connections are not `Sync`, so the store sits behind a mutex;
@@ -189,17 +193,36 @@ type InboxThread = (
     std::thread::JoinHandle<()>,
 );
 
-/// Run the inbox watcher of `cfg.inbox` in its own thread with its own connection to the database.
+/// Run the inbox watcher of `cfg.inbox` in its own thread with its own connection to the database. Fails
+/// when another watcher holds the inbox lock or the registry does not parse.
 fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
-    use benchlens_core::inbox::{watch, InboxOptions};
+    use anyhow::Context;
+    use benchlens_core::import::Registry;
+    use benchlens_core::inbox::{watch, InboxLock, InboxOptions};
     let Some(dir) = cfg.inbox.clone() else {
         return Ok(None);
     };
     let store = Store::open(&cfg.db)?;
     let opts = InboxOptions {
-        dir,
         interval: cfg.inbox_interval,
+        tags: cfg.inbox_tags.clone(),
+        registry: cfg.inbox_registry.clone(),
+        ..InboxOptions::new(dir)
     };
+    if let Some(p) = &opts.registry {
+        let text =
+            std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?;
+        Registry::parse(&text).with_context(|| format!("registry {}", p.display()))?;
+    }
+    std::fs::create_dir_all(&opts.dir)
+        .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
+    let lock = InboxLock::acquire(&opts.dir)?;
+    if let Some(old) = lock.taken_over() {
+        eprintln!(
+            "warning: took over the stale inbox lock of {old} ({})",
+            lock.path().display()
+        );
+    }
     eprintln!(
         "watching inbox {} every {}s",
         opts.dir.display(),
@@ -209,6 +232,9 @@ fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
     let flag = stop.clone();
     let thread = std::thread::Builder::new()
         .name("benchlens-inbox".into())
-        .spawn(move || watch(&store, &opts, &flag, |ev| eprintln!("inbox: {ev}")))?;
+        .spawn(move || {
+            watch(&store, &opts, &flag, |ev| eprintln!("inbox: {ev}"));
+            drop(lock);
+        })?;
     Ok(Some((stop, thread)))
 }
