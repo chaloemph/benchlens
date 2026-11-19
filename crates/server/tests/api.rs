@@ -412,6 +412,19 @@ async fn compare_errors() {
 }
 
 #[tokio::test]
+async fn id_prefix_is_not_a_like_pattern() {
+    // `%` and `_` are plain characters in a reference, not SQL wildcards that match every run
+    let app = App::new();
+    for r in ["%%%%", "____", "%25%25%25%25"] {
+        let msg = app
+            .get(&format!("/api/runs/{r}"))
+            .await
+            .assert_error(StatusCode::NOT_FOUND);
+        assert!(msg.contains("no run matches"), "{r}: {msg}");
+    }
+}
+
+#[tokio::test]
 async fn ambiguous_reference_is_refused() {
     let app = App::new();
     // give two runs the same label so that the label matches both
@@ -544,6 +557,7 @@ async fn tag_edit_errors() {
     for body in [
         r#"{"bad key": "x"}"#,
         r#"{"a": "two\nlines"}"#,
+        r#"{"a": "carriage\rreturn"}"#,
         r#"{"a": 1}"#,
         r#"["a"]"#,
         "not json",

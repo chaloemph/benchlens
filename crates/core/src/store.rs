@@ -534,7 +534,7 @@ impl Store {
     pub fn find_run(&self, reference: &str) -> Result<String> {
         let mut st = self.conn.prepare(
             "SELECT run_id FROM runs WHERE run_id = ?1 OR folder = ?1 OR label = ?1
-             OR (length(?1) >= 4 AND run_id LIKE ?1 || '%')",
+             OR (length(?1) >= 4 AND substr(run_id, 1, length(?1)) = ?1)",
         )?;
         let ids: Vec<String> = st
             .query_map([reference], |r| r.get(0))?
@@ -580,7 +580,7 @@ fn set_tags_in(
                 "tag key {k:?}: use 1-64 letters, digits, _ - or ."
             )));
         }
-        if v.len() > 1024 || v.contains('\n') {
+        if v.len() > 1024 || v.contains(['\n', '\r']) {
             return Err(Error::contract(format!(
                 "tag {k}: the value must be one line of at most 1024 bytes"
             )));
