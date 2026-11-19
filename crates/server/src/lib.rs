@@ -30,6 +30,10 @@ struct Web;
 pub struct ServeConfig {
     pub db: PathBuf,
     pub listen: SocketAddr,
+    /// Inbox folder to watch and import from (task C1); `None` leaves the inbox off.
+    pub inbox: Option<PathBuf>,
+    /// Time between two inbox scans.
+    pub inbox_interval: std::time::Duration,
 }
 
 /// Shared state of every handler. rusqlite connections are not `Sync`, so the store sits behind a mutex;
@@ -154,6 +158,7 @@ pub fn router(state: AppState) -> Router {
 /// Open the database and serve until Ctrl-C.
 pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
+    let inbox = start_inbox(&cfg)?;
     let state = AppState {
         store: Arc::new(Mutex::new(store)),
     };
@@ -164,10 +169,44 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         listener.local_addr()?,
         cfg.db.display()
     );
-    axum::serve(listener, router(state))
+    let served = axum::serve(listener, router(state))
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })
-        .await?;
+        .await;
+    if let Some((stop, thread)) = inbox {
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = tokio::task::spawn_blocking(move || thread.join()).await;
+    }
+    served?;
     Ok(())
+}
+
+type InboxThread = (
+    Arc<std::sync::atomic::AtomicBool>,
+    std::thread::JoinHandle<()>,
+);
+
+/// Run the inbox watcher of `cfg.inbox` in its own thread with its own connection to the database.
+fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
+    use benchlens_core::inbox::{watch, InboxOptions};
+    let Some(dir) = cfg.inbox.clone() else {
+        return Ok(None);
+    };
+    let store = Store::open(&cfg.db)?;
+    let opts = InboxOptions {
+        dir,
+        interval: cfg.inbox_interval,
+    };
+    eprintln!(
+        "watching inbox {} every {}s",
+        opts.dir.display(),
+        opts.interval.as_secs_f64()
+    );
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let thread = std::thread::Builder::new()
+        .name("benchlens-inbox".into())
+        .spawn(move || watch(&store, &opts, &flag, |ev| eprintln!("inbox: {ev}")))?;
+    Ok(Some((stop, thread)))
 }

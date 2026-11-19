@@ -79,6 +79,25 @@ enum Cmd {
         /// Address to listen on; use 0.0.0.0:8080 to serve other machines.
         #[arg(long, env = "BENCHLENS_LISTEN", default_value = "127.0.0.1:8080")]
         listen: std::net::SocketAddr,
+        /// Also watch this inbox folder and import what is dropped into it (off when not given).
+        #[arg(long, value_name = "DIR")]
+        inbox: Option<PathBuf>,
+        /// Seconds between two inbox scans.
+        #[arg(long, value_name = "SECS", default_value_t = 5)]
+        inbox_interval: u64,
+    },
+    /// Watch an inbox folder: import result folders and archives dropped into it, then move them to done/
+    /// or failed/ (with a .reason.txt).
+    Watch {
+        /// The inbox folder.
+        #[arg(long, env = "BENCHLENS_INBOX", default_value = "inbox")]
+        inbox: PathBuf,
+        /// Seconds between two scans; an entry is imported once it is unchanged for one interval.
+        #[arg(long, value_name = "SECS", default_value_t = 5)]
+        interval: u64,
+        /// Scan twice, one interval apart, then exit.
+        #[arg(long)]
+        once: bool,
     },
     /// Metric tables of vmbench versions.
     Catalog {
@@ -250,12 +269,45 @@ fn main() -> Result<()> {
                 print_comparison(&c);
             }
         }
-        Cmd::Serve { listen } => {
+        Cmd::Serve {
+            listen,
+            inbox,
+            inbox_interval,
+        } => {
             let rt = tokio::runtime::Runtime::new()?;
             rt.block_on(benchlens_server::serve(benchlens_server::ServeConfig {
                 db: cli.db.clone(),
                 listen,
+                inbox,
+                inbox_interval: std::time::Duration::from_secs(inbox_interval.max(1)),
             }))?;
+        }
+        Cmd::Watch {
+            inbox,
+            interval,
+            once,
+        } => {
+            let store =
+                Store::open(&cli.db).with_context(|| format!("opening {}", cli.db.display()))?;
+            let opts = benchlens_core::inbox::InboxOptions {
+                dir: inbox,
+                interval: std::time::Duration::from_secs(interval.max(1)),
+            };
+            fs::create_dir_all(&opts.dir)
+                .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
+            if once {
+                for ev in benchlens_core::inbox::run_once(&store, &opts) {
+                    println!("{ev}");
+                }
+            } else {
+                eprintln!(
+                    "watching {} every {}s (Ctrl-C to stop)",
+                    opts.dir.display(),
+                    opts.interval.as_secs()
+                );
+                let stop = std::sync::atomic::AtomicBool::new(false);
+                benchlens_core::inbox::watch(&store, &opts, &stop, |ev| println!("{ev}"));
+            }
         }
         Cmd::Catalog { cmd } => {
             let store = Store::open(&cli.db)?;
