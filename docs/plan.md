@@ -40,7 +40,7 @@ the working plan for whoever builds the rest, person or agent.
 
 Wave 0: T0 only. Wave 1: A, B, E, F, C1, V in parallel. Wave 2: C2, D, and A+B integration. Wave 3: G, H.
 
-## T0 (lead, before anyone else starts)
+## T0 (lead, before anyone else starts): done in PR `m2/t0-foundation`
 
 Small and serial, because every other task builds on it.
 

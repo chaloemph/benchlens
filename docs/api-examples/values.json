@@ -1,0 +1,87 @@
+{
+  "id": "cpu.7z.rating.max",
+  "side": {
+    "archs": [],
+    "label": "x86-high",
+    "reference": "group:x86-high",
+    "run_ids": [
+      "180fba1956b130d0",
+      "74cbd13504ee0072",
+      "d6422680ad835889"
+    ]
+  },
+  "values": [
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 1,
+      "run_id": "180fba1956b130d0",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 81684.0
+    },
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 2,
+      "run_id": "180fba1956b130d0",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 81853.0
+    },
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 3,
+      "run_id": "180fba1956b130d0",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 82158.0
+    },
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 1,
+      "run_id": "d6422680ad835889",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 80197.0
+    },
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 2,
+      "run_id": "d6422680ad835889",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 80154.0
+    },
+    {
+      "arch": "x86_64",
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "round": 3,
+      "run_id": "d6422680ad835889",
+      "section": "cpu",
+      "tool": "7-Zip",
+      "unit": "MIPS",
+      "value": 79336.0
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+[package]
+name = "benchlens-rules"
+description = "vmbench metric tables and the verdict rule of vmbench report compare, with no I/O (builds for WebAssembly)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true

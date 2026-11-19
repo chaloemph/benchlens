@@ -6,7 +6,8 @@ benchlens imports vmbench result folders into a SQLite file and compares machine
 **the same rule as `vmbench report compare`**, so its "better / worse / within noise" always agrees with
 vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group.
 
-> Status: M1 (core and command line). The web UI, inbox folder, upload and API come next; see the plan.
+> Status: M1 done (core and command line). `benchlens serve` and the API skeleton are in place; the web UI,
+> inbox folder and upload come next. See [docs/plan.md](docs/plan.md) and [docs/api.md](docs/api.md).
 
 ## Install
 
@@ -31,6 +32,7 @@ benchlens compare x86-high-r2 arm64-high-r2       # run against run
 benchlens compare group:x86-std group:x86-med group:x86-high   # groups: all runs of a machine pooled
 benchlens compare x86-high x86-high-r2 --section pg --json
 benchlens tag x86-high-r2 group=poc-x86-high exclude=web        # an empty value removes a tag
+benchlens serve                                   # http://127.0.0.1:8080 (API under /api)
 ```
 
 The database is `benchlens.db` in the current folder unless `--db` or `BENCHLENS_DB` says otherwise.

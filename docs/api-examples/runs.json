@@ -1,0 +1,53 @@
+[
+  {
+    "arch": "aarch64",
+    "catalog_known": true,
+    "cpu_model": "HiSilicon",
+    "failed_stages": [],
+    "folder": "arm64-high-20261118-203447",
+    "group": "arm64-high",
+    "label": "arm64-high",
+    "nproc": 16,
+    "ram_gb": 31.0,
+    "run_id": "a96af04543575da1",
+    "source": "cli",
+    "start_utc": "2026-11-18T20:34:50Z",
+    "tags": {
+      "exclude": "web",
+      "group": "arm64-high",
+      "host": "proxmox",
+      "note": "web used 8 CPUs only, rerun",
+      "round": "1",
+      "set": "poc-arm64",
+      "size": "high"
+    },
+    "values": 141,
+    "vmbench_version": "v0.2.1"
+  },
+  {
+    "arch": "x86_64",
+    "catalog_known": true,
+    "cpu_model": "INTEL(R) XEON(R) GOLD 6526Y",
+    "failed_stages": [],
+    "folder": "x86-high-20261119-033546",
+    "group": "x86-high",
+    "label": "x86-high",
+    "nproc": 16,
+    "ram_gb": 31.0,
+    "run_id": "180fba1956b130d0",
+    "source": "cli",
+    "start_utc": "2026-11-18T20:35:48Z",
+    "tags": {
+      "exclude": "web",
+      "group": "x86-high",
+      "host": "proxmox",
+      "note": "web used 8 CPUs only, rerun in x86-high-web",
+      "round": "1",
+      "set": "poc-x86",
+      "size": "high"
+    },
+    "values": 141,
+    "vmbench_version": "v0.2.1"
+  },
+  "... 5 more"
+]

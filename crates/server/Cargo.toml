@@ -1,0 +1,21 @@
+[package]
+name = "benchlens-server"
+description = "HTTP API and web UI of benchlens"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+benchlens-core = { path = "../core" }
+rust-embed.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+http-body-util.workspace = true
+tower.workspace = true

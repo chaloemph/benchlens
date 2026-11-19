@@ -1,0 +1,15 @@
+[
+  {
+    "folder": "arm64-high-20261118-203447",
+    "message": "141 values, vmbench v0.2.1",
+    "outcome": "imported",
+    "run_id": "a96af04543575da1"
+  },
+  {
+    "folder": "x86-high-20261119-033546",
+    "message": "141 values, vmbench v0.2.1",
+    "outcome": "imported",
+    "run_id": "180fba1956b130d0"
+  },
+  "... 5 more"
+]

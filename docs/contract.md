@@ -20,7 +20,7 @@ Everything else in a folder (logs, raw tool output) is ignored, and is not copie
 ## Metric table
 
 `vmbench run --metrics` prints one line per metric: `id|unit|direction|tool|label|description`. The tables of
-known vmbench versions are built in (`crates/core/catalog/`). For a newer vmbench:
+known vmbench versions are built in (`crates/rules/catalog/`). For a newer vmbench:
 
 ```bash
 vmbench run --metrics > metrics.txt

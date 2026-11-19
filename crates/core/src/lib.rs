@@ -2,18 +2,17 @@
 //! `vmbench report compare`.
 //!
 //! * [`contract`]: what a vmbench result folder holds (the only files benchlens relies on)
-//! * [`catalog`]: the vmbench metric table per vmbench version
-//! * [`verdict`]: median, CV and the better / worse / not clear rule (vmbench report.py `judge()`)
+//! * [`catalog`], [`verdict`]: re-exported from `benchlens-rules` (no I/O, also built for WebAssembly)
 //! * [`store`]: the SQLite database and its views
 //! * [`import`]: bringing folders and tar archives in safely
 //! * [`compare`]: baseline against other runs or groups
 
-pub mod catalog;
 pub mod compare;
 pub mod contract;
 pub mod error;
 pub mod import;
 pub mod store;
-pub mod verdict;
+
+pub use benchlens_rules::{catalog, verdict};
 
 pub use error::{Error, Result};

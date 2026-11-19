@@ -1,0 +1,71 @@
+{
+  "arch": "x86_64",
+  "catalog_known": true,
+  "cpu_model": "INTEL(R) XEON(R) GOLD 6526Y",
+  "end_utc": "2026-11-19T10:01:24Z",
+  "failed_stages": [],
+  "files": [
+    {
+      "bytes": 2723,
+      "name": "hardware.json"
+    },
+    {
+      "bytes": 579,
+      "name": "meta.json"
+    },
+    {
+      "bytes": 10368,
+      "name": "results.tsv"
+    },
+    {
+      "bytes": 1119,
+      "name": "status.tsv"
+    }
+  ],
+  "folder": "x86-high-r2-20261119-145026",
+  "group": "x86-high",
+  "hardware": {
+    "...": "memory, nics, disks, ... as in hardware.json",
+    "cpu": {
+      "cache": {
+        "l1d": "512 KiB (16 instances)",
+        "l1i": "512 KiB (16 instances)",
+        "l2": "64 MiB (16 instances)",
+        "l3": "16 MiB (1 instance)"
+      },
+      "cores_per_socket": 16,
+      "family": "6",
+      "mhz_max": null,
+      "mhz_min": null,
+      "microcode": "0x210002c0",
+      "model": "INTEL(R) XEON(R) GOLD 6526Y",
+      "model_id": "207",
+      "numa_nodes": 1,
+      "sockets": 1,
+      "stepping": "2",
+      "threads_per_core": 1,
+      "vendor": "GenuineIntel"
+    },
+    "schema": 1
+  },
+  "imported_at": "2026-11-19T15:06:31Z",
+  "label": "x86-high-r2",
+  "meta": "... meta.json as stored ...",
+  "nproc": 16,
+  "pg_profile": "production",
+  "ram_gb": 31.0,
+  "run_id": "d6422680ad835889",
+  "source": "cli",
+  "stages": "info cpu mem disk pg net web",
+  "start_utc": "2026-11-19T07:50:28Z",
+  "tags": {
+    "group": "x86-high",
+    "host": "proxmox",
+    "round": "2",
+    "set": "poc-x86",
+    "size": "high"
+  },
+  "values": 141,
+  "vmbench_version": "v0.2.3",
+  "web_cpus": "0-7|8-15"
+}

@@ -1,0 +1,174 @@
+{
+  "base": {
+    "archs": [
+      "x86_64"
+    ],
+    "label": "x86-high",
+    "reference": "group:x86-high",
+    "run_ids": [
+      "180fba1956b130d0",
+      "74cbd13504ee0072",
+      "d6422680ad835889"
+    ]
+  },
+  "others": [
+    {
+      "archs": [
+        "aarch64"
+      ],
+      "label": "arm64-high",
+      "reference": "group:arm64-high",
+      "run_ids": [
+        "a96af04543575da1",
+        "d95fc3263e8efb18",
+        "970595d84a8ab297"
+      ]
+    },
+    {
+      "archs": [
+        "x86_64"
+      ],
+      "label": "x86-std-r2",
+      "reference": "x86-std-r2",
+      "run_ids": [
+        "7969870900abc86d"
+      ]
+    }
+  ],
+  "rows": [
+    {
+      "base": 80940.5,
+      "cross_arch": false,
+      "cv_base": 1.2966900099046073,
+      "cv_value": 1.4482838610465507,
+      "diff": -18.030528598167788,
+      "direction": "higher",
+      "id": "cpu.7z.rating.max",
+      "n_base": 6,
+      "n_value": 6,
+      "name": "7z rating · all vCPU",
+      "noise": 1.4482838610465507,
+      "other": 0,
+      "section": "cpu",
+      "unit": "MIPS",
+      "value": 66346.5,
+      "verdict": "worse"
+    },
+    {
+      "base": 6581.932557852403,
+      "cross_arch": false,
+      "cv_base": 0.18071624286345964,
+      "cv_value": 0.6022093891033743,
+      "diff": -43.350973226141335,
+      "direction": "higher",
+      "id": "cpu.cpubench.crypto.aes-gcm.1t",
+      "n_base": 6,
+      "n_value": 6,
+      "name": "cpubench crypto/aes-gcm · 1 thread",
+      "noise": 1.0,
+      "other": 0,
+      "section": "cpu",
+      "unit": "MB/s",
+      "value": 3728.6007369351287,
+      "verdict": "worse"
+    },
+    {
+      "base": 91722.55267147966,
+      "cross_arch": false,
+      "cv_base": 22.022624598042025,
+      "cv_value": 0.3367875549413728,
+      "diff": -38.27457111796295,
+      "direction": "higher",
+      "id": "cpu.cpubench.crypto.aes-gcm.max",
+      "n_base": 6,
+      "n_value": 6,
+      "name": "cpubench crypto/aes-gcm · all vCPU",
+      "noise": 22.022624598042025,
+      "other": 0,
+      "section": "cpu",
+      "unit": "MB/s",
+      "value": 56616.139018023154,
+      "verdict": "worse"
+    },
+    "... 131 more"
+  ],
+  "tallies": [
+    {
+      "better": 23,
+      "by_section": {
+        "cpu": [
+          4,
+          25,
+          0
+        ],
+        "disk": [
+          16,
+          2,
+          4
+        ],
+        "mem": [
+          0,
+          2,
+          1
+        ],
+        "net": [
+          0,
+          7,
+          0
+        ],
+        "pg": [
+          3,
+          0,
+          0
+        ],
+        "web": [
+          0,
+          1,
+          0
+        ]
+      },
+      "not_clear": 5,
+      "worse": 37
+    },
+    {
+      "better": 7,
+      "by_section": {
+        "cpu": [
+          1,
+          16,
+          14
+        ],
+        "disk": [
+          4,
+          9,
+          9
+        ],
+        "mem": [
+          1,
+          2,
+          0
+        ],
+        "net": [
+          1,
+          4,
+          2
+        ],
+        "pg": [
+          0,
+          2,
+          1
+        ],
+        "web": [
+          0,
+          1,
+          0
+        ]
+      },
+      "not_clear": 26,
+      "worse": 34
+    }
+  ],
+  "warnings": [
+    "x86-high and arm64-high are different architectures: sysbench cpu is shown but not counted (it depends on the compiler)"
+  ]
+}
