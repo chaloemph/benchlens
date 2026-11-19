@@ -53,25 +53,30 @@ at 400 px.
 
 ## Developing
 
-Edit the files and reload: there is nothing to build. To work before the real server answers every endpoint,
-`web/dev/server` is a small stand-in for API v1 built on `benchlens-core`, so every number comes from the real
-code (it is its own Cargo project, outside the workspace, and serves `web/` from disk without caching):
+Edit the files and reload: there is nothing to build. Develop against the real server; a debug build
+(`cargo run`) reads `web/` from disk, so a reload shows the edit:
 
 ```bash
-benchlens --db /tmp/poc.db import --registry examples/poc-2026-11/registry.tsv tests/fixtures/v0.2.1 tests/fixtures/v0.2.3
-cargo run --manifest-path web/dev/server/Cargo.toml -- --db /tmp/poc.db --listen 127.0.0.1:8090
-# BENCHLENS_DEV_TOKEN=secret      writes need a token (tries the 401 prompt)
-# BENCHLENS_DEV_DELAY_MS=800      slow answers (shows the loading states)
+cargo run -p benchlens -- --db /tmp/poc.db import --registry examples/poc-2026-11/registry.tsv tests/fixtures/v0.2.1 tests/fixtures/v0.2.3
+cargo run -p benchlens -- --db /tmp/poc.db serve          # http://127.0.0.1:8080
 ```
 
-Once `benchlens serve` implements the API, use it instead (debug builds of rust-embed read `web/` from disk).
+`web/dev/server` is the stand-in for API v1 used before the real server existed (its own Cargo project on
+`benchlens-core`, outside the workspace). It is still useful for two things the real server cannot do yet:
+`BENCHLENS_DEV_TOKEN=secret` makes writes need a token (the 401 prompt; real tokens come with task C2) and
+`BENCHLENS_DEV_DELAY_MS=800` slows every answer (loading states). Neither `web/dev/` nor the READMEs are built
+into the binary.
+
+```bash
+cargo run --manifest-path web/dev/server/Cargo.toml -- --db /tmp/poc.db --listen 127.0.0.1:8090
+```
 
 Smoke test in a headless browser (needs the `playwright` npm package and its chromium; it is not a project
 dependency):
 
 ```bash
 benchlens --db /tmp/poc.db compare group:x86-high group:arm64-high group:x86-med --json > /tmp/cmp.json
-NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8090 /tmp/shots /tmp/cmp.json
+NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tmp/shots /tmp/cmp.json
 ```
 
 It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways

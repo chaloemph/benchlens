@@ -1,6 +1,6 @@
 // Headless smoke test of the web UI (development only, needs the `playwright` npm package and its chromium).
 //
-//   node web/dev/smoke.mjs http://127.0.0.1:8090 OUT_DIR [compare.json]
+//   node web/dev/smoke.mjs http://127.0.0.1:8080 OUT_DIR [compare.json]   (benchlens serve, or the dev server)
 //
 // Opens every view at 1280 px and 400 px, light and dark, saves screenshots to OUT_DIR, fails on console errors,
 // page errors or horizontal page scroll. With compare.json (`benchlens compare BASE OTHER... --json` for the
@@ -13,7 +13,7 @@ import path from 'node:path';
 // require() so NODE_PATH works (e.g. NODE_PATH=~/.npm/_npx/<hash>/node_modules after `npx playwright install`)
 const { chromium } = createRequire(import.meta.url)('playwright');
 
-const [base = 'http://127.0.0.1:8090', out = 'smoke-out', cliJson] = process.argv.slice(2);
+const [base = 'http://127.0.0.1:8080', out = 'smoke-out', cliJson] = process.argv.slice(2);
 const SIDES = process.env.SIDES || 'base=group:x86-high&other=group:arm64-high&other=group:x86-med';
 fs.mkdirSync(out, { recursive: true });
 
