@@ -1,0 +1,174 @@
+name: release
+# On a tag v*: build every target, publish a GitHub Release with archives and SHA256SUMS,
+# and push the Docker image to ghcr.io.
+# Run by hand (workflow_dispatch) for a dry run: same builds, artifacts uploaded, no release, no push.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, zig: true }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-latest, zig: true }
+          - { target: aarch64-apple-darwin, os: macos-latest }
+          - { target: x86_64-apple-darwin, os: macos-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            crate=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+            if [ "$version" != "$crate" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match workspace version $crate"
+              exit 1
+            fi
+          else
+            version="dev-${GITHUB_SHA::7}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # rusqlite builds SQLite from C, so the musl targets need a C cross compiler: zig.
+      - if: matrix.zig
+        uses: mlugg/setup-zig@v2
+      - if: matrix.zig
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - name: Build
+        env:
+          # Windows: link the C runtime statically so no VC++ redistributable is needed.
+          RUSTFLAGS: ${{ contains(matrix.target, 'windows') && '-C target-feature=+crt-static' || '' }}
+        run: |
+          if [ "${{ matrix.zig }}" = true ]; then
+            cargo zigbuild --release --locked -p benchlens --target ${{ matrix.target }}
+          else
+            cargo build --release --locked -p benchlens --target ${{ matrix.target }}
+          fi
+
+      - name: Smoke test
+        if: matrix.target != 'aarch64-unknown-linux-musl'
+        run: |
+          bin=target/${{ matrix.target }}/release/benchlens
+          [ -f "$bin.exe" ] && bin="$bin.exe"
+          "$bin" --version
+          "$bin" import --help > /dev/null
+
+      - name: Package
+        id: package
+        run: |
+          name="benchlens-${{ steps.version.outputs.version }}-${{ matrix.target }}"
+          mkdir -p "dist/$name"
+          cp LICENSE README.md "dist/$name/"
+          cd dist
+          if [ "${{ runner.os }}" = Windows ]; then
+            cp "../target/${{ matrix.target }}/release/benchlens.exe" "$name/"
+            7z a -tzip "$name.zip" "$name" > /dev/null
+            echo "archive=dist/$name.zip" >> "$GITHUB_OUTPUT"
+          else
+            cp "../target/${{ matrix.target }}/release/benchlens" "$name/"
+            tar -czf "$name.tar.gz" "$name"
+            echo "archive=dist/$name.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchlens-${{ matrix.target }}
+          path: ${{ steps.package.outputs.archive }}
+          if-no-files-found: error
+
+  release:
+    name: checksums and release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: benchlens-*
+          path: dist
+          merge-multiple: true
+
+      - name: SHA256SUMS
+        working-directory: dist
+        run: |
+          sha256sum benchlens-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SHA256SUMS
+          path: dist/SHA256SUMS
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+            --generate-notes dist/*
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/chaloemph/benchlens
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+      - if: github.ref_type == 'tag'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      # linux/arm64 is built under QEMU: slow, but only on releases.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
