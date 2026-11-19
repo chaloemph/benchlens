@@ -204,6 +204,9 @@ table.runs td.tags > .tagbox { width: 34ch; }
 .chip b { font-weight: 600; }
 .flag { display: inline-block; font-size: .76rem; padding: 0 6px; border-radius: 4px; background: var(--error-bg); color: var(--bad); margin: 1px 2px; }
 .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+.actions .report-slot { align-self: center; font-size: .86rem; }
+.actions .pending-report { cursor: progress; opacity: .7; }
+.actions .no-report { cursor: help; }
 .tag-form { display: flex; flex-direction: column; gap: 4px; }
 .tag-form .row { display: flex; gap: 4px; }
 .tag-form input { width: 12ch; flex: 1 1 auto; padding: 2px 6px; font-size: .84rem; }

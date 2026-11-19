@@ -67,10 +67,13 @@ export function showTip(ev, lines) {
 }
 export function hideTip() { tip().hidden = true; }
 
-/** Ask for confirmation in the confirm dialog. */
-export function confirmDialog(text) {
+/** Ask for confirmation in the confirm dialog; `note` (optional) is a second paragraph. */
+export function confirmDialog(text, note = '') {
   const dlg = document.getElementById('confirm-dialog');
   document.getElementById('confirm-text').textContent = text;
+  const n = document.getElementById('confirm-note');
+  n.textContent = note;
+  n.hidden = !note;
   return new Promise((resolve) => {
     dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
     dlg.returnValue = '';
