@@ -41,10 +41,10 @@ async fn web_ui_is_served() {
 }
 
 #[tokio::test]
-async fn unfinished_endpoints_say_so() {
+async fn empty_database_and_unknown_endpoint() {
     let (s, body) = get("/api/runs").await;
-    assert_eq!(s, StatusCode::NOT_IMPLEMENTED);
-    assert!(body.contains("task A"));
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(body, "[]");
     let (s, _) = get("/api/nope").await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }

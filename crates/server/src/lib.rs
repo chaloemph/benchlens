@@ -1,9 +1,14 @@
 //! benchlens HTTP server: the JSON API of `docs/api.md` and the web UI in `web/`, built into the binary.
 //!
-//! T0 skeleton: `/api/health` and the static files work; every other endpoint answers 501 until task A
-//! (read endpoints) and C2 (upload, auth) fill them in. Keep the routes in [`router`] in step with docs/api.md.
+//! Read endpoints live in [`read`], tag editing and delete in [`write`] (their token check goes in
+//! [`write::WriteAccess`]). Upload (`POST /api/runs`) still answers 501 until task C2. Keep the routes in
+//! [`router`] in step with docs/api.md.
 
-use axum::extract::State;
+mod params;
+pub mod read;
+pub mod write;
+
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch};
@@ -52,6 +57,13 @@ impl ApiError {
             detail: None,
         }
     }
+    pub fn internal(error: impl Into<String>) -> Self {
+        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error)
+    }
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
     pub fn not_implemented(what: &str) -> Self {
         ApiError {
             status: StatusCode::NOT_IMPLEMENTED,
@@ -87,10 +99,7 @@ pub struct Health {
 }
 
 async fn health(State(st): State<AppState>) -> Result<Json<Health>, ApiError> {
-    let store = st.store.clone();
-    let runs = tokio::task::spawn_blocking(move || store.lock().expect("store lock").run_count())
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))??;
+    let runs = params::db(&st, |s| Ok(s.run_count()?)).await?;
     Ok(Json(Health {
         benchlens: env!("CARGO_PKG_VERSION"),
         db_layout: DB_VERSION,
@@ -98,23 +107,10 @@ async fn health(State(st): State<AppState>) -> Result<Json<Health>, ApiError> {
     }))
 }
 
-macro_rules! todo_endpoint {
-    ($name:ident, $what:literal) => {
-        async fn $name() -> ApiError {
-            ApiError::not_implemented($what)
-        }
-    };
+/// `POST /api/runs`: task C2 builds it in upload.rs (and takes a [`write::WriteAccess`] like the other writes).
+async fn upload_run() -> ApiError {
+    ApiError::not_implemented("POST /api/runs (task C2)")
 }
-todo_endpoint!(list_runs, "GET /api/runs (task A)");
-todo_endpoint!(get_run, "GET /api/runs/{id} (task A)");
-todo_endpoint!(get_run_file, "GET /api/runs/{id}/files/{name} (task A)");
-todo_endpoint!(patch_tags, "PATCH /api/runs/{id}/tags (task A, auth in C2)");
-todo_endpoint!(delete_run, "DELETE /api/runs/{id} (task A, auth in C2)");
-todo_endpoint!(upload_run, "POST /api/runs (task C2)");
-todo_endpoint!(list_groups, "GET /api/groups (task A)");
-todo_endpoint!(compare, "GET /api/compare (task A)");
-todo_endpoint!(values, "GET /api/values (task A)");
-todo_endpoint!(metrics, "GET /api/metrics (task A)");
 
 async fn api_not_found(uri: Uri) -> ApiError {
     ApiError::new(StatusCode::NOT_FOUND, format!("no endpoint {}", uri.path()))
@@ -137,14 +133,17 @@ async fn static_file(uri: Uri) -> Response {
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health))
-        .route("/runs", get(list_runs).post(upload_run))
-        .route("/runs/{id}", get(get_run).delete(delete_run))
-        .route("/runs/{id}/files/{name}", get(get_run_file))
-        .route("/runs/{id}/tags", patch(patch_tags))
-        .route("/groups", get(list_groups))
-        .route("/compare", get(compare))
-        .route("/values", get(values))
-        .route("/metrics", get(metrics))
+        .route("/runs", get(read::list_runs).post(upload_run))
+        .route("/runs/{id}", get(read::get_run).delete(write::delete_run))
+        .route("/runs/{id}/files/{name}", get(read::get_run_file))
+        .route(
+            "/runs/{id}/tags",
+            patch(write::patch_tags).layer(DefaultBodyLimit::max(write::MAX_TAGS_BODY)),
+        )
+        .route("/groups", get(read::list_groups))
+        .route("/compare", get(read::compare))
+        .route("/values", get(read::values))
+        .route("/metrics", get(read::metrics))
         .fallback(api_not_found);
     Router::new()
         .nest("/api", api)
