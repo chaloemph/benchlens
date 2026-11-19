@@ -11,7 +11,15 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Version of the database layout (PRAGMA user_version).
-pub const DB_VERSION: i64 = 1;
+///
+/// - 1: first layout.
+/// - 2: `v_values` checks the `exclude` tag as an exact comma list (layout 1 used `LIKE`, where `_` and `%`
+///   in a section name were wildcards). Tables are unchanged; opening a layout 1 database recreates the views.
+pub const DB_VERSION: i64 = 2;
+
+/// The views of [`SCHEMA`], dropped before it runs when an older layout is opened (they are created with
+/// `IF NOT EXISTS`, so a changed view would otherwise stay as it was). Dependents first.
+const VIEWS: [&str; 3] = ["v_stats", "v_values", "v_runs"];
 
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS runs (
@@ -81,7 +89,8 @@ SELECT r.*,
        EXISTS (SELECT 1 FROM metrics m WHERE m.version = ltrim(r.vmbench_version, 'v')) AS catalog_known
 FROM runs r;
 
--- every raw value that counts: stages that failed, and stages listed in the run's `exclude` tag, are left out
+-- every raw value that counts: stages that failed, and stages listed in the run's `exclude` tag (a comma list,
+-- spaces ignored, names matched exactly), are left out
 CREATE VIEW IF NOT EXISTS v_values AS
 SELECT v.run_id, r.label, r.grp, r.arch, r.nproc, r.ram_gb, r.cpu_model, r.vmbench_version,
        v.id, COALESCE(m.name, v.metric) AS name,
@@ -92,8 +101,8 @@ FROM results v
 JOIN v_runs r ON r.run_id = v.run_id
 LEFT JOIN metrics m ON m.version = ltrim(r.vmbench_version, 'v') AND m.id = v.id
 WHERE substr(v.id, 1, instr(v.id || '.', '.') - 1) NOT IN (SELECT f.stage FROM failed_stages f WHERE f.run_id = v.run_id)
-  AND (',' || replace(COALESCE((SELECT t.value FROM tags t WHERE t.run_id = v.run_id AND t.key = 'exclude'), ''), ' ', '') || ',')
-      NOT LIKE ('%,' || substr(v.id, 1, instr(v.id || '.', '.') - 1) || ',%');
+  AND instr(',' || replace(COALESCE((SELECT t.value FROM tags t WHERE t.run_id = v.run_id AND t.key = 'exclude'), ''), ' ', '') || ',',
+             ',' || substr(v.id, 1, instr(v.id || '.', '.') - 1) || ',') = 0;
 
 -- per run and metric (SQLite has no median: benchlens itself computes medians and verdicts)
 CREATE VIEW IF NOT EXISTS v_stats AS
@@ -191,8 +200,17 @@ impl Store {
                 "database layout {v} is newer than this benchlens understands ({DB_VERSION}); upgrade benchlens"
             )));
         }
-        conn.execute_batch(SCHEMA)?;
-        conn.pragma_update(None, "user_version", DB_VERSION)?;
+        // create or migrate in one transaction: tables are created if missing (data untouched); the views of
+        // an older layout are dropped and created again
+        let tx = conn.unchecked_transaction()?;
+        if v < DB_VERSION {
+            for view in VIEWS {
+                tx.execute_batch(&format!("DROP VIEW IF EXISTS {view};"))?;
+            }
+        }
+        tx.execute_batch(SCHEMA)?;
+        tx.pragma_update(None, "user_version", DB_VERSION)?;
+        tx.commit()?;
         let store = Store { conn };
         for v in catalog::embedded_versions() {
             store.put_catalog(&catalog::embedded(v).expect("embedded"), true)?;
@@ -501,15 +519,35 @@ impl Store {
         Ok(rows.collect::<std::result::Result<_, _>>()?)
     }
 
+    /// Runs whose effective group is `group` and whose tag `key` is exactly `value`.
+    pub fn runs_in_group_tagged(&self, group: &str, key: &str, value: &str) -> Result<Vec<String>> {
+        let mut st = self.conn.prepare(
+            "SELECT r.run_id FROM v_runs r JOIN tags t ON t.run_id = r.run_id
+             WHERE r.grp = ?1 AND t.key = ?2 AND t.value = ?3 ORDER BY r.start_utc",
+        )?;
+        let rows = st.query_map(params![group, key, value], |r| r.get(0))?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
     /// Every value that counts for these runs (failed and excluded stages are left out by `v_values`).
     pub fn values(&self, run_ids: &[String]) -> Result<Vec<ValueRow>> {
+        self.values_where(run_ids, None)
+    }
+
+    /// The values of one metric for these runs: the rows of [`Store::values`] whose `id` is `metric`, in the
+    /// same order, without loading the others.
+    pub fn metric_values(&self, run_ids: &[String], metric: &str) -> Result<Vec<ValueRow>> {
+        self.values_where(run_ids, Some(metric))
+    }
+
+    fn values_where(&self, run_ids: &[String], metric: Option<&str>) -> Result<Vec<ValueRow>> {
         let mut st = self.conn.prepare(
             "SELECT run_id, id, name, section, unit, direction, COALESCE(tool, ''), arch, round, value
-             FROM v_values WHERE run_id = ?1 ORDER BY id, round",
+             FROM v_values WHERE run_id = ?1 AND (?2 IS NULL OR id = ?2) ORDER BY id, round",
         )?;
         let mut out = Vec::new();
         for id in run_ids {
-            let rows = st.query_map([id], |r| {
+            let rows = st.query_map(params![id, metric], |r| {
                 Ok(ValueRow {
                     run_id: r.get(0)?,
                     id: r.get(1)?,
@@ -544,7 +582,7 @@ impl Store {
             0 => Err(Error::NotFound(format!(
                 "no run matches {reference:?} (try `benchlens runs`)"
             ))),
-            n => Err(Error::NotFound(format!(
+            n => Err(Error::Ambiguous(format!(
                 "{reference:?} matches {n} runs; use a run id, or group:NAME to pool them"
             ))),
         }

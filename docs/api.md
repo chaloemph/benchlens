@@ -9,9 +9,17 @@ this file, `docs/api-examples/`, the server and the UI together.
 - Field names are those of the Rust types in `benchlens-core` / `benchlens-rules`; the UI must not depend on
   key order.
 - **REF** (a side of a comparison): a run id, a unique run id prefix of 4+ characters, a folder name, a label
-  that matches one run, or `group:NAME` for every run of a group pooled. A reference that matches several runs
-  is refused with 404 and a message such as `"twin" matches 2 runs; use a run id, or group:NAME to pool them`
-  (core has no separate "ambiguous" error yet). `%` and `_` are plain characters, not wildcards.
+  that matches one run, `group:NAME` for every run of a group pooled, or `group:NAME@KEY=VALUE` for the runs
+  of group NAME whose tag KEY is exactly VALUE, pooled. Example: with the POC registry,
+  `group:x86-high@round=1` is x86-high and its web rerun x86-high-web, `group:x86-high@round=2` is
+  x86-high-r2. Exactly one `@KEY=VALUE`: KEY follows the tag key rules (1-64 letters, digits, `_ - .`), VALUE
+  is not empty, is compared as it is (no trimming, no case folding) and may not contain `@`; so a group whose
+  name contains `@` cannot be referred to. The side's `label` is then `NAME · KEY=VALUE`
+  (`x86-high · round=1`). A badly written REF (such as `group:`, `group:G@round`, `group:G@a=1@b=2`) is 400;
+  a selection with no runs is 404 (`none of the 3 runs of group "x86-high" has tag round="9"`). A reference
+  that matches several runs is refused with 400 and a message such as
+  `"twin" matches 2 runs; use a run id, or group:NAME to pool them`. `%` and `_` are plain characters, not
+  wildcards. In a query string, `@` and `=` inside a REF may be sent as they are or percent-encoded.
 - **Query strings** are checked before anything is looked up: an unknown parameter, a single-valued parameter
   given twice, more than 32 repeats of `tag` / `other`, a value over 1024 bytes or with control characters
   all give 400. The UI sends only the parameters listed here.
@@ -28,9 +36,9 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 
 | Status | When |
 |---|---|
-| 400 | bad parameter, bad tag key, archive not a vmbench result, unsafe archive |
+| 400 | bad parameter, bad tag key, badly written REF, a REF that matches several runs, archive not a vmbench result, unsafe archive |
 | 401 | write without a valid token (C2) |
-| 404 | unknown run, group, file, metric table or endpoint; a reference that matches several runs |
+| 404 | unknown run, group, file, metric table or endpoint; a `group:NAME@KEY=VALUE` that selects no run |
 | 413 | upload larger than the configured limit (C2); a `PATCH .../tags` body over 64 KiB |
 | 500 | anything else (the message says what) |
 | 501 | endpoint not built yet (T0 skeleton only) |
@@ -108,7 +116,9 @@ Every raw value of one metric on one side, for the dot plot ([values.json](api-e
 `{side, id, values: ValueRow[]}`, `ValueRow` = `run_id`, `id`, `name`, `section`, `unit`, `direction`,
 `tool`, `arch`, `round`, `value`. Stages that failed or are excluded are already left out. Use `run_id`
 with `/api/runs` to show which test round a dot belongs to (`round` here is the repeat inside the run, see
-above). A metric id with no values on that side (or not in any table) gives 200 with `values: []`.
+above). The values are exactly the rows of that metric among all the side's values (only that metric is
+read from the database). A metric id with no values on that side (or not in any table) gives 200 with
+`values: []`.
 `side.archs` is empty here; it is filled only in `/api/compare`.
 
 ### `GET /api/metrics?version=0.2.3`
@@ -120,5 +130,3 @@ The metric table of a vmbench version: `Metric[]` (`id`, `unit`, `direction`, `t
 
 - Pagination (lists are small until thousands of runs; add `limit`/`after` then), editing values, users and
   roles beyond one write token, websockets.
-- A reference to part of a group, such as the runs of a group with tag `round=1` (follow-up in docs/plan.md:
-  `group:NAME@tag=value`); until then the UI's "Round 1 vs 2" quick picks compare one run per round.

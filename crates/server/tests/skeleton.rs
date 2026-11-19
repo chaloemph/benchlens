@@ -28,7 +28,7 @@ async fn health_answers() {
     assert_eq!(s, StatusCode::OK);
     let v: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert_eq!(v["runs"], 0);
-    assert_eq!(v["db_layout"], 1);
+    assert_eq!(v["db_layout"], benchlens_core::store::DB_VERSION);
 }
 
 #[tokio::test]

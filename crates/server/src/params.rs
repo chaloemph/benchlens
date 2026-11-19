@@ -4,6 +4,7 @@
 use crate::{ApiError, AppState};
 use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
 use axum::http::StatusCode;
+use benchlens_core::compare::Reference;
 use benchlens_core::store::Store;
 
 /// Longest query value, path segment or reference accepted.
@@ -118,17 +119,11 @@ pub fn all<'a>(pairs: &'a [(String, String)], key: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// A comparison side (REF): run id, id prefix, folder, label or `group:NAME`.
+/// A comparison side (REF): run id, id prefix, folder, label, `group:NAME` or `group:NAME@KEY=VALUE`, written
+/// the way core reads it ([`Reference::parse`]).
 pub fn check_ref(what: &str, r: &str) -> Result<(), ApiError> {
     check_text(what, r)?;
-    if r.trim().is_empty() {
-        return Err(bad_request(format!("{what}: empty reference")));
-    }
-    if let Some(g) = r.strip_prefix("group:") {
-        if g.trim().is_empty() {
-            return Err(bad_request(format!("{what}: group:NAME needs a name")));
-        }
-    }
+    Reference::parse(r).map_err(|e| bad_request(format!("{what}: {e}")))?;
     Ok(())
 }
 

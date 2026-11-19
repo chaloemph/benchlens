@@ -63,7 +63,11 @@ enum Cmd {
     },
     /// Remove a run and its values.
     Delete { run: String },
-    /// Compare a baseline with other runs or groups (group:NAME pools every run of a group).
+    /// Compare a baseline with other runs or groups (group:NAME pools a group, group:NAME@KEY=VALUE part of one).
+    ///
+    /// A side is a run (id, unique id prefix of 4+ characters, folder or label), group:NAME (every run of a
+    /// group, pooled) or group:NAME@KEY=VALUE (the runs of group NAME whose tag KEY is exactly VALUE, pooled).
+    /// Example: benchlens compare group:x86-high@round=1 group:x86-high@round=2
     Compare {
         base: String,
         #[arg(required = true)]
