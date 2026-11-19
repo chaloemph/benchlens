@@ -1,6 +1,8 @@
 # benchlens plan: M2 onwards, split for parallel agents
 
 Status 2026-11-19: **M1 done** (commit 298860c): core library, CLI, SQLite store, golden tests against vmbench.
+**T0 done** (PR #1). **Wave 1 done** (A, B, C1, E, F reviewed and integrated in `integration/wave1`; V in a
+vmbench PR); reviews in `docs/reviews/wave1-*.md`, follow-ups in "Follow-ups from the Wave 1 review" below.
 Background and decisions: `PLAN-dashboard.md` in the performance-benchmark workspace (Thai). This file is
 the working plan for whoever builds the rest, person or agent.
 
@@ -75,16 +77,32 @@ Done when: `cargo build --target wasm32-unknown-unknown -p benchlens-rules` work
 
 Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 500.
 
-## Wave 1 (parallel)
+## Wave 1 (parallel): done, integrated by L in `integration/wave1`
 
 | ID | Task | Owns | Builds on | Done when |
 |---|---|---|---|---|
-| **A** | Server: implement every read endpoint and tag/delete over `core::store` / `core::compare`; request limits; structured errors; integration tests with fixtures (axum `oneshot`). | `crates/server/src/**` except `upload.rs`, `auth.rs` | T0 | every API v1 read endpoint answers as `docs/api.md` says; tests cover 404 and bad refs |
-| **B** | Web UI: port the prototype (Claude Artifact page) to `web/`: baseline + N picker, quick picks, tally table, heatmap, metric dot plot, runs list with tag editing, hardware table, shareable URL (state in the query string). Plain HTML + JS + d3, no bundler; vendor d3 into `web/vendor/`. Develop against JSON saved from the CLI / API on the fixtures. Light and dark theme, works at 400 px wide. | `web/**` | T0 (api.md) | all views work against `benchlens serve` on the POC data; numbers equal `benchlens compare` |
-| **E** | WASM: `crates/wasm` exposing `compare(values_json, base, others) -> Comparison` from `benchlens-rules`; build script producing `web/wasm/`; a node test running the golden pairs through the WASM build. | `crates/wasm/**`, `web/wasm/**` (generated) | T0 | node test passes the golden file through WASM |
-| **F** | Packaging: release workflow on tag `v*` (linux x86_64 + aarch64 musl, macOS arm64 + x86_64, Windows x86_64), checksums, `Dockerfile` (static binary on distroless or scratch, non-root, `/data` volume), `docker-compose.yml`. | `.github/workflows/release.yml`, `Dockerfile`, `docker-compose.yml` | M1 | a test tag builds every target; `docker run -v data:/data -p 8080:8080` serves |
-| **C1** | Inbox: `core::inbox` scanning a folder every N seconds (and on `notify` events), importing folders and archives that are complete (unchanged size for 2 scans), moving them to `done/` or `failed/` with a `.reason.txt`; `benchlens watch` and a background task in `serve`. | `crates/core/src/inbox.rs`, its tests, the `watch` subcommand | M1 | dropping a tar or folder into `inbox/` imports it once; a broken one lands in `failed/` with the reason |
-| **V** | vmbench (other repo): `hw.py` reports `cpu.model` "-" on HiSilicon; read the model from `/proc/cpuinfo` / `lscpu` "Model name" / MIDR mapping. | `chaloemph/vmbench` | none | ARM64 hardware.json carries a model name; benchlens fallback still works for old runs |
+| **A** (done) | Server: implement every read endpoint and tag/delete over `core::store` / `core::compare`; request limits; structured errors; integration tests with fixtures (axum `oneshot`). | `crates/server/src/**` except `upload.rs`, `auth.rs` | T0 | every API v1 read endpoint answers as `docs/api.md` says; tests cover 404 and bad refs |
+| **B** (done) | Web UI: port the prototype (Claude Artifact page) to `web/`: baseline + N picker, quick picks, tally table, heatmap, metric dot plot, runs list with tag editing, hardware table, shareable URL (state in the query string). Plain HTML + JS + d3, no bundler; vendor d3 into `web/vendor/`. Develop against JSON saved from the CLI / API on the fixtures. Light and dark theme, works at 400 px wide. | `web/**` | T0 (api.md) | all views work against `benchlens serve` on the POC data; numbers equal `benchlens compare` |
+| **E** (done) | WASM: `crates/wasm` exposing `compare(values_json, base, others) -> Comparison` from `benchlens-rules`; build script producing `web/wasm/`; a node test running the golden pairs through the WASM build. | `crates/wasm/**`, `web/wasm/**` (generated) | T0 | node test passes the golden file through WASM |
+| **F** (done) | Packaging: release workflow on tag `v*` (linux x86_64 + aarch64 musl, macOS arm64 + x86_64, Windows x86_64), checksums, `Dockerfile` (static binary on distroless or scratch, non-root, `/data` volume), `docker-compose.yml`. | `.github/workflows/release.yml`, `Dockerfile`, `docker-compose.yml` | M1 | a test tag builds every target; `docker run -v data:/data -p 8080:8080` serves |
+| **C1** (done) | Inbox: `core::inbox` scanning a folder every N seconds (polling only: no `notify` events, since the stability rule needs a second look after a delay anyway and polling works on network shares and in containers), importing folders and archives that are complete (unchanged size for 2 scans), moving them to `done/` or `failed/` with a `.reason.txt`; `benchlens watch` and a background task in `serve`. | `crates/core/src/inbox.rs`, its tests, the `watch` subcommand | M1 | dropping a tar or folder into `inbox/` imports it once; a broken one lands in `failed/` with the reason |
+| **V** (done) | vmbench (other repo): `hw.py` reports `cpu.model` "-" on HiSilicon; read the model from `/proc/cpuinfo` / `lscpu` "Model name" / MIDR mapping. | `chaloemph/vmbench` | none | ARM64 hardware.json carries a model name; benchlens fallback still works for old runs |
+
+## Follow-ups from the Wave 1 review
+
+| ID | Follow-up | Where | From |
+|---|---|---|---|
+| F1 | Group-subset reference such as `group:NAME@tag=value` (pooled runs of a group with one tag value), so "round 1 vs 2" compares pooled rounds; then switch B's quick picks to it. Contract change: api.md, core `resolve`, UI. | core, server, web | B |
+| F2 | Distinguish ambiguous references in core (`Error::Ambiguous`, 400 or 409 instead of 404 with a message). | core, server, api.md | A |
+| F3 | `benchlens watch`: stop cleanly on Ctrl-C between scans (the `stop` flag exists). | cli | C1 |
+| F4 | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F |
+| F5 | The real part number of the POC's HiSilicon CPU: rerun the `info` stage of vmbench (with `hw/cpu-id.txt`) on one ARM VM, add the part to `ARM_PARTS` if it is certain. | vmbench | V |
+| F6 | Inbox imports with tags: `--registry` for `watch` / `serve --inbox` (a re-imported run now loses its registry group). | core inbox, cli | L (E2E) |
+| F7 | `v_values` excludes stages with `LIKE` on a section read from results.tsv; use `instr()` (needs a DB layout bump, the view is `IF NOT EXISTS`). | core store | L |
+| F8 | Web UI items for B: keep tag-form drafts across re-renders; link report.md only when kept; delete dialog says tags are not restored. | web | B (review) |
+| F9 | Remove `web/dev/server` once C2 gives the real server tokens (it duplicates the API). | web/dev | L |
+| F10 | `/api/values`: load one metric's values in SQL instead of the whole side. | core, server | A (review) |
+| F11 | One watcher per inbox: document it or take a lock file. | core inbox | C1 |
 
 ## Wave 2
 
