@@ -25,3 +25,10 @@ Branch `m2/e-wasm` at bb5efba. Verdict: **ok**.
 - `crates/wasm` needs Rust 1.81 (wasm-bindgen 0.2.130), the rest of the workspace 1.80. `cargo install --path
   crates/cli` still works on 1.80; `cargo test --all` needs 1.81.
 - The web UI does not load the wasm yet; task D (export) is its first user.
+
+## Fixed in review (after the first CI run)
+
+- `review(E)`: CI warned that `web/wasm` differs from a fresh build, with the same rustc. Panic messages in the
+  wasm carried absolute cargo-registry paths (`/home/<user>/.cargo/registry/src/...`), so the bytes depended on
+  where cargo lives and the committed file held a home directory. `scripts/build-wasm.sh` now remaps the
+  registry to `/cargo/registry/src`; `web/wasm/benchlens_wasm_bg.wasm` rebuilt (golden test passes).

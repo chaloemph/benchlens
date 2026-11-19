@@ -13,6 +13,10 @@ if [ "$have" != "$want" ]; then
   exit 1
 fi
 
+# Panic messages carry source paths; map the cargo registry to a fixed prefix so the bytes do not depend on
+# where cargo lives (the committed files then match a CI build and carry no home directory).
+cargo_home=${CARGO_HOME:-$HOME/.cargo}
+export CARGO_ENCODED_RUSTFLAGS="--remap-path-prefix=$cargo_home/registry/src=/cargo/registry/src"
 cargo build -p benchlens-wasm --lib --target wasm32-unknown-unknown --profile wasm
 out=web/wasm
 mkdir -p "$out"
