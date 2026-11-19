@@ -1,0 +1,6 @@
+stage	step	result
+info	metadata	OK
+info	hardware	OK
+web	arm64-high-web-web-r1-mix.json	OK
+web	arm64-high-web-web-r2-mix.json	OK
+web	arm64-high-web-web-r3-mix.json	OK

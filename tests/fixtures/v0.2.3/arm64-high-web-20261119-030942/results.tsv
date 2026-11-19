@@ -1,0 +1,6 @@
+id	metric	value	unit	round
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	15996.170905392202	RPS	1
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	15997.116970784715	RPS	2
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	15996.024392086656	RPS	3
+info.cpu.steal.avg	cpu steal avg	0.01	%	1
+info.cpu.steal.peak	cpu steal max	0.06	%	1

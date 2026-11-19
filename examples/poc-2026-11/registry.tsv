@@ -1,0 +1,19 @@
+run	group	set	size	round	host	exclude	note
+x86-std-20261118-233315	x86-std	poc-x86	std	1	proxmox	web	web failed (CPU pinning), rerun in x86-std-web
+x86-med-20261119-012429	x86-med	poc-x86	med	1	proxmox	web	web used 8 CPUs only, rerun in x86-med-web
+x86-high-20261119-033546	x86-high	poc-x86	high	1	proxmox	web	web used 8 CPUs only, rerun in x86-high-web
+arm64-std-20261118-163144	arm64-std	poc-arm64	std	1	proxmox	web	web failed (CPU pinning), rerun in arm64-std-web
+arm64-med-20261118-182329	arm64-med	poc-arm64	med	1	proxmox	web	web used 8 CPUs only, rerun
+arm64-high-20261118-203447	arm64-high	poc-arm64	high	1	proxmox	web	web used 8 CPUs only, rerun
+x86-std-web-20261119-093734	x86-std	poc-x86	std	1	proxmox		web rerun v0.2.3
+x86-med-web-20261119-095338	x86-med	poc-x86	med	1	proxmox		web rerun v0.2.3
+x86-high-web-20261119-101442	x86-high	poc-x86	high	1	proxmox		web rerun v0.2.3
+arm64-std-web-20261119-023734	arm64-std	poc-arm64	std	1	proxmox		web rerun v0.2.3
+arm64-med-web-20261119-025338	arm64-med	poc-arm64	med	1	proxmox		web rerun v0.2.3
+arm64-high-web-20261119-030942	arm64-high	poc-arm64	high	1	proxmox		web rerun v0.2.3
+x86-std-r2-20261119-103253	x86-std	poc-x86	std	2	proxmox		
+x86-med-r2-20261119-123908	x86-med	poc-x86	med	2	proxmox		
+x86-high-r2-20261119-145026	x86-high	poc-x86	high	2	proxmox		
+arm64-std-r2-20261119-033254	arm64-std	poc-arm64	std	2	proxmox		
+arm64-med-r2-20261119-053411	arm64-med	poc-arm64	med	2	proxmox		
+arm64-high-r2-20261119-074530	arm64-high	poc-arm64	high	2	proxmox		

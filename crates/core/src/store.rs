@@ -1,0 +1,456 @@
+//! The SQLite database: runs, their raw values, tags and the metric tables, plus views for other tools
+//! (Grafana and plain SQL): `v_runs`, `v_values` and `v_stats`.
+
+use crate::catalog::{self, Catalog};
+use crate::contract::RunData;
+use crate::verdict::Direction;
+use crate::{Error, Result};
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::Serialize;
+use std::collections::BTreeMap;
+use std::path::Path;
+
+/// Version of the database layout (PRAGMA user_version).
+pub const DB_VERSION: i64 = 1;
+
+const SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS runs (
+  run_id          TEXT PRIMARY KEY,
+  folder          TEXT NOT NULL,
+  label           TEXT NOT NULL,
+  arch            TEXT NOT NULL DEFAULT '',
+  nproc           INTEGER,
+  ram_gb          REAL,
+  cpu_model       TEXT NOT NULL DEFAULT '',
+  vmbench_version TEXT NOT NULL DEFAULT '',
+  pg_profile      TEXT NOT NULL DEFAULT '',
+  web_cpus        TEXT NOT NULL DEFAULT '',
+  stages          TEXT NOT NULL DEFAULT '',
+  start_utc       TEXT NOT NULL DEFAULT '',
+  end_utc         TEXT NOT NULL DEFAULT '',
+  auto_group      TEXT NOT NULL,
+  source          TEXT NOT NULL,
+  imported_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  meta_json       TEXT NOT NULL,
+  hardware_json   TEXT
+);
+CREATE TABLE IF NOT EXISTS tags (
+  run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+  key    TEXT NOT NULL,
+  value  TEXT NOT NULL,
+  PRIMARY KEY (run_id, key)
+);
+CREATE TABLE IF NOT EXISTS results (
+  run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+  id     TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  round  INTEGER NOT NULL,
+  value  REAL NOT NULL,
+  unit   TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS results_run_id ON results(run_id, id);
+CREATE TABLE IF NOT EXISTS failed_stages (
+  run_id TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+  stage  TEXT NOT NULL,
+  PRIMARY KEY (run_id, stage)
+);
+CREATE TABLE IF NOT EXISTS files (
+  run_id  TEXT NOT NULL REFERENCES runs(run_id) ON DELETE CASCADE,
+  name    TEXT NOT NULL,
+  content BLOB NOT NULL,
+  PRIMARY KEY (run_id, name)
+);
+CREATE TABLE IF NOT EXISTS metrics (
+  version     TEXT NOT NULL,
+  id          TEXT NOT NULL,
+  unit        TEXT NOT NULL,
+  direction   TEXT NOT NULL,
+  tool        TEXT NOT NULL,
+  label       TEXT NOT NULL,
+  description TEXT NOT NULL,
+  name        TEXT NOT NULL,
+  section     TEXT NOT NULL,
+  builtin     INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (version, id)
+);
+
+-- every run with its effective group (the `group` tag, else the automatic one)
+CREATE VIEW IF NOT EXISTS v_runs AS
+SELECT r.*,
+       COALESCE((SELECT t.value FROM tags t WHERE t.run_id = r.run_id AND t.key = 'group'), r.auto_group) AS grp,
+       EXISTS (SELECT 1 FROM metrics m WHERE m.version = ltrim(r.vmbench_version, 'v')) AS catalog_known
+FROM runs r;
+
+-- every raw value that counts: stages that failed, and stages listed in the run's `exclude` tag, are left out
+CREATE VIEW IF NOT EXISTS v_values AS
+SELECT v.run_id, r.label, r.grp, r.arch, r.nproc, r.ram_gb, r.cpu_model, r.vmbench_version,
+       v.id, COALESCE(m.name, v.metric) AS name,
+       substr(v.id, 1, instr(v.id || '.', '.') - 1) AS section,
+       CASE WHEN m.unit IS NULL OR m.unit = 'varies' THEN v.unit ELSE m.unit END AS unit,
+       m.direction, m.tool, v.round, v.value
+FROM results v
+JOIN v_runs r ON r.run_id = v.run_id
+LEFT JOIN metrics m ON m.version = ltrim(r.vmbench_version, 'v') AND m.id = v.id
+WHERE substr(v.id, 1, instr(v.id || '.', '.') - 1) NOT IN (SELECT f.stage FROM failed_stages f WHERE f.run_id = v.run_id)
+  AND (',' || replace(COALESCE((SELECT t.value FROM tags t WHERE t.run_id = v.run_id AND t.key = 'exclude'), ''), ' ', '') || ',')
+      NOT LIKE ('%,' || substr(v.id, 1, instr(v.id || '.', '.') - 1) || ',%');
+
+-- per run and metric (SQLite has no median: benchlens itself computes medians and verdicts)
+CREATE VIEW IF NOT EXISTS v_stats AS
+SELECT run_id, label, grp, id, name, section, unit, direction,
+       COUNT(*) AS n, AVG(value) AS mean, MIN(value) AS min, MAX(value) AS max
+FROM v_values GROUP BY run_id, id;
+"#;
+
+/// What happened to one run on insert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InsertOutcome {
+    Inserted,
+    /// The run was already in the database (same run id); only tags were applied.
+    AlreadyPresent,
+}
+
+/// One run as listed.
+#[derive(Debug, Clone, Serialize)]
+pub struct RunSummary {
+    pub run_id: String,
+    pub folder: String,
+    pub label: String,
+    pub group: String,
+    pub arch: String,
+    pub nproc: Option<i64>,
+    pub ram_gb: Option<f64>,
+    pub cpu_model: String,
+    pub vmbench_version: String,
+    pub start_utc: String,
+    pub source: String,
+    pub catalog_known: bool,
+    pub failed_stages: Vec<String>,
+    pub tags: BTreeMap<String, String>,
+    pub values: i64,
+}
+
+/// One raw value with what is needed to judge it.
+#[derive(Debug, Clone)]
+pub struct ValueRow {
+    pub run_id: String,
+    pub id: String,
+    pub name: String,
+    pub section: String,
+    pub unit: String,
+    pub direction: Option<Direction>,
+    pub tool: String,
+    pub arch: String,
+    pub round: i64,
+    pub value: f64,
+}
+
+pub struct Store {
+    conn: Connection,
+}
+
+impl Store {
+    pub fn open(path: &Path) -> Result<Store> {
+        Store::init(Connection::open(path)?)
+    }
+
+    pub fn open_in_memory() -> Result<Store> {
+        Store::init(Connection::open_in_memory()?)
+    }
+
+    fn init(conn: Connection) -> Result<Store> {
+        conn.pragma_update(None, "foreign_keys", "ON")?;
+        conn.pragma_update(None, "journal_mode", "WAL").ok(); // not available in memory; harmless
+        let v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+        if v > DB_VERSION {
+            return Err(Error::contract(format!(
+                "database layout {v} is newer than this benchlens understands ({DB_VERSION}); upgrade benchlens"
+            )));
+        }
+        conn.execute_batch(SCHEMA)?;
+        conn.pragma_update(None, "user_version", DB_VERSION)?;
+        let store = Store { conn };
+        for v in catalog::embedded_versions() {
+            store.put_catalog(&catalog::embedded(v).expect("embedded"), true)?;
+        }
+        Ok(store)
+    }
+
+    /// The raw connection, for tools and tests that need plain SQL.
+    pub fn conn(&self) -> &Connection {
+        &self.conn
+    }
+
+    /// Store a metric table. A built-in table replaces the stored one of the same version.
+    pub fn put_catalog(&self, cat: &Catalog, builtin: bool) -> Result<usize> {
+        let tx = self.conn.unchecked_transaction()?;
+        tx.execute("DELETE FROM metrics WHERE version = ?1", [&cat.version])?;
+        {
+            let mut st = tx.prepare(
+                "INSERT INTO metrics (version, id, unit, direction, tool, label, description, name, section, builtin)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            )?;
+            for m in cat.metrics.values() {
+                st.execute(params![
+                    cat.version,
+                    m.id,
+                    m.unit,
+                    m.direction.as_str(),
+                    m.tool,
+                    m.label,
+                    m.description,
+                    m.name(),
+                    m.section(),
+                    builtin as i64
+                ])?;
+            }
+        }
+        tx.commit()?;
+        Ok(cat.metrics.len())
+    }
+
+    /// Versions that have a metric table here, with whether it is built in.
+    pub fn catalogs(&self) -> Result<Vec<(String, bool, i64)>> {
+        let mut st = self.conn.prepare(
+            "SELECT version, MAX(builtin), COUNT(*) FROM metrics GROUP BY version ORDER BY version",
+        )?;
+        let rows = st.query_map([], |r| Ok((r.get(0)?, r.get::<_, i64>(1)? == 1, r.get(2)?)))?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
+    pub fn has_run(&self, run_id: &str) -> Result<bool> {
+        Ok(self
+            .conn
+            .query_row("SELECT 1 FROM runs WHERE run_id = ?1", [run_id], |_| Ok(()))
+            .optional()?
+            .is_some())
+    }
+
+    /// Insert a run with its values, or, if it is already here, only apply the tags.
+    pub fn insert_run(
+        &self,
+        run: &RunData,
+        source: &str,
+        tags: &BTreeMap<String, String>,
+    ) -> Result<(String, InsertOutcome)> {
+        let run_id = run.run_id();
+        let tx = self.conn.unchecked_transaction()?;
+        let outcome = if self.has_run(&run_id)? {
+            InsertOutcome::AlreadyPresent
+        } else {
+            let stages = match run.meta.get("stages") {
+                Some(serde_json::Value::Array(a)) => a
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                Some(serde_json::Value::String(s)) => s.clone(),
+                _ => String::new(),
+            };
+            tx.execute(
+                "INSERT INTO runs (run_id, folder, label, arch, nproc, ram_gb, cpu_model, vmbench_version, pg_profile,
+                                   web_cpus, stages, start_utc, end_utc, auto_group, source, meta_json, hardware_json)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                params![
+                    run_id, run.folder, run.label(), run.arch(), run.nproc(), run.ram_gb(), run.cpu_model(),
+                    run.vmbench_version(), run.meta_field("pg_profile"), run.meta_field("web_cpus"), stages,
+                    run.start_utc(), run.meta_field("end_utc"), run.auto_group(), source, run.meta.to_string(),
+                    run.hardware.as_ref().map(|h| h.to_string())
+                ],
+            )?;
+            {
+                let mut st = tx.prepare(
+                    "INSERT INTO results (run_id, id, metric, round, value, unit) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                )?;
+                for r in &run.results {
+                    st.execute(params![run_id, r.id, r.metric, r.round, r.value, r.unit])?;
+                }
+                let mut st =
+                    tx.prepare("INSERT INTO failed_stages (run_id, stage) VALUES (?1, ?2)")?;
+                for s in &run.failed_stages {
+                    st.execute(params![run_id, s])?;
+                }
+                let mut st =
+                    tx.prepare("INSERT INTO files (run_id, name, content) VALUES (?1, ?2, ?3)")?;
+                for (name, content) in &run.files {
+                    st.execute(params![run_id, name, content])?;
+                }
+            }
+            InsertOutcome::Inserted
+        };
+        set_tags_in(&tx, &run_id, tags)?;
+        tx.commit()?;
+        Ok((run_id, outcome))
+    }
+
+    /// Set tags on a run; an empty value removes the tag.
+    pub fn set_tags(&self, run_id: &str, tags: &BTreeMap<String, String>) -> Result<()> {
+        if !self.has_run(run_id)? {
+            return Err(Error::NotFound(format!("no run {run_id}")));
+        }
+        let tx = self.conn.unchecked_transaction()?;
+        set_tags_in(&tx, run_id, tags)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub fn delete_run(&self, run_id: &str) -> Result<bool> {
+        Ok(self
+            .conn
+            .execute("DELETE FROM runs WHERE run_id = ?1", [run_id])?
+            > 0)
+    }
+
+    pub fn list_runs(&self) -> Result<Vec<RunSummary>> {
+        let mut st = self.conn.prepare(
+            "SELECT run_id, folder, label, grp, arch, nproc, ram_gb, cpu_model, vmbench_version, start_utc, source,
+                    catalog_known, (SELECT COUNT(*) FROM results v WHERE v.run_id = r.run_id)
+             FROM v_runs r ORDER BY start_utc, label",
+        )?;
+        let mut runs: Vec<RunSummary> = st
+            .query_map([], |r| {
+                Ok(RunSummary {
+                    run_id: r.get(0)?,
+                    folder: r.get(1)?,
+                    label: r.get(2)?,
+                    group: r.get(3)?,
+                    arch: r.get(4)?,
+                    nproc: r.get(5)?,
+                    ram_gb: r.get(6)?,
+                    cpu_model: r.get(7)?,
+                    vmbench_version: r.get(8)?,
+                    start_utc: r.get(9)?,
+                    source: r.get(10)?,
+                    catalog_known: r.get::<_, i64>(11)? == 1,
+                    failed_stages: Vec::new(),
+                    tags: BTreeMap::new(),
+                    values: r.get(12)?,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+        let mut tag_st = self
+            .conn
+            .prepare("SELECT key, value FROM tags WHERE run_id = ?1 ORDER BY key")?;
+        let mut fail_st = self
+            .conn
+            .prepare("SELECT stage FROM failed_stages WHERE run_id = ?1 ORDER BY stage")?;
+        for run in &mut runs {
+            run.tags = tag_st
+                .query_map([&run.run_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+                .collect::<std::result::Result<_, _>>()?;
+            run.failed_stages = fail_st
+                .query_map([&run.run_id], |r| r.get(0))?
+                .collect::<std::result::Result<_, _>>()?;
+        }
+        Ok(runs)
+    }
+
+    /// Runs whose effective group is `group`.
+    pub fn runs_in_group(&self, group: &str) -> Result<Vec<String>> {
+        let mut st = self
+            .conn
+            .prepare("SELECT run_id FROM v_runs WHERE grp = ?1 ORDER BY start_utc")?;
+        let rows = st.query_map([group], |r| r.get(0))?;
+        Ok(rows.collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// Every value that counts for these runs (failed and excluded stages are left out by `v_values`).
+    pub fn values(&self, run_ids: &[String]) -> Result<Vec<ValueRow>> {
+        let mut st = self.conn.prepare(
+            "SELECT run_id, id, name, section, unit, direction, COALESCE(tool, ''), arch, round, value
+             FROM v_values WHERE run_id = ?1 ORDER BY id, round",
+        )?;
+        let mut out = Vec::new();
+        for id in run_ids {
+            let rows = st.query_map([id], |r| {
+                Ok(ValueRow {
+                    run_id: r.get(0)?,
+                    id: r.get(1)?,
+                    name: r.get(2)?,
+                    section: r.get(3)?,
+                    unit: r.get(4)?,
+                    direction: r.get::<_, Option<String>>(5)?.map(|d| Direction::parse(&d)),
+                    tool: r.get(6)?,
+                    arch: r.get(7)?,
+                    round: r.get(8)?,
+                    value: r.get(9)?,
+                })
+            })?;
+            for row in rows {
+                out.push(row?);
+            }
+        }
+        Ok(out)
+    }
+
+    /// Resolve a run reference: a run id or a unique prefix of one (4+ characters), a folder name or a label.
+    pub fn find_run(&self, reference: &str) -> Result<String> {
+        let mut st = self.conn.prepare(
+            "SELECT run_id FROM runs WHERE run_id = ?1 OR folder = ?1 OR label = ?1
+             OR (length(?1) >= 4 AND run_id LIKE ?1 || '%')",
+        )?;
+        let ids: Vec<String> = st
+            .query_map([reference], |r| r.get(0))?
+            .collect::<std::result::Result<_, _>>()?;
+        match ids.len() {
+            1 => Ok(ids.into_iter().next().unwrap()),
+            0 => Err(Error::NotFound(format!(
+                "no run matches {reference:?} (try `benchlens runs`)"
+            ))),
+            n => Err(Error::NotFound(format!(
+                "{reference:?} matches {n} runs; use a run id, or group:NAME to pool them"
+            ))),
+        }
+    }
+
+    /// Label and group of a run, for display.
+    pub fn run_names(&self, run_id: &str) -> Result<(String, String, String)> {
+        Ok(self.conn.query_row(
+            "SELECT label, folder, grp FROM v_runs WHERE run_id = ?1",
+            [run_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )?)
+    }
+}
+
+/// A tag key is 1-64 letters, digits, `_`, `-` or `.`.
+pub fn valid_tag_key(key: &str) -> bool {
+    !key.is_empty()
+        && key.len() <= 64
+        && key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
+}
+
+fn set_tags_in(
+    tx: &rusqlite::Transaction,
+    run_id: &str,
+    tags: &BTreeMap<String, String>,
+) -> Result<()> {
+    for (k, v) in tags {
+        if !valid_tag_key(k) {
+            return Err(Error::contract(format!(
+                "tag key {k:?}: use 1-64 letters, digits, _ - or ."
+            )));
+        }
+        if v.len() > 1024 || v.contains('\n') {
+            return Err(Error::contract(format!(
+                "tag {k}: the value must be one line of at most 1024 bytes"
+            )));
+        }
+        if v.is_empty() {
+            tx.execute(
+                "DELETE FROM tags WHERE run_id = ?1 AND key = ?2",
+                params![run_id, k],
+            )?;
+        } else {
+            tx.execute(
+                "INSERT INTO tags (run_id, key, value) VALUES (?1, ?2, ?3)
+                 ON CONFLICT (run_id, key) DO UPDATE SET value = excluded.value",
+                params![run_id, k, v],
+            )?;
+        }
+    }
+    Ok(())
+}

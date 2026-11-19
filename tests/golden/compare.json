@@ -1,0 +1,3227 @@
+{
+ "vmbench": "0.0.0-dev",
+ "rows": [
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.sysbench.prime.1t",
+   "median_base": 1147.17,
+   "median_other": 2028.03,
+   "diff": 76.78548079186169,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.sysbench.prime.max",
+   "median_base": 18323.35,
+   "median_other": 32422.35,
+   "diff": 76.94553670589713,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.7z.rating.max",
+   "median_base": 80154.0,
+   "median_other": 65961.0,
+   "diff": -17.707163709858524,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.aes-gcm.1t",
+   "median_base": 6577.779764246657,
+   "median_other": 3726.3470131248923,
+   "diff": -43.349471300645384,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.aes-gcm.max",
+   "median_base": 57665.528259465755,
+   "median_other": 56704.496216256404,
+   "diff": -1.6665624545832505,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.openssl.aes-256-gcm.1t",
+   "median_base": 14636.7,
+   "median_other": 3710.7,
+   "diff": -74.64797392854946,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.openssl.aes-256-gcm.max",
+   "median_base": 232526.2,
+   "median_other": 59244.8,
+   "diff": -74.5212367466548,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.1t",
+   "median_base": 9524.014290116762,
+   "median_other": 8055.598938312338,
+   "diff": -15.418029699180783,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.max",
+   "median_base": 67734.54050395873,
+   "median_other": 38971.64734712202,
+   "diff": -42.46414450121747,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.1t",
+   "median_base": 1222.9678698090042,
+   "median_other": 492.3888355637251,
+   "diff": -59.73820345414117,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.max",
+   "median_base": 17565.48773370703,
+   "median_other": 7415.410248603993,
+   "diff": -57.784205249397644,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.sha256.1t",
+   "median_base": 1665.1060902180718,
+   "median_other": 1931.2784750406163,
+   "diff": 15.985310869152189,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.sha256.max",
+   "median_base": 22912.11237265196,
+   "median_other": 29863.044296542022,
+   "diff": 30.33736833530345,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.fft.1t",
+   "median_base": 2833.859942198582,
+   "median_other": 2696.9242117630356,
+   "diff": -4.832127671394655,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.fft.max",
+   "median_base": 40474.2265249508,
+   "median_other": 37913.1730139963,
+   "diff": -6.32761569730236,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.matmul.1t",
+   "median_base": 4503.248173429333,
+   "median_other": 3988.478563719267,
+   "diff": -11.431073524825448,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.matmul.max",
+   "median_base": 60832.94736803584,
+   "median_other": 56182.538093315365,
+   "diff": -7.644556898724253,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.nbody.1t",
+   "median_base": 131.84015015485852,
+   "median_other": 276.3605388389534,
+   "diff": 109.61788841589018,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.nbody.max",
+   "median_base": 1984.5900230714344,
+   "median_other": 3840.6664730753328,
+   "diff": 93.52442713237855,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.compress.1t",
+   "median_base": 15.366674664830688,
+   "median_other": 12.184767767867308,
+   "diff": -20.70654169731157,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.compress.max",
+   "median_base": 233.0277004032388,
+   "median_other": 185.29018729187425,
+   "diff": -20.485767584179047,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.decompress.1t",
+   "median_base": 233.31852437341283,
+   "median_other": 180.2144232929122,
+   "diff": -22.76034499322934,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.decompress.max",
+   "median_base": 3406.5307716559855,
+   "median_other": 2637.0391164673088,
+   "diff": -22.58871875138268,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.hashmap.1t",
+   "median_base": 20.002112420968533,
+   "median_other": 13.792720628402632,
+   "diff": -31.04368009679066,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.hashmap.max",
+   "median_base": 146.11402826408283,
+   "median_other": 127.84149242813892,
+   "diff": -12.505668383133337,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.json.1t",
+   "median_base": 586.4063702614094,
+   "median_other": 483.99503440454504,
+   "diff": -17.464226354023275,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.json.max",
+   "median_base": 4445.299022311352,
+   "median_other": 2755.6456732063693,
+   "diff": -38.00989181210222,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.regex.1t",
+   "median_base": 30.253512842579788,
+   "median_other": 21.040568201449652,
+   "diff": -30.45247898671633,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.regex.max",
+   "median_base": 406.0257000528538,
+   "median_other": 227.0073163217059,
+   "diff": -44.09040701311381,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.sort.1t",
+   "median_base": 12.066410690113338,
+   "median_other": 9.613287359755075,
+   "diff": -20.330182631428578,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.sort.max",
+   "median_base": 178.6992130156879,
+   "median_other": 143.56814068096668,
+   "diff": -19.65933242897778,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.stream.triad.max",
+   "median_base": 147856.0,
+   "median_other": 98903.8,
+   "diff": -33.10802402337409,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.lmbench.lat-mem-rd.1t",
+   "median_base": 134.761,
+   "median_other": 282.162,
+   "diff": 109.37956827271984,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.stream.copy.max",
+   "median_base": 176347.0,
+   "median_other": 99831.7,
+   "diff": -43.389056802780885,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randwrite-4k.qd32x4",
+   "median_base": 89716.0,
+   "median_other": 108084.0,
+   "diff": 20.473494137054708,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randwrite-4k.steadystate",
+   "median_base": 1.0,
+   "median_other": 1.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd1.p99",
+   "median_base": 440.32,
+   "median_other": 518.144,
+   "diff": 17.674418604651166,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd1.p999",
+   "median_base": 501.76,
+   "median_other": 2473.984,
+   "diff": 393.0612244897959,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd32x4",
+   "median_base": 121898.0,
+   "median_other": 125020.0,
+   "diff": 2.5611576892155736,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.mixed-70-30-4k.read",
+   "median_base": 77691.0,
+   "median_other": 82584.0,
+   "diff": 6.2980267984708656,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.mixed-70-30-4k.write",
+   "median_base": 33273.0,
+   "median_other": 35375.0,
+   "diff": 6.317434556547351,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.seq-write-1m",
+   "median_base": 1134.0,
+   "median_other": 3317.0,
+   "diff": 192.50440917107582,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.seq-read-1m",
+   "median_base": 2017.0,
+   "median_other": 6462.0,
+   "diff": 220.3767972235994,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd1",
+   "median_base": 3500.0,
+   "median_other": 6057.0,
+   "diff": 73.05714285714285,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd4",
+   "median_base": 15194.0,
+   "median_other": 18420.0,
+   "diff": 21.232065288929842,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd16",
+   "median_base": 65685.0,
+   "median_other": 52376.0,
+   "diff": -20.26185582705336,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd32",
+   "median_base": 101766.0,
+   "median_other": 80990.0,
+   "diff": -20.415462924748933,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd64",
+   "median_base": 112482.0,
+   "median_other": 97607.0,
+   "diff": -13.224338116320833,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd128",
+   "median_base": 121988.0,
+   "median_other": 108566.0,
+   "diff": -11.002721579171721,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randwrite-8k",
+   "median_base": 84189.0,
+   "median_other": 106956.0,
+   "diff": 27.04272529665396,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randrw-8k.read",
+   "median_base": 73255.0,
+   "median_other": 82165.0,
+   "diff": 12.16299228721589,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randrw-8k.write",
+   "median_base": 31373.0,
+   "median_other": 35191.0,
+   "diff": 12.16970006056163,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-seqwrite-1m",
+   "median_base": 1131.0,
+   "median_other": 3674.0,
+   "diff": 224.84526967285586,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randread-8k",
+   "median_base": 116561.0,
+   "median_other": 135448.0,
+   "diff": 16.20353291409648,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.fdatasync.avg",
+   "median_base": 0.95247020279,
+   "median_other": 0.256807752747,
+   "diff": -73.0377126764961,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.fdatasync.p99",
+   "median_base": 2.21184,
+   "median_other": 0.55296,
+   "diff": -75.0,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.commit-iops.qd1",
+   "median_base": 1039.0,
+   "median_other": 3748.0,
+   "diff": 260.73147256977865,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.tpcb.tps",
+   "median_base": 4836.696746,
+   "median_other": 10901.727468,
+   "diff": 125.39613377695935,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.tpcb.stability",
+   "median_base": 86.88,
+   "median_other": 96.88,
+   "diff": 11.510128913443832,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.latency.single",
+   "median_base": 1.27,
+   "median_other": 1.144,
+   "diff": -9.921259842519694,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.tx",
+   "median_base": 18.78344548059023,
+   "median_other": 8.33789181900153,
+   "diff": -55.61042393623978,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.rx",
+   "median_base": 19.62394753840929,
+   "median_other": 8.988851627610874,
+   "diff": -54.194477894841,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.bidir",
+   "median_base": 38.4074,
+   "median_other": 17.3267,
+   "diff": -54.88707905247426,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.sockperf.pingpong.avg",
+   "median_base": 36.145,
+   "median_other": 50.251,
+   "diff": 39.02614469497854,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.sockperf.pingpong.p99",
+   "median_base": 47.631,
+   "median_other": 65.733,
+   "diff": 38.00466083013164,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.udp.pps",
+   "median_base": 0.647,
+   "median_other": 0.349,
+   "diff": -46.05873261205565,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.udp.loss",
+   "median_base": 5.981883167932427,
+   "median_other": 20.158913003202056,
+   "diff": 236.99944377499045,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 31989.21493215327,
+   "median_other": 15997.104356941652,
+   "diff": -49.992194585361624,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.02,
+   "median_other": 0.03,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.cpu.steal.peak",
+   "median_base": 0.18,
+   "median_other": 3.32,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-r2-20261119-145026",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.fio.fill-write-1m",
+   "median_base": 1143.0,
+   "median_other": 3564.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.sysbench.prime.1t",
+   "median_base": 1148.57,
+   "median_other": 1147.17,
+   "diff": -0.12189069886901659,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.sysbench.prime.max",
+   "median_base": 2288.66,
+   "median_other": 18323.35,
+   "diff": 700.6147702148855,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.7z.rating.max",
+   "median_base": 11899.0,
+   "median_other": 80154.0,
+   "diff": 573.6196319018405,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.aes-gcm.1t",
+   "median_base": 6602.125623331485,
+   "median_other": 6577.779764246657,
+   "diff": -0.36875788910759133,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.aes-gcm.max",
+   "median_base": 12879.388273397712,
+   "median_other": 57665.528259465755,
+   "diff": 347.7349935833017,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.openssl.aes-256-gcm.1t",
+   "median_base": 14691.1,
+   "median_other": 14636.7,
+   "diff": -0.37029221773726706,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.openssl.aes-256-gcm.max",
+   "median_base": 29201.2,
+   "median_other": 232526.2,
+   "diff": 696.2898784981439,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.1t",
+   "median_base": 9668.395077597692,
+   "median_other": 9524.014290116762,
+   "diff": -1.4933273446331308,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.max",
+   "median_base": 18534.157142639033,
+   "median_other": 67734.54050395873,
+   "diff": 265.4578947543885,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.1t",
+   "median_base": 1222.6831194167703,
+   "median_other": 1222.9678698090042,
+   "diff": 0.023288977144771073,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.max",
+   "median_base": 2393.1976038491903,
+   "median_other": 17565.48773370703,
+   "diff": 633.9756527189777,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.sha256.1t",
+   "median_base": 1672.2619990255812,
+   "median_other": 1665.1060902180718,
+   "diff": -0.427917922650822,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.sha256.max",
+   "median_base": 3328.6087881025146,
+   "median_other": 22912.11237265196,
+   "diff": 588.3389977983292,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.fft.1t",
+   "median_base": 2823.701471695538,
+   "median_other": 2833.859942198582,
+   "diff": 0.35975724080151517,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.fft.max",
+   "median_base": 5492.457797223766,
+   "median_other": 40474.2265249508,
+   "diff": 636.9055533828412,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.matmul.1t",
+   "median_base": 4547.365316884478,
+   "median_other": 4503.248173429333,
+   "diff": -0.9701693262104161,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.matmul.max",
+   "median_base": 8884.241749685463,
+   "median_other": 60832.94736803584,
+   "diff": 584.7286361854074,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.nbody.1t",
+   "median_base": 132.2322137075837,
+   "median_other": 131.84015015485852,
+   "diff": -0.29649624832885235,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.nbody.max",
+   "median_base": 263.94179001359197,
+   "median_other": 1984.5900230714344,
+   "diff": 651.904434295621,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.compress.1t",
+   "median_base": 15.397330180454937,
+   "median_other": 15.366674664830688,
+   "diff": -0.19909630608014114,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.compress.max",
+   "median_base": 30.717050270759703,
+   "median_other": 233.0277004032388,
+   "diff": 658.626555444562,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.decompress.1t",
+   "median_base": 238.29756965174852,
+   "median_other": 233.31852437341283,
+   "diff": -2.0894234404539405,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.decompress.max",
+   "median_base": 461.9074303944447,
+   "median_other": 3406.5307716559855,
+   "diff": 637.4920920295625,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.hashmap.1t",
+   "median_base": 22.335033122359782,
+   "median_other": 20.002112420968533,
+   "diff": -10.445118610796879,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.hashmap.max",
+   "median_base": 35.37157090138311,
+   "median_other": 146.11402826408283,
+   "diff": 313.08323193067304,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.json.1t",
+   "median_base": 611.4471123393589,
+   "median_other": 586.4063702614094,
+   "diff": -4.095324284408701,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.json.max",
+   "median_base": 970.4301208311656,
+   "median_other": 4445.299022311352,
+   "diff": 358.07512842903,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.regex.1t",
+   "median_base": 30.561460186892297,
+   "median_other": 30.253512842579788,
+   "diff": -1.0076329548042573,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.regex.max",
+   "median_base": 60.620660856639375,
+   "median_other": 406.0257000528538,
+   "diff": 569.7810520625237,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.sort.1t",
+   "median_base": 12.13673456726678,
+   "median_other": 12.066410690113338,
+   "diff": -0.579429967456878,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.sort.max",
+   "median_base": 24.04940465352182,
+   "median_other": 178.6992130156879,
+   "diff": 643.0504646172977,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.stream.triad.max",
+   "median_base": 34525.1,
+   "median_other": 147856.0,
+   "diff": 328.25654378988037,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.lmbench.lat-mem-rd.1t",
+   "median_base": 114.518,
+   "median_other": 134.761,
+   "diff": 17.676697113117584,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.stream.copy.max",
+   "median_base": 55028.2,
+   "median_other": 176347.0,
+   "diff": 220.4665971265642,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randwrite-4k.qd32x4",
+   "median_base": 86726.0,
+   "median_other": 89716.0,
+   "diff": 3.447639692825681,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randwrite-4k.steadystate",
+   "median_base": 1.0,
+   "median_other": 1.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd1.p99",
+   "median_base": 444.416,
+   "median_other": 440.32,
+   "diff": -0.9216589861751161,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd1.p999",
+   "median_base": 514.048,
+   "median_other": 501.76,
+   "diff": -2.390438247011954,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd32x4",
+   "median_base": 125706.0,
+   "median_other": 121898.0,
+   "diff": -3.0292905668782715,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.mixed-70-30-4k.read",
+   "median_base": 78299.0,
+   "median_other": 77691.0,
+   "diff": -0.7765105556903664,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.mixed-70-30-4k.write",
+   "median_base": 33534.0,
+   "median_other": 33273.0,
+   "diff": -0.7783145464304885,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.seq-write-1m",
+   "median_base": 1127.0,
+   "median_other": 1134.0,
+   "diff": 0.6211180124223602,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.seq-read-1m",
+   "median_base": 1954.0,
+   "median_other": 2017.0,
+   "diff": 3.224155578300921,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd1",
+   "median_base": 3454.0,
+   "median_other": 3500.0,
+   "diff": 1.3317892298784018,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd4",
+   "median_base": 14587.0,
+   "median_other": 15194.0,
+   "diff": 4.1612394597929665,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd16",
+   "median_base": 60256.0,
+   "median_other": 65685.0,
+   "diff": 9.009891131173658,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd32",
+   "median_base": 98961.0,
+   "median_other": 101766.0,
+   "diff": 2.834449934822809,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd64",
+   "median_base": 113956.0,
+   "median_other": 112482.0,
+   "diff": -1.2934816946891783,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd128",
+   "median_base": 121531.0,
+   "median_other": 121988.0,
+   "diff": 0.37603574396656,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randwrite-8k",
+   "median_base": 80028.0,
+   "median_other": 84189.0,
+   "diff": 5.1994301994302,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randrw-8k.read",
+   "median_base": 73209.0,
+   "median_other": 73255.0,
+   "diff": 0.06283380458686773,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randrw-8k.write",
+   "median_base": 31355.0,
+   "median_other": 31373.0,
+   "diff": 0.0574071121033328,
+   "verdict": 0
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-seqwrite-1m",
+   "median_base": 1175.0,
+   "median_other": 1131.0,
+   "diff": -3.74468085106383,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randread-8k",
+   "median_base": 117866.0,
+   "median_other": 116561.0,
+   "diff": -1.1071895203027167,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.fdatasync.avg",
+   "median_base": 0.9688209583280001,
+   "median_other": 0.95247020279,
+   "diff": -1.6876963072948288,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.fdatasync.p99",
+   "median_base": 2.277376,
+   "median_other": 2.21184,
+   "diff": -2.877697841726611,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.commit-iops.qd1",
+   "median_base": 1023.0,
+   "median_other": 1039.0,
+   "diff": 1.5640273704789833,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.tpcb.tps",
+   "median_base": 1733.282902,
+   "median_other": 4836.696746,
+   "diff": 179.04831579536344,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.tpcb.stability",
+   "median_base": 85.84,
+   "median_other": 86.88,
+   "diff": 1.2115563839701677,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.latency.single",
+   "median_base": 1.475,
+   "median_other": 1.27,
+   "diff": -13.898305084745765,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.tx",
+   "median_base": 15.301725926233125,
+   "median_other": 18.78344548059023,
+   "diff": 22.75377020305978,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.rx",
+   "median_base": 13.312430796598553,
+   "median_other": 19.62394753840929,
+   "diff": 47.41070085730238,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.bidir",
+   "median_base": 28.6142,
+   "median_other": 38.4074,
+   "diff": 34.2249652270551,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.sockperf.pingpong.avg",
+   "median_base": 37.856,
+   "median_other": 36.145,
+   "diff": -4.519759087066776,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.sockperf.pingpong.p99",
+   "median_base": 49.495,
+   "median_other": 47.631,
+   "diff": -3.7660369734316546,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.udp.pps",
+   "median_base": 0.625,
+   "median_other": 0.647,
+   "diff": 3.520000000000003,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.udp.loss",
+   "median_base": 0.7158412046137972,
+   "median_other": 5.981883167932427,
+   "diff": 735.643873163142,
+   "verdict": -1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 6999.780010913817,
+   "median_other": 31989.21493215327,
+   "diff": 357.0031469885737,
+   "verdict": 1
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.04,
+   "median_other": 0.02,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.cpu.steal.peak",
+   "median_base": 0.42,
+   "median_other": 0.18,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-std-r2-20261119-103253",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.fio.fill-write-1m",
+   "median_base": 1063.0,
+   "median_other": 1143.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.sysbench.prime.1t",
+   "median_base": 1141.11,
+   "median_other": 2012.65,
+   "diff": 76.37651059056535,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.sysbench.prime.max",
+   "median_base": 18323.97,
+   "median_other": 32419.76,
+   "diff": 76.92541518022567,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.7z.rating.max",
+   "median_base": 81853.0,
+   "median_other": 66585.0,
+   "diff": -18.65295102195399,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.aes-gcm.1t",
+   "median_base": 6586.0853514581495,
+   "median_other": 3730.854460745365,
+   "diff": -43.35247325758754,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.aes-gcm.max",
+   "median_base": 98451.12385965452,
+   "median_other": 56527.7818197899,
+   "diff": -42.58289839294043,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.openssl.aes-256-gcm.1t",
+   "median_base": 14612.9,
+   "median_other": 3713.6,
+   "diff": -74.58683765713855,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.openssl.aes-256-gcm.max",
+   "median_base": 229700.9,
+   "median_other": 59282.7,
+   "diff": -74.19135057807785,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.1t",
+   "median_base": 9451.69667879666,
+   "median_other": 8113.095907908573,
+   "diff": -14.162544740681518,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.max",
+   "median_base": 71673.43299337542,
+   "median_other": 40376.428942323924,
+   "diff": -43.66611552420573,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.1t",
+   "median_base": 1219.983823014507,
+   "median_other": 492.7950796816134,
+   "diff": -59.606425070133604,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.max",
+   "median_base": 17889.154060813373,
+   "median_other": 7476.12263104511,
+   "diff": -58.20862962200243,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.sha256.1t",
+   "median_base": 1662.868113717623,
+   "median_other": 1927.2801983153486,
+   "diff": 15.900965471434034,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.crypto.sha256.max",
+   "median_base": 25648.45825256744,
+   "median_other": 29763.39243665068,
+   "diff": 16.043592732016666,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.fft.1t",
+   "median_base": 2828.5826783043776,
+   "median_other": 2707.214801569696,
+   "diff": -4.290766455779777,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.fft.max",
+   "median_base": 39757.87865525334,
+   "median_other": 36375.42140928985,
+   "diff": -8.507640146732424,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.matmul.1t",
+   "median_base": 4502.423876073878,
+   "median_other": 3992.6400399721597,
+   "diff": -11.322430986801066,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.matmul.max",
+   "median_base": 62000.36462362465,
+   "median_other": 57353.673298169786,
+   "diff": -7.494619352100207,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.nbody.1t",
+   "median_base": 131.908887693667,
+   "median_other": 275.92729257317296,
+   "diff": 109.18021324989185,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.float.nbody.max",
+   "median_base": 2023.9003424373095,
+   "median_other": 3868.6894645922157,
+   "diff": 91.15019566295906,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.compress.1t",
+   "median_base": 15.317359039661849,
+   "median_other": 12.234753581766055,
+   "diff": -20.124914810143707,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.compress.max",
+   "median_base": 238.27248071539336,
+   "median_other": 185.27627862239456,
+   "diff": -22.24184762498888,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.decompress.1t",
+   "median_base": 236.32426003723552,
+   "median_other": 181.1822207464136,
+   "diff": -23.333211445212466,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.decompress.max",
+   "median_base": 3407.6243216181547,
+   "median_other": 2634.829410557168,
+   "diff": -22.67840695226682,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.hashmap.1t",
+   "median_base": 19.35455207574385,
+   "median_other": 13.304999270593754,
+   "diff": -31.256485717030447,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.hashmap.max",
+   "median_base": 153.904104327531,
+   "median_other": 121.39946886516726,
+   "diff": -21.1200575867613,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.json.1t",
+   "median_base": 612.1005827549506,
+   "median_other": 475.46442503257913,
+   "diff": -22.322500839224425,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.json.max",
+   "median_base": 4430.131826809784,
+   "median_other": 2526.045083858027,
+   "diff": -42.98036305440878,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.regex.1t",
+   "median_base": 30.288516712315676,
+   "median_other": 20.91516012715695,
+   "diff": -30.94689870153796,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.regex.max",
+   "median_base": 403.3289196586805,
+   "median_other": 311.2568918177865,
+   "diff": -22.828025304709247,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.sort.1t",
+   "median_base": 12.135848927328317,
+   "median_other": 9.612646931974583,
+   "diff": -20.79131019562891,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "cpu.cpubench.int.sort.max",
+   "median_base": 175.67317708363328,
+   "median_other": 145.08999199641428,
+   "diff": -17.40913757861803,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "mem.stream.triad.max",
+   "median_base": 164316.0,
+   "median_other": 154778.5,
+   "diff": -5.804364760583266,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "mem.lmbench.lat-mem-rd.1t",
+   "median_base": 147.352,
+   "median_other": 197.322,
+   "diff": 33.91199305065422,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "mem.stream.copy.max",
+   "median_base": 189348.4,
+   "median_other": 158747.4,
+   "diff": -16.161213931567417,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randwrite-4k.qd32x4",
+   "median_base": 77572.0,
+   "median_other": 120526.0,
+   "diff": 55.37307275821173,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randwrite-4k.steadystate",
+   "median_base": 1.0,
+   "median_other": 1.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.qd1.p99",
+   "median_base": 452.608,
+   "median_other": 205.824,
+   "diff": -54.52488687782805,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.qd1.p999",
+   "median_base": 1335.296,
+   "median_other": 403.456,
+   "diff": -69.78527607361963,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.qd32x4",
+   "median_base": 113203.0,
+   "median_other": 134107.0,
+   "diff": 18.465941715325567,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.mixed-70-30-4k.read",
+   "median_base": 75416.0,
+   "median_other": 88057.0,
+   "diff": 16.761695131006682,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.mixed-70-30-4k.write",
+   "median_base": 32300.0,
+   "median_other": 37718.0,
+   "diff": 16.773993808049536,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.seq-write-1m",
+   "median_base": 1281.0,
+   "median_other": 3363.0,
+   "diff": 162.52927400468386,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.seq-read-1m",
+   "median_base": 1821.0,
+   "median_other": 7024.0,
+   "diff": 285.722130697419,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd1",
+   "median_base": 3607.0,
+   "median_other": 6228.0,
+   "diff": 72.6642639312448,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd4",
+   "median_base": 15334.0,
+   "median_other": 24163.0,
+   "diff": 57.577931394287205,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd16",
+   "median_base": 65330.0,
+   "median_other": 84539.0,
+   "diff": 29.403030766875858,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd32",
+   "median_base": 106155.0,
+   "median_other": 107017.0,
+   "diff": 0.8120201592011681,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd64",
+   "median_base": 115735.0,
+   "median_other": 94213.0,
+   "diff": -18.595930358145765,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.randread-4k.sweep-qd128",
+   "median_base": 122859.0,
+   "median_other": 110244.0,
+   "diff": -10.26786804385515,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.db-randwrite-8k",
+   "median_base": 80413.0,
+   "median_other": 103854.0,
+   "diff": 29.150759205601084,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.db-randrw-8k.read",
+   "median_base": 72707.0,
+   "median_other": 82810.0,
+   "diff": 13.895498370170687,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.db-randrw-8k.write",
+   "median_base": 31136.0,
+   "median_other": 35467.0,
+   "diff": 13.909943473792394,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.db-seqwrite-1m",
+   "median_base": 1286.0,
+   "median_other": 3546.0,
+   "diff": 175.73872472783827,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.fio.db-randread-8k",
+   "median_base": 116474.0,
+   "median_other": 129306.0,
+   "diff": 11.01705101567732,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.wal.fdatasync.avg",
+   "median_base": 0.923603120563,
+   "median_other": 0.25671621919800003,
+   "diff": -72.2049207627716,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.wal.fdatasync.p99",
+   "median_base": 2.21184,
+   "median_other": 0.626688,
+   "diff": -71.66666666666666,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "disk.wal.commit-iops.qd1",
+   "median_base": 1072.0,
+   "median_other": 3755.0,
+   "diff": 250.27985074626864,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "pg.pgbench.tpcb.tps",
+   "median_base": 4802.848121,
+   "median_other": 11308.429615,
+   "diff": 135.45257584879602,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "pg.pgbench.tpcb.stability",
+   "median_base": 85.74,
+   "median_other": 97.26,
+   "diff": 13.435969209237243,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "pg.pgbench.latency.single",
+   "median_base": 1.253,
+   "median_other": 1.114,
+   "diff": -11.093375897845156,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.iperf3.tcp.tx",
+   "median_base": 18.788188604599366,
+   "median_other": 7.804561471385612,
+   "diff": -58.46027716863005,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.iperf3.tcp.rx",
+   "median_base": 20.05811800530258,
+   "median_other": 8.39742756023849,
+   "diff": -58.134519110823156,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.iperf3.tcp.bidir",
+   "median_base": 38.8463,
+   "median_other": 16.202,
+   "diff": -58.29203810916355,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.sockperf.pingpong.avg",
+   "median_base": 37.269,
+   "median_other": 38.311,
+   "diff": 2.7958893450320685,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.sockperf.pingpong.p99",
+   "median_base": 49.848,
+   "median_other": 59.331,
+   "diff": 19.023832450649987,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.iperf3.udp.pps",
+   "median_base": 0.614,
+   "median_other": 0.323,
+   "diff": -47.39413680781759,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "net.iperf3.udp.loss",
+   "median_base": 4.82906806481307,
+   "median_other": 2.2322411005032583,
+   "diff": -53.77490914306119,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 19991.972912000656,
+   "median_other": 9999.766149968713,
+   "diff": -49.98109394212856,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.02,
+   "median_other": 0.02,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "info.cpu.steal.peak",
+   "median_base": 0.23,
+   "median_other": 2.05,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "arm64-high-20261118-203447",
+   "id": "info.fio.fill-write-1m",
+   "median_base": 1103.0,
+   "median_other": 3554.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.sysbench.prime.1t",
+   "median_base": 1141.11,
+   "median_other": 1147.17,
+   "diff": 0.5310618608197434,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.sysbench.prime.max",
+   "median_base": 18323.97,
+   "median_other": 18323.35,
+   "diff": -0.0033835462511814813,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.7z.rating.max",
+   "median_base": 81853.0,
+   "median_other": 80154.0,
+   "diff": -2.075672241701587,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.aes-gcm.1t",
+   "median_base": 6586.0853514581495,
+   "median_other": 6577.779764246657,
+   "diff": -0.12610810167611897,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.aes-gcm.max",
+   "median_base": 98451.12385965452,
+   "median_other": 57665.528259465755,
+   "diff": -41.42725242865693,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.openssl.aes-256-gcm.1t",
+   "median_base": 14612.9,
+   "median_other": 14636.7,
+   "diff": 0.16286979312799713,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.openssl.aes-256-gcm.max",
+   "median_base": 229700.9,
+   "median_other": 232526.2,
+   "diff": 1.2299908272018167,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.1t",
+   "median_base": 9451.69667879666,
+   "median_other": 9524.014290116762,
+   "diff": 0.7651283550215412,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.max",
+   "median_base": 71673.43299337542,
+   "median_other": 67734.54050395873,
+   "diff": -5.495610193222845,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.1t",
+   "median_base": 1219.983823014507,
+   "median_other": 1222.9678698090042,
+   "diff": 0.24459724286539442,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.max",
+   "median_base": 17889.154060813373,
+   "median_other": 17565.48773370703,
+   "diff": -1.809288052448178,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.sha256.1t",
+   "median_base": 1662.868113717623,
+   "median_other": 1665.1060902180718,
+   "diff": 0.1345853277230459,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.crypto.sha256.max",
+   "median_base": 25648.45825256744,
+   "median_other": 22912.11237265196,
+   "diff": -10.668656388504631,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.fft.1t",
+   "median_base": 2828.5826783043776,
+   "median_other": 2833.859942198582,
+   "diff": 0.18656919363473348,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.fft.max",
+   "median_base": 39757.87865525334,
+   "median_other": 40474.2265249508,
+   "diff": 1.8017758842442735,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.matmul.1t",
+   "median_base": 4502.423876073878,
+   "median_other": 4503.248173429333,
+   "diff": 0.01830785768162703,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.matmul.max",
+   "median_base": 62000.36462362465,
+   "median_other": 60832.94736803584,
+   "diff": -1.8829199838995363,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.nbody.1t",
+   "median_base": 131.908887693667,
+   "median_other": 131.84015015485852,
+   "diff": -0.05210986159485109,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.float.nbody.max",
+   "median_base": 2023.9003424373095,
+   "median_other": 1984.5900230714344,
+   "diff": -1.9423050899104604,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.compress.1t",
+   "median_base": 15.317359039661849,
+   "median_other": 15.366674664830688,
+   "diff": 0.321959059921129,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.compress.max",
+   "median_base": 238.27248071539336,
+   "median_other": 233.0277004032388,
+   "diff": -2.2011691389654096,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.decompress.1t",
+   "median_base": 236.32426003723552,
+   "median_other": 233.31852437341283,
+   "diff": -1.2718692796706963,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.decompress.max",
+   "median_base": 3407.6243216181547,
+   "median_other": 3406.5307716559855,
+   "diff": -0.032091271189480096,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.hashmap.1t",
+   "median_base": 19.35455207574385,
+   "median_other": 20.002112420968533,
+   "diff": 3.345777999358817,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.hashmap.max",
+   "median_base": 153.904104327531,
+   "median_other": 146.11402826408283,
+   "diff": -5.061642831090274,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.json.1t",
+   "median_base": 612.1005827549506,
+   "median_other": 586.4063702614094,
+   "diff": -4.197710836656339,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.json.max",
+   "median_base": 4430.131826809784,
+   "median_other": 4445.299022311352,
+   "diff": 0.3423644282949091,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.regex.1t",
+   "median_base": 30.288516712315676,
+   "median_other": 30.253512842579788,
+   "diff": -0.11556812130603714,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.regex.max",
+   "median_base": 403.3289196586805,
+   "median_other": 406.0257000528538,
+   "diff": 0.6686305550456076,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.sort.1t",
+   "median_base": 12.135848927328317,
+   "median_other": 12.066410690113338,
+   "diff": -0.5721745353850982,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "cpu.cpubench.int.sort.max",
+   "median_base": 175.67317708363328,
+   "median_other": 178.6992130156879,
+   "diff": 1.7225372605483176,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.stream.triad.max",
+   "median_base": 164316.0,
+   "median_other": 147856.0,
+   "diff": -10.017283770296258,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.lmbench.lat-mem-rd.1t",
+   "median_base": 147.352,
+   "median_other": 134.761,
+   "diff": -8.544844997013959,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "mem.stream.copy.max",
+   "median_base": 189348.4,
+   "median_other": 176347.0,
+   "diff": -6.866390209793162,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randwrite-4k.qd32x4",
+   "median_base": 77572.0,
+   "median_other": 89716.0,
+   "diff": 15.655133295519002,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randwrite-4k.steadystate",
+   "median_base": 1.0,
+   "median_other": 1.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd1.p99",
+   "median_base": 452.608,
+   "median_other": 440.32,
+   "diff": -2.714932126696835,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd1.p999",
+   "median_base": 1335.296,
+   "median_other": 501.76,
+   "diff": -62.423312883435585,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.qd32x4",
+   "median_base": 113203.0,
+   "median_other": 121898.0,
+   "diff": 7.680891849155941,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.mixed-70-30-4k.read",
+   "median_base": 75416.0,
+   "median_other": 77691.0,
+   "diff": 3.016601251723772,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.mixed-70-30-4k.write",
+   "median_base": 32300.0,
+   "median_other": 33273.0,
+   "diff": 3.0123839009287923,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.seq-write-1m",
+   "median_base": 1281.0,
+   "median_other": 1134.0,
+   "diff": -11.475409836065573,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.seq-read-1m",
+   "median_base": 1821.0,
+   "median_other": 2017.0,
+   "diff": 10.763316858868754,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd1",
+   "median_base": 3607.0,
+   "median_other": 3500.0,
+   "diff": -2.9664541169947327,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd4",
+   "median_base": 15334.0,
+   "median_other": 15194.0,
+   "diff": -0.9130037824442416,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd16",
+   "median_base": 65330.0,
+   "median_other": 65685.0,
+   "diff": 0.5433950711771008,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd32",
+   "median_base": 106155.0,
+   "median_other": 101766.0,
+   "diff": -4.134520276953511,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd64",
+   "median_base": 115735.0,
+   "median_other": 112482.0,
+   "diff": -2.8107314122780487,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.randread-4k.sweep-qd128",
+   "median_base": 122859.0,
+   "median_other": 121988.0,
+   "diff": -0.7089427717953101,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randwrite-8k",
+   "median_base": 80413.0,
+   "median_other": 84189.0,
+   "diff": 4.6957581485580695,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randrw-8k.read",
+   "median_base": 72707.0,
+   "median_other": 73255.0,
+   "diff": 0.7537100966894522,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randrw-8k.write",
+   "median_base": 31136.0,
+   "median_other": 31373.0,
+   "diff": 0.7611767728674204,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-seqwrite-1m",
+   "median_base": 1286.0,
+   "median_other": 1131.0,
+   "diff": -12.052877138413685,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.fio.db-randread-8k",
+   "median_base": 116474.0,
+   "median_other": 116561.0,
+   "diff": 0.07469478166801174,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.fdatasync.avg",
+   "median_base": 0.923603120563,
+   "median_other": 0.95247020279,
+   "diff": 3.1254855667230306,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.fdatasync.p99",
+   "median_base": 2.21184,
+   "median_other": 2.21184,
+   "diff": 0.0,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "disk.wal.commit-iops.qd1",
+   "median_base": 1072.0,
+   "median_other": 1039.0,
+   "diff": -3.078358208955224,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.tpcb.tps",
+   "median_base": 4802.848121,
+   "median_other": 4836.696746,
+   "diff": 0.7047615112374616,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.tpcb.stability",
+   "median_base": 85.74,
+   "median_other": 86.88,
+   "diff": 1.3296011196641015,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "pg.pgbench.latency.single",
+   "median_base": 1.253,
+   "median_other": 1.27,
+   "diff": 1.3567438148443836,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.tx",
+   "median_base": 18.788188604599366,
+   "median_other": 18.78344548059023,
+   "diff": -0.025245243748371685,
+   "verdict": 0
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.rx",
+   "median_base": 20.05811800530258,
+   "median_other": 19.62394753840929,
+   "diff": -2.164562332211381,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.tcp.bidir",
+   "median_base": 38.8463,
+   "median_other": 38.4074,
+   "diff": -1.1298373332852722,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.sockperf.pingpong.avg",
+   "median_base": 37.269,
+   "median_other": 36.145,
+   "diff": -3.015911347232272,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.sockperf.pingpong.p99",
+   "median_base": 49.848,
+   "median_other": 47.631,
+   "diff": -4.447520462205102,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.udp.pps",
+   "median_base": 0.614,
+   "median_other": 0.647,
+   "diff": 5.3745928338762265,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "net.iperf3.udp.loss",
+   "median_base": 4.82906806481307,
+   "median_other": 5.981883167932427,
+   "diff": 23.87241363440964,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 19991.972912000656,
+   "median_other": 31989.21493215327,
+   "diff": 60.010295496904085,
+   "verdict": 1
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.02,
+   "median_other": 0.02,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.cpu.steal.peak",
+   "median_base": 0.23,
+   "median_other": 0.18,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-20261119-033546",
+   "other": "x86-high-r2-20261119-145026",
+   "id": "info.fio.fill-write-1m",
+   "median_base": 1103.0,
+   "median_other": 1143.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.sysbench.prime.1t",
+   "median_base": 2012.65,
+   "median_other": 2028.03,
+   "diff": 0.7641666459642701,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.sysbench.prime.max",
+   "median_base": 32419.76,
+   "median_other": 32422.35,
+   "diff": 0.007988954884305576,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.7z.rating.max",
+   "median_base": 66585.0,
+   "median_other": 65961.0,
+   "diff": -0.9371480063077269,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.aes-gcm.1t",
+   "median_base": 3730.854460745365,
+   "median_other": 3726.3470131248923,
+   "diff": -0.1208154235952744,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.aes-gcm.max",
+   "median_base": 56527.7818197899,
+   "median_other": 56704.496216256404,
+   "diff": 0.3126151261867396,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.openssl.aes-256-gcm.1t",
+   "median_base": 3713.6,
+   "median_other": 3710.7,
+   "diff": -0.07809133993968362,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.openssl.aes-256-gcm.max",
+   "median_base": 59282.7,
+   "median_other": 59244.8,
+   "diff": -0.06393096130910735,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.1t",
+   "median_base": 8113.095907908573,
+   "median_other": 8055.598938312338,
+   "diff": -0.7086933304977684,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.ecdsa-p256.max",
+   "median_base": 40376.428942323924,
+   "median_other": 38971.64734712202,
+   "diff": -3.4792120848740087,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.1t",
+   "median_base": 492.7950796816134,
+   "median_other": 492.3888355637251,
+   "diff": -0.08243672362775781,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.rsa2048-sign.max",
+   "median_base": 7476.12263104511,
+   "median_other": 7415.410248603993,
+   "diff": -0.8120838225553585,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.sha256.1t",
+   "median_base": 1927.2801983153486,
+   "median_other": 1931.2784750406163,
+   "diff": 0.2074569504093199,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.crypto.sha256.max",
+   "median_base": 29763.39243665068,
+   "median_other": 29863.044296542022,
+   "diff": 0.33481351328967185,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.fft.1t",
+   "median_base": 2707.214801569696,
+   "median_other": 2696.9242117630356,
+   "diff": -0.3801172260396148,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.fft.max",
+   "median_base": 36375.42140928985,
+   "median_other": 37913.1730139963,
+   "diff": 4.227446844955934,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.matmul.1t",
+   "median_base": 3992.6400399721597,
+   "median_other": 3988.478563719267,
+   "diff": -0.10422868606310715,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.matmul.max",
+   "median_base": 57353.673298169786,
+   "median_other": 56182.538093315365,
+   "diff": -2.0419532656015487,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.nbody.1t",
+   "median_base": 275.92729257317296,
+   "median_other": 276.3605388389534,
+   "diff": 0.1570146474965131,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.float.nbody.max",
+   "median_base": 3868.6894645922157,
+   "median_other": 3840.6664730753328,
+   "diff": -0.7243536027732518,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.compress.1t",
+   "median_base": 12.234753581766055,
+   "median_other": 12.184767767867308,
+   "diff": -0.4085559514107655,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.compress.max",
+   "median_base": 185.27627862239456,
+   "median_other": 185.29018729187425,
+   "diff": 0.007506988797004585,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.decompress.1t",
+   "median_base": 181.1822207464136,
+   "median_other": 180.2144232929122,
+   "diff": -0.5341569661274701,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.decompress.max",
+   "median_base": 2634.829410557168,
+   "median_other": 2637.0391164673088,
+   "diff": 0.08386523625730234,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.hashmap.1t",
+   "median_base": 13.304999270593754,
+   "median_other": 13.792720628402632,
+   "diff": 3.6656999965931822,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.hashmap.max",
+   "median_base": 121.39946886516726,
+   "median_other": 127.84149242813892,
+   "diff": 5.3064676667790955,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.json.1t",
+   "median_base": 475.46442503257913,
+   "median_other": 483.99503440454504,
+   "diff": 1.7941635425997193,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.json.max",
+   "median_base": 2526.045083858027,
+   "median_other": 2755.6456732063693,
+   "diff": 9.089330622621892,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.regex.1t",
+   "median_base": 20.91516012715695,
+   "median_other": 21.040568201449652,
+   "diff": 0.5996037014790514,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.regex.max",
+   "median_base": 311.2568918177865,
+   "median_other": 227.0073163217059,
+   "diff": -27.067537365695117,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.sort.1t",
+   "median_base": 9.612646931974583,
+   "median_other": 9.613287359755075,
+   "diff": 0.006662345814057741,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "cpu.cpubench.int.sort.max",
+   "median_base": 145.08999199641428,
+   "median_other": 143.56814068096668,
+   "diff": -1.0489016468380647,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.stream.triad.max",
+   "median_base": 154778.5,
+   "median_other": 98903.8,
+   "diff": -36.0997813003744,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.lmbench.lat-mem-rd.1t",
+   "median_base": 197.322,
+   "median_other": 282.162,
+   "diff": 42.99571259160153,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "mem.stream.copy.max",
+   "median_base": 158747.4,
+   "median_other": 99831.7,
+   "diff": -37.1128598011684,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randwrite-4k.qd32x4",
+   "median_base": 120526.0,
+   "median_other": 108084.0,
+   "diff": -10.323083815940128,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randwrite-4k.steadystate",
+   "median_base": 1.0,
+   "median_other": 1.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd1.p99",
+   "median_base": 205.824,
+   "median_other": 518.144,
+   "diff": 151.7412935323383,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd1.p999",
+   "median_base": 403.456,
+   "median_other": 2473.984,
+   "diff": 513.1979695431471,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.qd32x4",
+   "median_base": 134107.0,
+   "median_other": 125020.0,
+   "diff": -6.775932650793768,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.mixed-70-30-4k.read",
+   "median_base": 88057.0,
+   "median_other": 82584.0,
+   "diff": -6.215292367443815,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.mixed-70-30-4k.write",
+   "median_base": 37718.0,
+   "median_other": 35375.0,
+   "diff": -6.21188822312954,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.seq-write-1m",
+   "median_base": 3363.0,
+   "median_other": 3317.0,
+   "diff": -1.367826345524829,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.seq-read-1m",
+   "median_base": 7024.0,
+   "median_other": 6462.0,
+   "diff": -8.001138952164009,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd1",
+   "median_base": 6228.0,
+   "median_other": 6057.0,
+   "diff": -2.745664739884393,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd4",
+   "median_base": 24163.0,
+   "median_other": 18420.0,
+   "diff": -23.7677440715143,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd16",
+   "median_base": 84539.0,
+   "median_other": 52376.0,
+   "diff": -38.045162587681425,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd32",
+   "median_base": 107017.0,
+   "median_other": 80990.0,
+   "diff": -24.320435071063475,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd64",
+   "median_base": 94213.0,
+   "median_other": 97607.0,
+   "diff": 3.6024752422701747,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.randread-4k.sweep-qd128",
+   "median_base": 110244.0,
+   "median_other": 108566.0,
+   "diff": -1.522078299045753,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randwrite-8k",
+   "median_base": 103854.0,
+   "median_other": 106956.0,
+   "diff": 2.9868854353226646,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randrw-8k.read",
+   "median_base": 82810.0,
+   "median_other": 82165.0,
+   "diff": -0.7788914382320975,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randrw-8k.write",
+   "median_base": 35467.0,
+   "median_other": 35191.0,
+   "diff": -0.778188174923168,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-seqwrite-1m",
+   "median_base": 3546.0,
+   "median_other": 3674.0,
+   "diff": 3.609701071630006,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.fio.db-randread-8k",
+   "median_base": 129306.0,
+   "median_other": 135448.0,
+   "diff": 4.749972932423862,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.fdatasync.avg",
+   "median_base": 0.25671621919800003,
+   "median_other": 0.256807752747,
+   "diff": 0.03565553796559739,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.fdatasync.p99",
+   "median_base": 0.626688,
+   "median_other": 0.55296,
+   "diff": -11.764705882352944,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "disk.wal.commit-iops.qd1",
+   "median_base": 3755.0,
+   "median_other": 3748.0,
+   "diff": -0.18641810918774968,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.tpcb.tps",
+   "median_base": 11308.429615,
+   "median_other": 10901.727468,
+   "diff": -3.5964511505694152,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.tpcb.stability",
+   "median_base": 97.26,
+   "median_other": 96.88,
+   "diff": -0.39070532593050544,
+   "verdict": 0
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "pg.pgbench.latency.single",
+   "median_base": 1.114,
+   "median_other": 1.144,
+   "diff": 2.6929982046678456,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.tx",
+   "median_base": 7.804561471385612,
+   "median_other": 8.33789181900153,
+   "diff": 6.833572258624695,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.rx",
+   "median_base": 8.39742756023849,
+   "median_other": 8.988851627610874,
+   "diff": 7.042919550419873,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.tcp.bidir",
+   "median_base": 16.202,
+   "median_other": 17.3267,
+   "diff": 6.941735588198969,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.sockperf.pingpong.avg",
+   "median_base": 38.311,
+   "median_other": 50.251,
+   "diff": 31.16598366004541,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.sockperf.pingpong.p99",
+   "median_base": 59.331,
+   "median_other": 65.733,
+   "diff": 10.790311978560956,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.udp.pps",
+   "median_base": 0.323,
+   "median_other": 0.349,
+   "diff": 8.04953560371516,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "net.iperf3.udp.loss",
+   "median_base": 2.2322411005032583,
+   "median_other": 20.158913003202056,
+   "diff": 803.0795552799933,
+   "verdict": -1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 9999.766149968713,
+   "median_other": 15997.104356941652,
+   "diff": 59.97478458025445,
+   "verdict": 1
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.02,
+   "median_other": 0.03,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.cpu.steal.peak",
+   "median_base": 2.05,
+   "median_other": 3.32,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "arm64-high-20261118-203447",
+   "other": "arm64-high-r2-20261119-074530",
+   "id": "info.fio.fill-write-1m",
+   "median_base": 3554.0,
+   "median_other": 3564.0,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-web-20261119-101442",
+   "other": "arm64-high-web-20261119-030942",
+   "id": "web.cpubench.mix.max-rps",
+   "median_base": 31991.596401069553,
+   "median_other": 15996.170905392202,
+   "diff": -49.99883499137476,
+   "verdict": -1
+  },
+  {
+   "base": "x86-high-web-20261119-101442",
+   "other": "arm64-high-web-20261119-030942",
+   "id": "info.cpu.steal.avg",
+   "median_base": 0.01,
+   "median_other": 0.01,
+   "diff": null,
+   "verdict": null
+  },
+  {
+   "base": "x86-high-web-20261119-101442",
+   "other": "arm64-high-web-20261119-030942",
+   "id": "info.cpu.steal.peak",
+   "median_base": 0.06,
+   "median_other": 0.06,
+   "diff": null,
+   "verdict": null
+  }
+ ]
+}

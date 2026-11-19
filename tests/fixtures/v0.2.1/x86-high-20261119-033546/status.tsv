@@ -1,0 +1,55 @@
+stage	step	result
+info	metadata	OK
+info	hardware	OK
+cpu	sysbench st r1	OK
+cpu	sysbench mt r1	OK
+cpu	7z r1	OK
+cpu	cpubench r1	OK
+cpu	openssl r1	OK
+cpu	sysbench st r2	OK
+cpu	sysbench mt r2	OK
+cpu	7z r2	OK
+cpu	cpubench r2	OK
+cpu	openssl r2	OK
+cpu	sysbench st r3	OK
+cpu	sysbench mt r3	OK
+cpu	7z r3	OK
+cpu	cpubench r3	OK
+cpu	openssl r3	OK
+mem	stream r1	OK
+mem	lat_mem_rd r1	OK
+mem	stream r2	OK
+mem	lat_mem_rd r2	OK
+mem	stream r3	OK
+mem	lat_mem_rd r3	OK
+mem	stream cross-numa	SKIP one NUMA node
+disk	fio pre	OK
+disk	fio rw	OK
+disk	fio lat	OK
+disk	fio rr	OK
+disk	fio mix	OK
+disk	fio sw	OK
+disk	fio sr	OK
+disk	fio qd1	OK
+disk	fio qd4	OK
+disk	fio qd16	OK
+disk	fio qd32	OK
+disk	fio qd64	OK
+disk	fio qd128	OK
+disk	fio randwrite8k	OK
+disk	fio randrw70	OK
+disk	fio seqwrite1m	OK
+disk	fio randread8k	OK
+disk	fio wal	OK
+pg	pgbench init	OK
+pg	checkpoint before warm-up	OK
+pg	checkpoint before tpcb	OK
+pg	pgbench tpcb	OK
+pg	checkpoint before single	OK
+pg	pgbench single-session	OK
+net	iperf-tcp	OK
+net	iperf-udp	OK
+net	sockperf	OK
+web	x86-high-web-r1-mix.json	OK
+web	x86-high-web-r2-mix.json	OK
+web	x86-high-web-r3-mix.json	OK

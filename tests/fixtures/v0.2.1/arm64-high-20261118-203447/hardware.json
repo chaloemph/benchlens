@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "cpu": {
+    "vendor": "HiSilicon",
+    "model": "-",
+    "family": null,
+    "model_id": "0",
+    "stepping": "0x0",
+    "microcode": null,
+    "sockets": 1,
+    "cores_per_socket": 16,
+    "threads_per_core": 1,
+    "numa_nodes": 1,
+    "mhz_min": null,
+    "mhz_max": null,
+    "cache": {
+      "l1d": null,
+      "l1i": null,
+      "l2": null,
+      "l3": null
+    }
+  },
+  "freq": {
+    "driver": null,
+    "governor": null,
+    "min_khz": null,
+    "max_khz": null,
+    "scaling_min_khz": null,
+    "scaling_max_khz": null,
+    "turbo": null,
+    "smt": "notimplemented",
+    "cpuidle_driver": null,
+    "cpuidle_governor": "menu"
+  },
+  "system": {
+    "sys_vendor": "QEMU",
+    "product_name": "KVM Virtual Machine",
+    "product_version": "virt-11.0",
+    "board_vendor": null,
+    "board_name": null,
+    "board_version": null,
+    "bios_vendor": "Proxmox distribution of EDK II",
+    "bios_version": "4.2025.05-3",
+    "bios_date": "08/03/2026",
+    "bios_release": "0.0",
+    "bmc": {
+      "firmware": null,
+      "manufacturer": null
+    }
+  },
+  "memory": {
+    "slots": 1,
+    "populated": 1,
+    "dimms": [
+      {
+        "locator": "DIMM 0",
+        "size_mb": 32768,
+        "type": "RAM",
+        "speed_mts": null,
+        "configured_mts": null,
+        "manufacturer": "QEMU",
+        "part": null
+      }
+    ],
+    "configured_speeds": {},
+    "source": "dmidecode"
+  },
+  "nics": [
+    {
+      "name": "enp0s18",
+      "state": "up",
+      "speed_mbps": null,
+      "mtu": 1500,
+      "pci": "0000:00:12.0",
+      "model": null,
+      "driver": "virtio_net",
+      "driver_version": "1.0.0",
+      "firmware": null,
+      "offloads": {
+        "tcp-segmentation-offload": "on",
+        "tx-tcp-segmentation": "on",
+        "tx-tcp-ecn-segmentation": "on",
+        "tx-tcp-mangleid-segmentation": "off",
+        "tx-tcp6-segmentation": "on",
+        "generic-segmentation-offload": "on",
+        "generic-receive-offload": "on",
+        "tx-udp-segmentation": "off"
+      }
+    }
+  ],
+  "disks": [
+    {
+      "name": "sda",
+      "model": "QEMU HARDDISK",
+      "firmware": "2.5+",
+      "size": "50G",
+      "tran": null,
+      "rota": 1
+    },
+    {
+      "name": "sdb",
+      "model": "QEMU HARDDISK",
+      "firmware": "2.5+",
+      "size": "100G",
+      "tran": null,
+      "rota": 1
+    }
+  ],
+  "nvme": [],
+  "nvme_models": {},
+  "bmc": {
+    "power_w": null,
+    "temperatures": {},
+    "fans": {}
+  },
+  "unavailable": [
+    "cpufreq: not exposed by the kernel (usual in a VM)",
+    "ipmitool mc info: ipmitool is not installed"
+  ]
+}

@@ -1,0 +1,142 @@
+id	metric	value	unit	round
+cpu.sysbench.prime.1t	sysbench cpu 1t	1137.79	events/s	1
+cpu.sysbench.prime.max	sysbench cpu 16t	18328.47	events/s	1
+cpu.7z.rating.max	7z rating 16t	81684	MIPS	1
+cpu.cpubench.int.sort.1t	cpubench int/sort 1t	12.078505818463226	Melem/s	1
+cpu.cpubench.int.sort.max	cpubench int/sort 16t	171.67866510479328	Melem/s	1
+cpu.cpubench.int.compress.1t	cpubench int/compress 1t	15.358641776362928	MB/s	1
+cpu.cpubench.int.compress.max	cpubench int/compress 16t	238.61820730160642	MB/s	1
+cpu.cpubench.int.decompress.1t	cpubench int/decompress 1t	237.78379343675857	MB/s	1
+cpu.cpubench.int.decompress.max	cpubench int/decompress 16t	3439.4110906920555	MB/s	1
+cpu.cpubench.int.json.1t	cpubench int/json 1t	615.8919303052381	Krec/s	1
+cpu.cpubench.int.json.max	cpubench int/json 16t	4441.1877584710555	Krec/s	1
+cpu.cpubench.int.regex.1t	cpubench int/regex 1t	30.288516712315676	MB/s	1
+cpu.cpubench.int.regex.max	cpubench int/regex 16t	403.3289196586805	MB/s	1
+cpu.cpubench.int.hashmap.1t	cpubench int/hashmap 1t	19.35455207574385	Mops/s	1
+cpu.cpubench.int.hashmap.max	cpubench int/hashmap 16t	149.34694910374557	Mops/s	1
+cpu.cpubench.float.matmul.1t	cpubench float/matmul 1t	4425.573834427974	MFLOP/s	1
+cpu.cpubench.float.matmul.max	cpubench float/matmul 16t	61345.66381836525	MFLOP/s	1
+cpu.cpubench.float.nbody.1t	cpubench float/nbody 1t	131.7880787627121	Minteract/s	1
+cpu.cpubench.float.nbody.max	cpubench float/nbody 16t	2050.6645873046346	Minteract/s	1
+cpu.cpubench.float.fft.1t	cpubench float/fft 1t	2828.5826783043776	MFLOP/s	1
+cpu.cpubench.float.fft.max	cpubench float/fft 16t	40233.61310586418	MFLOP/s	1
+cpu.cpubench.crypto.aes-gcm.1t	cpubench crypto/aes-gcm 1t	6586.0853514581495	MB/s	1
+cpu.cpubench.crypto.aes-gcm.max	cpubench crypto/aes-gcm 16t	98451.12385965452	MB/s	1
+cpu.cpubench.crypto.sha256.1t	cpubench crypto/sha256 1t	1660.7323906799636	MB/s	1
+cpu.cpubench.crypto.sha256.max	cpubench crypto/sha256 16t	25648.45825256744	MB/s	1
+cpu.cpubench.crypto.ecdsa-p256.1t	cpubench crypto/ecdsa-p256 1t	9451.69667879666	ops/s	1
+cpu.cpubench.crypto.ecdsa-p256.max	cpubench crypto/ecdsa-p256 16t	72160.29941473035	ops/s	1
+cpu.cpubench.crypto.rsa2048-sign.1t	cpubench crypto/rsa2048-sign 1t	1222.0170021180732	ops/s	1
+cpu.cpubench.crypto.rsa2048-sign.max	cpubench crypto/rsa2048-sign 16t	17598.352600614704	ops/s	1
+cpu.openssl.aes-256-gcm.1t	openssl aes-256-gcm 1t	14612.9	MB/s	1
+cpu.openssl.aes-256-gcm.max	openssl aes-256-gcm 16t	229700.9	MB/s	1
+cpu.sysbench.prime.1t	sysbench cpu 1t	1145.96	events/s	2
+cpu.sysbench.prime.max	sysbench cpu 16t	18323.97	events/s	2
+cpu.7z.rating.max	7z rating 16t	81853	MIPS	2
+cpu.cpubench.int.sort.1t	cpubench int/sort 1t	12.191818458435655	Melem/s	2
+cpu.cpubench.int.sort.max	cpubench int/sort 16t	175.67317708363328	Melem/s	2
+cpu.cpubench.int.compress.1t	cpubench int/compress 1t	15.135020097111973	MB/s	2
+cpu.cpubench.int.compress.max	cpubench int/compress 16t	236.94004465736973	MB/s	2
+cpu.cpubench.int.decompress.1t	cpubench int/decompress 1t	235.09467521970356	MB/s	2
+cpu.cpubench.int.decompress.max	cpubench int/decompress 16t	3248.837628905781	MB/s	2
+cpu.cpubench.int.json.1t	cpubench int/json 1t	612.1005827549506	Krec/s	2
+cpu.cpubench.int.json.max	cpubench int/json 16t	4189.415136307138	Krec/s	2
+cpu.cpubench.int.regex.1t	cpubench int/regex 1t	29.941949665876628	MB/s	2
+cpu.cpubench.int.regex.max	cpubench int/regex 16t	254.60627385063026	MB/s	2
+cpu.cpubench.int.hashmap.1t	cpubench int/hashmap 1t	18.994387379670627	Mops/s	2
+cpu.cpubench.int.hashmap.max	cpubench int/hashmap 16t	153.904104327531	Mops/s	2
+cpu.cpubench.float.matmul.1t	cpubench float/matmul 1t	4502.423876073878	MFLOP/s	2
+cpu.cpubench.float.matmul.max	cpubench float/matmul 16t	64251.41783372708	MFLOP/s	2
+cpu.cpubench.float.nbody.1t	cpubench float/nbody 1t	131.908887693667	Minteract/s	2
+cpu.cpubench.float.nbody.max	cpubench float/nbody 16t	1950.464512541574	Minteract/s	2
+cpu.cpubench.float.fft.1t	cpubench float/fft 1t	2849.952388724356	MFLOP/s	2
+cpu.cpubench.float.fft.max	cpubench float/fft 16t	39757.87865525334	MFLOP/s	2
+cpu.cpubench.crypto.aes-gcm.1t	cpubench crypto/aes-gcm 1t	6577.420023844164	MB/s	2
+cpu.cpubench.crypto.aes-gcm.max	cpubench crypto/aes-gcm 16t	99664.31078088777	MB/s	2
+cpu.cpubench.crypto.sha256.1t	cpubench crypto/sha256 1t	1666.2527821008	MB/s	2
+cpu.cpubench.crypto.sha256.max	cpubench crypto/sha256 16t	25777.041144287996	MB/s	2
+cpu.cpubench.crypto.ecdsa-p256.1t	cpubench crypto/ecdsa-p256 1t	9693.483097970313	ops/s	2
+cpu.cpubench.crypto.ecdsa-p256.max	cpubench crypto/ecdsa-p256 16t	65794.80869090208	ops/s	2
+cpu.cpubench.crypto.rsa2048-sign.1t	cpubench crypto/rsa2048-sign 1t	1219.983823014507	ops/s	2
+cpu.cpubench.crypto.rsa2048-sign.max	cpubench crypto/rsa2048-sign 16t	17889.154060813373	ops/s	2
+cpu.openssl.aes-256-gcm.1t	openssl aes-256-gcm 1t	14524.5	MB/s	2
+cpu.openssl.aes-256-gcm.max	openssl aes-256-gcm 16t	218023.7	MB/s	2
+cpu.sysbench.prime.1t	sysbench cpu 1t	1141.11	events/s	3
+cpu.sysbench.prime.max	sysbench cpu 16t	18319.29	events/s	3
+cpu.7z.rating.max	7z rating 16t	82158	MIPS	3
+cpu.cpubench.int.sort.1t	cpubench int/sort 1t	12.135848927328317	Melem/s	3
+cpu.cpubench.int.sort.max	cpubench int/sort 16t	180.4404257797167	Melem/s	3
+cpu.cpubench.int.compress.1t	cpubench int/compress 1t	15.317359039661849	MB/s	3
+cpu.cpubench.int.compress.max	cpubench int/compress 16t	238.27248071539336	MB/s	3
+cpu.cpubench.int.decompress.1t	cpubench int/decompress 1t	236.32426003723552	MB/s	3
+cpu.cpubench.int.decompress.max	cpubench int/decompress 16t	3407.6243216181547	MB/s	3
+cpu.cpubench.int.json.1t	cpubench int/json 1t	608.6441436785451	Krec/s	3
+cpu.cpubench.int.json.max	cpubench int/json 16t	4430.131826809784	Krec/s	3
+cpu.cpubench.int.regex.1t	cpubench int/regex 1t	30.414425318375486	MB/s	3
+cpu.cpubench.int.regex.max	cpubench int/regex 16t	434.5062572161568	MB/s	3
+cpu.cpubench.int.hashmap.1t	cpubench int/hashmap 1t	21.045240213754365	Mops/s	3
+cpu.cpubench.int.hashmap.max	cpubench int/hashmap 16t	166.0309929766538	Mops/s	3
+cpu.cpubench.float.matmul.1t	cpubench float/matmul 1t	4523.947283163841	MFLOP/s	3
+cpu.cpubench.float.matmul.max	cpubench float/matmul 16t	62000.36462362465	MFLOP/s	3
+cpu.cpubench.float.nbody.1t	cpubench float/nbody 1t	132.15581812417497	Minteract/s	3
+cpu.cpubench.float.nbody.max	cpubench float/nbody 16t	2023.9003424373095	Minteract/s	3
+cpu.cpubench.float.fft.1t	cpubench float/fft 1t	2819.127056119818	MFLOP/s	3
+cpu.cpubench.float.fft.max	cpubench float/fft 16t	39469.53830503841	MFLOP/s	3
+cpu.cpubench.crypto.aes-gcm.1t	cpubench crypto/aes-gcm 1t	6611.187054739704	MB/s	3
+cpu.cpubench.crypto.aes-gcm.max	cpubench crypto/aes-gcm 16t	87807.4940862889	MB/s	3
+cpu.cpubench.crypto.sha256.1t	cpubench crypto/sha256 1t	1662.868113717623	MB/s	3
+cpu.cpubench.crypto.sha256.max	cpubench crypto/sha256 16t	20749.682389753947	MB/s	3
+cpu.cpubench.crypto.ecdsa-p256.1t	cpubench crypto/ecdsa-p256 1t	9411.059872857051	ops/s	3
+cpu.cpubench.crypto.ecdsa-p256.max	cpubench crypto/ecdsa-p256 16t	71673.43299337542	ops/s	3
+cpu.cpubench.crypto.rsa2048-sign.1t	cpubench crypto/rsa2048-sign 1t	1197.372700872292	ops/s	3
+cpu.cpubench.crypto.rsa2048-sign.max	cpubench crypto/rsa2048-sign 16t	17946.807390275433	ops/s	3
+cpu.openssl.aes-256-gcm.1t	openssl aes-256-gcm 1t	14626.9	MB/s	3
+cpu.openssl.aes-256-gcm.max	openssl aes-256-gcm 16t	233357.3	MB/s	3
+mem.stream.triad.max	stream triad (N=100000000)	179791.2	MB/s	1
+mem.stream.copy.max	stream copy (N=100000000)	207330.9	MB/s	1
+mem.lmbench.lat-mem-rd.1t	lat_mem_rd -t 2048MB	159.553	ns	1
+mem.stream.triad.max	stream triad (N=100000000)	161322.0	MB/s	2
+mem.stream.copy.max	stream copy (N=100000000)	184228.4	MB/s	2
+mem.lmbench.lat-mem-rd.1t	lat_mem_rd -t 2048MB	141.939	ns	2
+mem.stream.triad.max	stream triad (N=100000000)	164316.0	MB/s	3
+mem.stream.copy.max	stream copy (N=100000000)	189348.4	MB/s	3
+mem.lmbench.lat-mem-rd.1t	lat_mem_rd -t 2048MB	147.352	ns	3
+info.fio.fill-write-1m	fio fill write 1M	1103	MB/s	1
+disk.fio.randwrite-4k.qd32x4	fio randwrite 4k qd32x4	77572	IOPS	1
+disk.fio.randwrite-4k.steadystate	steadystate attained (1=yes)	1	flag	1
+disk.fio.randread-4k.qd1.p99	fio randread 4k qd1 p99	452.608	us	1
+disk.fio.randread-4k.qd1.p999	fio randread 4k qd1 p99.9	1335.296	us	1
+disk.fio.randread-4k.qd32x4	fio randread 4k qd32x4	113203	IOPS	1
+disk.fio.mixed-70-30-4k.read	fio mixed 70/30 read	75416	IOPS	1
+disk.fio.mixed-70-30-4k.write	fio mixed 70/30 write	32300	IOPS	1
+disk.fio.seq-write-1m	fio seq write 1M	1281	MB/s	1
+disk.fio.seq-read-1m	fio seq read 1M	1821	MB/s	1
+disk.fio.randread-4k.sweep-qd1	fio randread 4k qd1	3607	IOPS	1
+disk.fio.randread-4k.sweep-qd4	fio randread 4k qd4	15334	IOPS	1
+disk.fio.randread-4k.sweep-qd16	fio randread 4k qd16	65330	IOPS	1
+disk.fio.randread-4k.sweep-qd32	fio randread 4k qd32	106155	IOPS	1
+disk.fio.randread-4k.sweep-qd64	fio randread 4k qd64	115735	IOPS	1
+disk.fio.randread-4k.sweep-qd128	fio randread 4k qd128	122859	IOPS	1
+disk.fio.db-randwrite-8k	fio randwrite 8k	80413	IOPS	1
+disk.fio.db-randrw-8k.read	fio randrw 70/30 8k read	72707	IOPS	1
+disk.fio.db-randrw-8k.write	fio randrw 70/30 8k write	31136	IOPS	1
+disk.fio.db-seqwrite-1m	fio seqwrite 1M	1286	MB/s	1
+disk.fio.db-randread-8k	fio randread 8k	116474	IOPS	1
+disk.wal.fdatasync.avg	wal fdatasync avg	0.923603120563	ms	1
+disk.wal.fdatasync.p99	wal fdatasync p99	2.21184	ms	1
+disk.wal.commit-iops.qd1	wal commit iops qd1	1072	IOPS	1
+pg.pgbench.tpcb.tps	pgbench tpcb-like tps (-c 32)	4802.848121	TPS	1
+pg.pgbench.tpcb.stability	tps stability 100*(1-cv)	85.74	%	1
+pg.pgbench.latency.single	pgbench single-session latency	1.253	ms	1
+net.iperf3.tcp.tx	iperf3 tcp tx->peer	18.788188604599366	Gbps	1
+net.iperf3.tcp.rx	iperf3 tcp peer->rx	20.05811800530258	Gbps	1
+net.iperf3.tcp.bidir	iperf3 tcp bidir total	38.8463	Gbps	1
+net.iperf3.udp.pps	iperf3 udp 64B packets sent	0.614	Mpps	1
+net.iperf3.udp.loss	iperf3 udp lost packets %	4.82906806481307	%	1
+net.sockperf.pingpong.avg	sockperf ping-pong avg (one-way)	37.269	us	1
+net.sockperf.pingpong.p99	sockperf ping-pong p99	49.848	us	1
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	19991.972912000656	RPS	1
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	19983.600409364233	RPS	2
+web.cpubench.mix.max-rps	cpubench web mix max RPS @ SLO (loopback)	19997.975818886196	RPS	3
+info.cpu.steal.avg	cpu steal avg	0.02	%	1
+info.cpu.steal.peak	cpu steal max	0.23	%	1

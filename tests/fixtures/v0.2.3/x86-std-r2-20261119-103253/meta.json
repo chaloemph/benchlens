@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "vmbench_version": "v0.2.3",
+  "cpubench_version": "cpubench v0.1.0 \u00b7 d0605cdaff53 \u00b7 go1.26.3 \u00b7 GOAMD64=v1",
+  "label": "x86-std-r2",
+  "stages": [
+    "info",
+    "cpu",
+    "mem",
+    "disk",
+    "pg",
+    "net",
+    "web"
+  ],
+  "quick": false,
+  "rounds": 3,
+  "rounds_by_stage": {
+    "cpu": 3,
+    "mem": 3,
+    "disk": 1,
+    "pg": 1,
+    "web": 3
+  },
+  "start_utc": "2026-11-19T03:32:55Z",
+  "end_utc": "2026-11-19T05:34:27Z",
+  "arch": "x86_64",
+  "nproc": 2,
+  "ram_gb": 4,
+  "pg_profile": "production",
+  "web_cpus": "0|1"
+}

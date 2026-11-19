@@ -1,0 +1,19 @@
+[package]
+name = "benchlens"
+description = "Import, list and compare vmbench results"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "benchlens"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+benchlens-core = { path = "../core" }
+clap.workspace = true
+serde_json.workspace = true
+

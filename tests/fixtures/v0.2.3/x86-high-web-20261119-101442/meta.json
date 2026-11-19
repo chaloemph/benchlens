@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "vmbench_version": "v0.2.3",
+  "cpubench_version": "cpubench v0.1.0 \u00b7 d0605cdaff53 \u00b7 go1.26.3 \u00b7 GOAMD64=v1",
+  "label": "x86-high-web",
+  "stages": [
+    "info",
+    "web"
+  ],
+  "quick": false,
+  "rounds": 3,
+  "rounds_by_stage": {
+    "web": 3
+  },
+  "start_utc": "2026-11-19T03:14:43Z",
+  "end_utc": "2026-11-19T03:29:32Z",
+  "arch": "x86_64",
+  "nproc": 16,
+  "ram_gb": 31,
+  "pg_profile": null,
+  "web_cpus": "0-7|8-15"
+}
