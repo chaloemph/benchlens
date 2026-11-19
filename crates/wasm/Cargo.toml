@@ -1,0 +1,26 @@
+[package]
+name = "benchlens-wasm"
+description = "The verdict rule of benchlens-rules compiled to WebAssembly for the browser (wasm-bindgen)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+# wasm-bindgen 0.2.130 needs 1.81
+rust-version = "1.81"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+benchlens-rules = { path = "../rules" }
+serde.workspace = true
+serde_json.workspace = true
+
+# Only the wasm build pulls in wasm-bindgen; the native build (cargo test --all) uses compare_json directly.
+# Keep this version equal to the wasm-bindgen-cli used by scripts/build-wasm.sh and CI.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "=0.2.130"
+
+[dev-dependencies]
+benchlens-core = { path = "../core" }
