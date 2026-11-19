@@ -20,9 +20,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-/// The web UI, compiled into the binary.
+/// The web UI, compiled into the binary. `web/dev/` (development tools) and the READMEs are left out.
 #[derive(RustEmbed)]
 #[folder = "../../web/"]
+#[exclude = "dev/*"]
+#[exclude = "*.md"]
 struct Web;
 
 /// How to run the server.
