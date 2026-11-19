@@ -1,0 +1,33 @@
+# benchlens with its database in a named volume.
+#   docker compose up -d        then open http://localhost:8080
+#   docker compose run --rm benchlens import /data/inbox/...   (once the inbox mount below is enabled)
+services:
+  benchlens:
+    image: ghcr.io/chaloemph/benchlens:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      BENCHLENS_DB: /data/benchlens.db
+      BENCHLENS_LISTEN: 0.0.0.0:8080
+    volumes:
+      - benchlens-data:/data
+      # Inbox folder (coming with the inbox feature): drop vmbench result archives here.
+      # - ./inbox:/data/inbox
+
+  # Grafana on the benchlens database, read-only (task G; not ready yet).
+  # grafana:
+  #   image: grafana/grafana-oss:latest
+  #   profiles: [grafana]
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     GF_INSTALL_PLUGINS: frser-sqlite-datasource
+  #   volumes:
+  #     - benchlens-data:/var/lib/benchlens:ro
+  #     - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+
+volumes:
+  benchlens-data:
