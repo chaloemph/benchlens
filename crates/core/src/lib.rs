@@ -14,6 +14,8 @@ pub mod error;
 pub mod import;
 pub mod inbox;
 pub mod store;
+#[doc(hidden)]
+pub mod testing;
 
 pub use benchlens_rules::{catalog, verdict};
 

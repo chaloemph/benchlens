@@ -2,8 +2,9 @@
 //! fixtures (long lists cut to a few entries). Run from the repo root: cargo run -p benchlens-core --example api_examples
 
 use benchlens_core::compare;
-use benchlens_core::import::{import_path, ImportOptions, Registry};
+use benchlens_core::import::ImportOptions;
 use benchlens_core::store::Store;
+use benchlens_core::testing::{import_fixtures, poc_registry};
 use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
@@ -27,17 +28,11 @@ fn write(name: &str, v: &Value) {
 
 fn main() {
     let store = Store::open_in_memory().unwrap();
-    let registry =
-        Registry::parse(&fs::read_to_string("examples/poc-2026-11/registry.tsv").unwrap()).unwrap();
     let opts = ImportOptions {
-        registry: Some(registry),
+        registry: Some(poc_registry()),
         ..Default::default()
     };
-    let mut imported = vec![];
-    for ver in ["v0.2.1", "v0.2.3"] {
-        imported
-            .extend(import_path(&store, &Path::new("tests/fixtures").join(ver), &opts).unwrap());
-    }
+    let imported = import_fixtures(&store, &opts);
     write(
         "import-report",
         &cut(serde_json::to_value(&imported).unwrap(), 2),

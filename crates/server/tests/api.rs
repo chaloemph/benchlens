@@ -3,31 +3,13 @@
 use axum::body::Body;
 use axum::http::{header, Method, Request, StatusCode};
 use benchlens_core::compare;
-use benchlens_core::import::{import_path, ImportOptions, Registry};
 use benchlens_core::store::Store;
+use benchlens_core::testing::{fixture_store, repo_root};
 use benchlens_server::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
-
-fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn fixture_store() -> Store {
-    let store = Store::open_in_memory().unwrap();
-    let text = std::fs::read_to_string(root().join("examples/poc-2026-11/registry.tsv")).unwrap();
-    let opts = ImportOptions {
-        registry: Some(Registry::parse(&text).unwrap()),
-        ..Default::default()
-    };
-    for ver in ["v0.2.1", "v0.2.3"] {
-        import_path(&store, &root().join("tests/fixtures").join(ver), &opts).unwrap();
-    }
-    store
-}
 
 struct App {
     state: AppState,
@@ -57,7 +39,7 @@ impl App {
     fn new() -> App {
         App {
             state: AppState {
-                store: Arc::new(Mutex::new(fixture_store())),
+                store: Arc::new(Mutex::new(fixture_store(true))),
             },
         }
     }
@@ -287,7 +269,7 @@ async fn run_files() {
     assert_eq!(r.status, StatusCode::OK);
     assert_eq!(r.content_type, "text/plain; charset=utf-8");
     let stored = std::fs::read_to_string(
-        root().join("tests/fixtures/v0.2.3/x86-high-r2-20261119-145026/results.tsv"),
+        repo_root().join("tests/fixtures/v0.2.3/x86-high-r2-20261119-145026/results.tsv"),
     )
     .unwrap();
     assert_eq!(r.body, stored);

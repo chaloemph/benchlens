@@ -5,27 +5,20 @@
 //!     cargo run -p benchlens-wasm --example golden_inputs -- OUT.json
 
 use benchlens_core::compare;
-use benchlens_core::import::{import_path, ImportOptions};
+use benchlens_core::import::ImportOptions;
 use benchlens_core::store::Store;
+use benchlens_core::testing::{import_fixtures, repo_root};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
-use std::path::PathBuf;
 
 fn main() {
     let out = std::env::args()
         .nth(1)
         .expect("usage: golden_inputs OUT.json");
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests");
+    let root = repo_root().join("tests");
     let store = Store::open_in_memory().unwrap();
-    for ver in ["v0.2.1", "v0.2.3"] {
-        let reports = import_path(
-            &store,
-            &root.join("fixtures").join(ver),
-            &ImportOptions::default(),
-        )
-        .unwrap();
-        assert!(reports.iter().all(|r| r.run_id.is_some()), "{reports:?}");
-    }
+    let reports = import_fixtures(&store, &ImportOptions::default());
+    assert!(reports.iter().all(|r| r.run_id.is_some()), "{reports:?}");
     let golden: Value =
         serde_json::from_str(&std::fs::read_to_string(root.join("golden/compare.json")).unwrap())
             .unwrap();

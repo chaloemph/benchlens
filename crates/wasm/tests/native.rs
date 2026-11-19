@@ -1,18 +1,12 @@
 //! compare_json (what the wasm export runs) gives the same JSON as benchlens-core's compare.
 
 use benchlens_core::compare;
-use benchlens_core::import::{import_path, ImportOptions};
-use benchlens_core::store::Store;
+use benchlens_core::testing::fixture_store;
 use serde_json::json;
-use std::path::PathBuf;
 
 #[test]
 fn compare_json_matches_core_compare() {
-    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
-    let store = Store::open_in_memory().unwrap();
-    for ver in ["v0.2.1", "v0.2.3"] {
-        import_path(&store, &fixtures.join(ver), &ImportOptions::default()).unwrap();
-    }
+    let store = fixture_store(false);
     let runs = store.list_runs().unwrap();
     assert!(runs.len() >= 3);
     let base = runs[0].run_id.clone();
