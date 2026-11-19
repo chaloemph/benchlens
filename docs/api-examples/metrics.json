@@ -1,0 +1,27 @@
+[
+  {
+    "description": "Errors found by the burn-in (memory, disk verify, kernel log)",
+    "direction": "lower",
+    "id": "burnin.errors",
+    "label": "burn-in errors ({x}s)",
+    "tool": "stressapptest, fio",
+    "unit": "count"
+  },
+  {
+    "description": "7-Zip built-in benchmark total rating, all vCPUs",
+    "direction": "higher",
+    "id": "cpu.7z.rating.max",
+    "label": "7z rating {t}t",
+    "tool": "7-Zip",
+    "unit": "MIPS"
+  },
+  {
+    "description": "AES-GCM (median of cpubench iterations), 1 thread",
+    "direction": "higher",
+    "id": "cpu.cpubench.crypto.aes-gcm.1t",
+    "label": "cpubench crypto/aes-gcm {t}t",
+    "tool": "cpubench",
+    "unit": "varies"
+  },
+  "... 95 more"
+]

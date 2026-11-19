@@ -131,19 +131,42 @@ pub struct RunSummary {
     pub values: i64,
 }
 
-/// One raw value with what is needed to judge it.
-#[derive(Debug, Clone)]
-pub struct ValueRow {
-    pub run_id: String,
-    pub id: String,
+pub use benchlens_rules::compare::ValueRow;
+
+/// A group: every run whose effective group (the `group` tag, else the automatic one) is the same.
+#[derive(Debug, Clone, Serialize)]
+pub struct GroupSummary {
+    pub group: String,
+    pub runs: usize,
+    pub labels: Vec<String>,
+    pub archs: Vec<String>,
+    pub nproc: Vec<i64>,
+    pub cpu_models: Vec<String>,
+    pub vmbench_versions: Vec<String>,
+    pub first_start_utc: String,
+    pub last_start_utc: String,
+}
+
+/// A kept file of a run.
+#[derive(Debug, Clone, Serialize)]
+pub struct FileInfo {
     pub name: String,
-    pub section: String,
-    pub unit: String,
-    pub direction: Option<Direction>,
-    pub tool: String,
-    pub arch: String,
-    pub round: i64,
-    pub value: f64,
+    pub bytes: usize,
+}
+
+/// Everything about one run except its values.
+#[derive(Debug, Clone, Serialize)]
+pub struct RunDetail {
+    #[serde(flatten)]
+    pub summary: RunSummary,
+    pub stages: String,
+    pub end_utc: String,
+    pub imported_at: String,
+    pub pg_profile: String,
+    pub web_cpus: String,
+    pub meta: serde_json::Value,
+    pub hardware: Option<serde_json::Value>,
+    pub files: Vec<FileInfo>,
 }
 
 pub struct Store {
@@ -344,6 +367,129 @@ impl Store {
                 .collect::<std::result::Result<_, _>>()?;
         }
         Ok(runs)
+    }
+
+    /// One run as listed.
+    pub fn run_summary(&self, run_id: &str) -> Result<RunSummary> {
+        self.list_runs()?
+            .into_iter()
+            .find(|r| r.run_id == run_id)
+            .ok_or_else(|| Error::NotFound(format!("no run {run_id}")))
+    }
+
+    /// One run with its meta.json, hardware.json and the list of kept files.
+    pub fn run_detail(&self, run_id: &str) -> Result<RunDetail> {
+        let summary = self.run_summary(run_id)?;
+        let (stages, end_utc, imported_at, pg_profile, web_cpus, meta, hw): (String, String, String, String, String, String, Option<String>) =
+            self.conn.query_row(
+                "SELECT stages, end_utc, imported_at, pg_profile, web_cpus, meta_json, hardware_json FROM runs WHERE run_id = ?1",
+                [run_id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?, r.get(6)?)),
+            )?;
+        let mut st = self
+            .conn
+            .prepare("SELECT name, length(content) FROM files WHERE run_id = ?1 ORDER BY name")?;
+        let files = st
+            .query_map([run_id], |r| {
+                Ok(FileInfo {
+                    name: r.get(0)?,
+                    bytes: r.get::<_, i64>(1)? as usize,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?;
+        Ok(RunDetail {
+            summary,
+            stages,
+            end_utc,
+            imported_at,
+            pg_profile,
+            web_cpus,
+            meta: serde_json::from_str(&meta)?,
+            hardware: hw.map(|h| serde_json::from_str(&h)).transpose()?,
+            files,
+        })
+    }
+
+    /// A kept file of a run (meta.json, results.tsv, status.tsv, hardware.json, report.md, benchlens-tags.json).
+    pub fn file(&self, run_id: &str, name: &str) -> Result<Vec<u8>> {
+        self.conn
+            .query_row(
+                "SELECT content FROM files WHERE run_id = ?1 AND name = ?2",
+                params![run_id, name],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("run {run_id} has no file {name}")))
+    }
+
+    /// Every group with what its runs have in common or not.
+    pub fn list_groups(&self) -> Result<Vec<GroupSummary>> {
+        let mut by: BTreeMap<String, GroupSummary> = BTreeMap::new();
+        for r in self.list_runs()? {
+            let g = by.entry(r.group.clone()).or_insert_with(|| GroupSummary {
+                group: r.group.clone(),
+                runs: 0,
+                labels: vec![],
+                archs: vec![],
+                nproc: vec![],
+                cpu_models: vec![],
+                vmbench_versions: vec![],
+                first_start_utc: r.start_utc.clone(),
+                last_start_utc: r.start_utc.clone(),
+            });
+            g.runs += 1;
+            let push = |v: &mut Vec<String>, x: &str| {
+                if !x.is_empty() && !v.iter().any(|y| y == x) {
+                    v.push(x.to_string())
+                }
+            };
+            push(&mut g.labels, &r.label);
+            push(&mut g.archs, &r.arch);
+            push(&mut g.cpu_models, &r.cpu_model);
+            push(&mut g.vmbench_versions, &r.vmbench_version);
+            if let Some(n) = r.nproc {
+                if !g.nproc.contains(&n) {
+                    g.nproc.push(n);
+                }
+            }
+            if r.start_utc < g.first_start_utc {
+                g.first_start_utc = r.start_utc.clone();
+            }
+            if r.start_utc > g.last_start_utc {
+                g.last_start_utc = r.start_utc.clone();
+            }
+        }
+        Ok(by.into_values().collect())
+    }
+
+    /// The metric table of a vmbench version as stored (built-in or added).
+    pub fn metrics(&self, version: &str) -> Result<Vec<benchlens_rules::catalog::Metric>> {
+        let v = benchlens_rules::catalog::normalize_version(version);
+        let mut st = self.conn.prepare(
+            "SELECT id, unit, direction, tool, label, description FROM metrics WHERE version = ?1 ORDER BY id",
+        )?;
+        let rows = st.query_map([&v], |r| {
+            Ok(benchlens_rules::catalog::Metric {
+                id: r.get(0)?,
+                unit: r.get(1)?,
+                direction: Direction::parse(&r.get::<_, String>(2)?),
+                tool: r.get(3)?,
+                label: r.get(4)?,
+                description: r.get(5)?,
+            })
+        })?;
+        let out: Vec<_> = rows.collect::<std::result::Result<_, _>>()?;
+        if out.is_empty() {
+            return Err(Error::NotFound(format!("no metric table for vmbench {v}")));
+        }
+        Ok(out)
+    }
+
+    /// Number of runs.
+    pub fn run_count(&self) -> Result<i64> {
+        Ok(self
+            .conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |r| r.get(0))?)
     }
 
     /// Runs whose effective group is `group`.

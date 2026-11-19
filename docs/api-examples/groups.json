@@ -1,0 +1,71 @@
+[
+  {
+    "archs": [
+      "aarch64"
+    ],
+    "cpu_models": [
+      "HiSilicon"
+    ],
+    "first_start_utc": "2026-11-18T20:34:50Z",
+    "group": "arm64-high",
+    "labels": [
+      "arm64-high",
+      "arm64-high-web",
+      "arm64-high-r2"
+    ],
+    "last_start_utc": "2026-11-19T07:45:33Z",
+    "nproc": [
+      16
+    ],
+    "runs": 3,
+    "vmbench_versions": [
+      "v0.2.1",
+      "v0.2.3"
+    ]
+  },
+  {
+    "archs": [
+      "x86_64"
+    ],
+    "cpu_models": [
+      "INTEL(R) XEON(R) GOLD 6526Y"
+    ],
+    "first_start_utc": "2026-11-18T20:35:48Z",
+    "group": "x86-high",
+    "labels": [
+      "x86-high",
+      "x86-high-web",
+      "x86-high-r2"
+    ],
+    "last_start_utc": "2026-11-19T07:50:28Z",
+    "nproc": [
+      16
+    ],
+    "runs": 3,
+    "vmbench_versions": [
+      "v0.2.1",
+      "v0.2.3"
+    ]
+  },
+  {
+    "archs": [
+      "x86_64"
+    ],
+    "cpu_models": [
+      "INTEL(R) XEON(R) GOLD 6526Y"
+    ],
+    "first_start_utc": "2026-11-19T03:32:55Z",
+    "group": "x86-std",
+    "labels": [
+      "x86-std-r2"
+    ],
+    "last_start_utc": "2026-11-19T03:32:55Z",
+    "nproc": [
+      2
+    ],
+    "runs": 1,
+    "vmbench_versions": [
+      "v0.2.3"
+    ]
+  }
+]

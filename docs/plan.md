@@ -8,7 +8,9 @@ the working plan for whoever builds the rest, person or agent.
 
 1. **The verdict rule is vmbench's.** Do not change `crates/core/src/verdict.rs` or how `compare.rs` pools
    values unless vmbench changed first; `cargo test` (golden) must pass on every branch.
-2. **One task, one branch, one worktree.** Branch `m2/<task-id>-<slug>`, PR into `main`, CI green before merge.
+2. **One task, one branch, one worktree.** Branch `m2/<task-id>-<slug>`. Task agents commit on their branch and
+   stop: they do not push or open PRs. Every branch goes through task **L** (lead review), which is the only
+   one that opens PRs; the owner merges.
 3. **Stay inside your files** (column "Owns" below). Need a change elsewhere? Ask in the PR, or make it the
    smallest possible and say so in the PR description.
 4. **Real data only.** Develop and test against `tests/fixtures/` and the JSON the CLI prints
@@ -39,8 +41,10 @@ the working plan for whoever builds the rest, person or agent.
 ```
 
 Wave 0: T0 only. Wave 1: A, B, E, F, C1, V in parallel. Wave 2: C2, D, and A+B integration. Wave 3: G, H.
+After each wave: **L** (lead review) takes every finished branch of that wave, then the next wave starts
+from what L integrated.
 
-## T0 (lead, before anyone else starts)
+## T0 (lead, before anyone else starts): done in PR `m2/t0-foundation`
 
 Small and serial, because every other task builds on it.
 
@@ -92,6 +96,24 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 
 **M2** = T0 + A + B + AB. **M3** = C1 + C2. **M4** = E + D. Release `v0.1.0` after M4 with F.
 
+## L: lead review, refactor and integration (after every wave)
+
+One lead agent, started when every task of a wave has reported done. Nothing reaches a PR without it.
+
+| Step | What L does |
+|---|---|
+| 1. Review each branch | Read the whole diff against its task row and docs/api.md / docs/contract.md: correctness, untrusted-input handling (archives, uploads, tags, query strings, HTML), error messages, tests that really test the claim, no invented data, no change to the verdict rule. Write findings per branch in `docs/reviews/<wave>-<task>.md`. |
+| 2. Fix or send back | Small issues: fix on the task branch in a separate commit (`review: ...`). Large ones: write them up and hand back to the task's agent; do not rewrite the task. |
+| 3. Refactor across branches | Remove duplication between tasks (shared helpers, error mapping, config handling, test setup), align naming and module layout, keep public APIs and docs/api.md consistent. Behaviour-preserving only; separate commits. |
+| 4. Integrate | Merge the wave's branches in dependency order into `integration/<wave>` (e.g. T0 → A → C1 → E → F → B), resolving conflicts (Cargo.toml / Cargo.lock / main.rs / server lib.rs are the usual ones). After each merge: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --all`, the WASM golden test, and an end-to-end check (`benchlens serve` on the POC fixtures, every API endpoint and every UI view loads). |
+| 5. Open PRs | Push and open one PR per task (or one integration PR if the owner prefers), each with: what changed, L's review summary and fixes, tests run and results, known gaps. CI must be green. L never merges. |
+| 6. Update the plan | Mark tasks done, note follow-ups found in review as new rows, adjust the next wave's task prompts if the code moved. |
+
+L owns: `integration/*` branches, `docs/reviews/**`, review/refactor commits on task branches, PR descriptions.
+L does not: merge to `main`, change the verdict rule, add features beyond what a task row asked for.
+
+Gate: a PR without an L review summary is not merged.
+
 ## Wave 3 (after M4)
 
 | ID | Task | Done when |
@@ -102,7 +124,8 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 ## Decisions (2026-11-19)
 
 1. Repo: `chaloemph/benchlens` on GitHub, public; agents work through PRs and CI.
-2. Merging: the project owner reviews and merges every PR. Agents open PRs and stop there.
+2. Merging: the project owner merges every PR. Task agents only commit locally; the lead agent (task L) reviews,
+   refactors, integrates and opens the PRs, and every PR must have passed L.
 3. Web UI (B): follows the Claude Artifact prototype (baseline + N picker, quick picks, tally, heatmap,
    dot plot), plus the runs list and hardware views.
 4. T0: done by the lead session before Wave 1 is handed out.

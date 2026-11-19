@@ -1,11 +1,11 @@
 //! The vmbench metric table, one per vmbench version: the output of `vmbench run --metrics`,
 //! one line per id: `id|unit|direction|tool|label|description`.
 //!
-//! The tables of known versions are built into benchlens (`crates/core/catalog/`); a table for a newer
+//! The tables of known versions are built into benchlens (`crates/rules/catalog/`); a table for a newer
 //! vmbench can be added to a database with `benchlens catalog add` without a new benchlens release.
 
 use crate::verdict::Direction;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 const EMBEDDED: &[(&str, &str)] = &[
@@ -15,7 +15,7 @@ const EMBEDDED: &[(&str, &str)] = &[
 ];
 
 /// One metric of the vmbench table.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metric {
     pub id: String,
     pub unit: String,

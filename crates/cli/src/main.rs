@@ -74,6 +74,12 @@ enum Cmd {
         #[arg(long)]
         json: bool,
     },
+    /// Serve the web UI and the JSON API (docs/api.md).
+    Serve {
+        /// Address to listen on; use 0.0.0.0:8080 to serve other machines.
+        #[arg(long, env = "BENCHLENS_LISTEN", default_value = "127.0.0.1:8080")]
+        listen: std::net::SocketAddr,
+    },
     /// Metric tables of vmbench versions.
     Catalog {
         #[command(subcommand)]
@@ -243,6 +249,13 @@ fn main() -> Result<()> {
             } else {
                 print_comparison(&c);
             }
+        }
+        Cmd::Serve { listen } => {
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(benchlens_server::serve(benchlens_server::ServeConfig {
+                db: cli.db.clone(),
+                listen,
+            }))?;
         }
         Cmd::Catalog { cmd } => {
             let store = Store::open(&cli.db)?;

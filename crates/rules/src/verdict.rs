@@ -1,7 +1,7 @@
 //! Median, CV and the verdict rule. This must stay identical to `judge()` in vmbench `report.py` (v0.2.3):
 //! `tests/golden.rs` checks every metric of several fixture pairs against verdicts produced by vmbench itself.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Smaller differences (in %) are never called a win (report.py `MIN_DIFF`).
 pub const MIN_DIFF: f64 = 1.0;
@@ -9,7 +9,7 @@ pub const MIN_DIFF: f64 = 1.0;
 pub const HIGH_CV: f64 = 5.0;
 
 /// Which way is better for a metric (the `direction` column of the vmbench metric table).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Direction {
     Higher,
@@ -36,7 +36,7 @@ impl Direction {
 }
 
 /// The outcome of comparing one metric of a machine with the baseline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Verdict {
     /// The compared machine is better than the baseline.

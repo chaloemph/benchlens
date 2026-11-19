@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+benchlens-rules = { path = "../rules" }
 csv.workspace = true
 flate2.workspace = true
 hex.workspace = true
