@@ -80,7 +80,7 @@ enum Cmd {
         #[arg(long, env = "BENCHLENS_LISTEN", default_value = "127.0.0.1:8080")]
         listen: std::net::SocketAddr,
         /// Also watch this inbox folder and import what is dropped into it (off when not given).
-        #[arg(long, value_name = "DIR")]
+        #[arg(long, env = "BENCHLENS_INBOX", value_name = "DIR")]
         inbox: Option<PathBuf>,
         /// Seconds between two inbox scans.
         #[arg(long, value_name = "SECS", default_value_t = 5)]

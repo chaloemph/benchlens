@@ -1,6 +1,6 @@
 # benchlens with its database in a named volume.
 #   docker compose up -d        then open http://localhost:8080
-#   docker compose run --rm benchlens import /data/inbox/...   (once the inbox mount below is enabled)
+#   docker compose run --rm -v "$PWD/results:/results:ro" benchlens import /results
 services:
   benchlens:
     image: ghcr.io/chaloemph/benchlens:latest
@@ -11,9 +11,11 @@ services:
     environment:
       BENCHLENS_DB: /data/benchlens.db
       BENCHLENS_LISTEN: 0.0.0.0:8080
+      # Inbox: result folders and .tar/.tar.gz archives dropped into ./inbox are imported, then moved to
+      # ./inbox/done or ./inbox/failed. Uncomment this and the mount below; ./inbox must be writable by uid 65532.
+      # BENCHLENS_INBOX: /data/inbox
     volumes:
       - benchlens-data:/data
-      # Inbox folder (coming with the inbox feature): drop vmbench result archives here.
       # - ./inbox:/data/inbox
 
   # Grafana on the benchlens database, read-only (task G; not ready yet).
