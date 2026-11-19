@@ -3,19 +3,184 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>benchlens</title>
-<style>
-  :root { --bg: #fff; --fg: #1f1f1f; --muted: #666; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #161616; --fg: #ececec; --muted: #9a9a9a; } }
-  body { margin: 0; padding: 32px 16px; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; }
-  p { color: var(--muted); }
-</style>
+<link rel="stylesheet" href="css/app.css">
+<script src="vendor/d3.v7.9.0.min.js" defer></script>
+<script type="module" src="js/app.js"></script>
 </head>
 <body>
-<main>
-  <h1>benchlens</h1>
-  <p>The web UI is being built (task B in docs/plan.md). The JSON API is under <code>/api</code>, starting with <a href="/api/health">/api/health</a>.</p>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <div class="brand">
+    <span class="logo" aria-hidden="true"></span>
+    <span>benchlens</span>
+  </div>
+  <nav aria-label="Views">
+    <ul>
+      <li><a href="?view=compare" data-view="compare">Compare</a></li>
+      <li><a href="?view=metric" data-view="metric">Metric</a></li>
+      <li><a href="?view=runs" data-view="runs">Runs</a></li>
+      <li><a href="?view=hardware" data-view="hardware">Hardware</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" tabindex="-1">
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <!-- Compare: baseline + compared sides, takeaway, tally, heatmap -->
+  <section id="view-compare" class="view" hidden aria-labelledby="h-compare">
+    <h1 id="h-compare">Compare machines</h1>
+    <p class="lede" id="takeaway"></p>
+    <ul class="warnings" id="warnings"></ul>
+
+    <section class="card" aria-labelledby="h-pick">
+      <h2 id="h-pick">What to compare</h2>
+      <div class="presets" id="presets" role="group" aria-label="Quick picks"></div>
+      <div class="field">
+        <label for="base">Baseline</label>
+        <select id="base"></select>
+      </div>
+      <fieldset class="picks" id="pick-groups">
+        <legend>Compare with: groups (every run of the group pooled)</legend>
+        <div class="checks"></div>
+      </fieldset>
+      <details class="picks-runs">
+        <summary>Compare with: single runs <span class="muted" id="runs-picked"></span></summary>
+        <fieldset class="picks" id="pick-runs">
+          <legend class="sr-only">Single runs</legend>
+          <div class="checks"></div>
+        </fieldset>
+      </details>
+    </section>
+
+    <div id="compare-body">
+      <section aria-labelledby="h-tally">
+        <h2 id="h-tally">Score against the baseline</h2>
+        <p class="muted">Better / worse / within noise, counted per result, from the compared side's point of view. sysbench is left out of the count when the architectures differ.</p>
+        <div class="scroll" tabindex="0" role="region" aria-labelledby="h-tally">
+          <table class="data tally" id="tally"></table>
+        </div>
+      </section>
+
+      <section aria-labelledby="h-heat">
+        <h2 id="h-heat">Metric by metric</h2>
+        <p class="muted">Each cell is the difference from the baseline: green means that side is better (for latency, lower is better), red worse, grey within noise (at most 1% or the run-to-run variation (CV) of either side, the rule of vmbench report compare). Hatched cells are sysbench across architectures: shown, not counted. Choose a metric name to see every value.</p>
+        <div class="toolbar">
+          <div class="field">
+            <label for="section">Show</label>
+            <select id="section"></select>
+          </div>
+          <div class="legend" aria-hidden="true">
+            <span><i class="sw better"></i>better</span>
+            <span><i class="sw worse"></i>worse</span>
+            <span><i class="sw not_clear"></i>within noise</span>
+            <span><i class="sw cross"></i>not counted</span>
+            <span>· measured once</span>
+          </div>
+        </div>
+        <div class="scroll heat-wrap" id="heat-wrap" tabindex="0" role="region" aria-labelledby="h-heat">
+          <table class="heat" id="heat"></table>
+        </div>
+      </section>
+    </div>
+  </section>
+
+  <!-- Metric detail: every raw value per side -->
+  <section id="view-metric" class="view" hidden aria-labelledby="h-metric">
+    <p><button type="button" class="link" id="back-compare">← Back to the comparison</button></p>
+    <h1 id="h-metric">Every value of one metric</h1>
+    <div class="field">
+      <label for="metric">Metric</label>
+      <select id="metric"></select>
+    </div>
+    <p class="muted" id="metric-desc"></p>
+    <p class="muted">One dot per measured value; the dark tick is the median the comparison uses. The axis does not start at zero, so the spread between values is visible.</p>
+    <div class="legend" id="dot-legend"></div>
+    <div class="chart" id="dots"></div>
+    <div class="scroll" tabindex="0" role="region" aria-label="Statistics of this metric">
+      <table class="data" id="metric-stats"></table>
+    </div>
+  </section>
+
+  <!-- Runs -->
+  <section id="view-runs" class="view" hidden aria-labelledby="h-runs">
+    <h1 id="h-runs">Runs</h1>
+    <div class="toolbar">
+      <div class="field grow">
+        <label for="runs-q">Search</label>
+        <input type="search" id="runs-q" placeholder="label, folder, group or tag value">
+      </div>
+      <div class="field">
+        <label for="runs-arch">Architecture</label>
+        <select id="runs-arch"></select>
+      </div>
+      <div class="field">
+        <label for="runs-group">Group</label>
+        <select id="runs-group"></select>
+      </div>
+      <div class="field">
+        <label for="runs-tag">Tag</label>
+        <select id="runs-tag"></select>
+      </div>
+    </div>
+    <div class="toolbar">
+      <p class="muted" id="runs-count"></p>
+      <button type="button" id="runs-hw" disabled>Hardware of selected</button>
+    </div>
+    <div class="scroll" tabindex="0" role="region" aria-labelledby="h-runs">
+      <table class="data runs" id="runs-table"></table>
+    </div>
+  </section>
+
+  <!-- Hardware -->
+  <section id="view-hardware" class="view" hidden aria-labelledby="h-hw">
+    <h1 id="h-hw">Hardware side by side</h1>
+    <details class="picks-runs" id="hw-pick">
+      <summary>Runs shown <span class="muted" id="hw-picked"></span></summary>
+      <fieldset class="picks">
+        <legend class="sr-only">Runs to show</legend>
+        <div class="checks"></div>
+      </fieldset>
+    </details>
+    <div class="toolbar">
+      <button type="button" id="hw-from-compare">Runs of the current comparison</button>
+      <label class="check"><input type="checkbox" id="hw-diff"> Only rows that differ</label>
+    </div>
+    <div class="scroll" tabindex="0" role="region" aria-labelledby="h-hw">
+      <table class="data hw" id="hw-table"></table>
+    </div>
+  </section>
 </main>
+
+<div class="tip" id="tip" hidden></div>
+
+<dialog id="token-dialog" aria-labelledby="token-title">
+  <form method="dialog">
+    <h2 id="token-title">Token needed</h2>
+    <p>This server needs a token to change data. It is kept in this browser tab only (sessionStorage).</p>
+    <p class="error" id="token-error" hidden></p>
+    <div class="field">
+      <label for="token-input">Token</label>
+      <input type="password" id="token-input" autocomplete="off">
+    </div>
+    <div class="buttons">
+      <button type="submit" value="ok" class="primary">Use token</button>
+      <button type="submit" value="cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <h2 id="confirm-title">Delete run?</h2>
+    <p id="confirm-text"></p>
+    <div class="buttons">
+      <button type="submit" value="ok" class="danger">Delete</button>
+      <button type="submit" value="cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
 </body>
 </html>

@@ -11,10 +11,50 @@ vmbench's own reports. Compare one run with another, or pool repeated runs of a 
 
 ## Install
 
-From source (Rust 1.80 or later):
+benchlens is one binary with the web UI built in; the only state is the SQLite file.
+
+### From a release
+
+Download the archive for your platform and `SHA256SUMS` from
+[Releases](https://github.com/chaloemph/benchlens/releases). Targets: `x86_64-unknown-linux-musl`,
+`aarch64-unknown-linux-musl` (static, any distro), `aarch64-apple-darwin`, `x86_64-apple-darwin`,
+`x86_64-pc-windows-msvc` (zip).
+
+```bash
+VERSION=0.1.0 TARGET=x86_64-unknown-linux-musl
+curl -LO https://github.com/chaloemph/benchlens/releases/download/v$VERSION/benchlens-$VERSION-$TARGET.tar.gz
+curl -LO https://github.com/chaloemph/benchlens/releases/download/v$VERSION/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS     # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+tar -xzf benchlens-$VERSION-$TARGET.tar.gz
+install -m 0755 benchlens-$VERSION-$TARGET/benchlens ~/.local/bin/
+```
+
+On Windows: `Get-FileHash benchlens-<version>-x86_64-pc-windows-msvc.zip` and compare with `SHA256SUMS`.
+
+### From source
+
+Rust 1.80 or later (and a C compiler, for the bundled SQLite):
 
 ```bash
 cargo install --path crates/cli
+```
+
+### Docker
+
+The image (`ghcr.io/chaloemph/benchlens`, linux/amd64 and linux/arm64) runs `benchlens serve` as a
+non-root user on port 8080 with the database at `/data/benchlens.db`:
+
+```bash
+docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data ghcr.io/chaloemph/benchlens
+# import: make the results readable in the container, then run the same image with another command
+docker run --rm -v benchlens-data:/data -v "$PWD/results:/results:ro" ghcr.io/chaloemph/benchlens import /results
+```
+
+Or with Compose, from a checkout ([docker-compose.yml](docker-compose.yml)):
+
+```bash
+docker compose up -d                 # http://localhost:8080
+docker compose build                 # build the image locally instead of pulling it
 ```
 
 ## Use

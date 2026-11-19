@@ -41,10 +41,24 @@ async fn web_ui_is_served() {
 }
 
 #[tokio::test]
-async fn unfinished_endpoints_say_so() {
+async fn dev_tools_and_readmes_are_not_embedded() {
+    let (index_status, index) = get("/").await;
+    assert_eq!(index_status, StatusCode::OK);
+    for path in ["/dev/smoke.mjs", "/README.md", "/wasm/README.md"] {
+        let (s, body) = get(path).await;
+        assert_eq!(s, StatusCode::OK, "{path}");
+        assert_eq!(body, index, "{path} falls back to index.html");
+    }
+    let (s, body) = get("/vendor/LICENSE-d3.txt").await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(body.contains("Bostock"));
+}
+
+#[tokio::test]
+async fn empty_database_and_unknown_endpoint() {
     let (s, body) = get("/api/runs").await;
-    assert_eq!(s, StatusCode::NOT_IMPLEMENTED);
-    assert!(body.contains("task A"));
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(body, "[]");
     let (s, _) = get("/api/nope").await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }

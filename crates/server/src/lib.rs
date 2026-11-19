@@ -1,9 +1,14 @@
 //! benchlens HTTP server: the JSON API of `docs/api.md` and the web UI in `web/`, built into the binary.
 //!
-//! T0 skeleton: `/api/health` and the static files work; every other endpoint answers 501 until task A
-//! (read endpoints) and C2 (upload, auth) fill them in. Keep the routes in [`router`] in step with docs/api.md.
+//! Read endpoints live in [`read`], tag editing and delete in [`write`] (their token check goes in
+//! [`write::WriteAccess`]). Upload (`POST /api/runs`) still answers 501 until task C2. Keep the routes in
+//! [`router`] in step with docs/api.md.
 
-use axum::extract::State;
+mod params;
+pub mod read;
+pub mod write;
+
+use axum::extract::{DefaultBodyLimit, State};
 use axum::http::{header, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, patch};
@@ -15,9 +20,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-/// The web UI, compiled into the binary.
+/// The web UI, compiled into the binary. `web/dev/` (development tools) and the READMEs are left out.
 #[derive(RustEmbed)]
 #[folder = "../../web/"]
+#[exclude = "dev/*"]
+#[exclude = "*.md"]
 struct Web;
 
 /// How to run the server.
@@ -25,6 +32,10 @@ struct Web;
 pub struct ServeConfig {
     pub db: PathBuf,
     pub listen: SocketAddr,
+    /// Inbox folder to watch and import from (task C1); `None` leaves the inbox off.
+    pub inbox: Option<PathBuf>,
+    /// Time between two inbox scans.
+    pub inbox_interval: std::time::Duration,
 }
 
 /// Shared state of every handler. rusqlite connections are not `Sync`, so the store sits behind a mutex;
@@ -51,6 +62,13 @@ impl ApiError {
             error: error.into(),
             detail: None,
         }
+    }
+    pub fn internal(error: impl Into<String>) -> Self {
+        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, error)
+    }
+    pub fn with_detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
     }
     pub fn not_implemented(what: &str) -> Self {
         ApiError {
@@ -87,10 +105,7 @@ pub struct Health {
 }
 
 async fn health(State(st): State<AppState>) -> Result<Json<Health>, ApiError> {
-    let store = st.store.clone();
-    let runs = tokio::task::spawn_blocking(move || store.lock().expect("store lock").run_count())
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))??;
+    let runs = params::db(&st, |s| Ok(s.run_count()?)).await?;
     Ok(Json(Health {
         benchlens: env!("CARGO_PKG_VERSION"),
         db_layout: DB_VERSION,
@@ -98,23 +113,10 @@ async fn health(State(st): State<AppState>) -> Result<Json<Health>, ApiError> {
     }))
 }
 
-macro_rules! todo_endpoint {
-    ($name:ident, $what:literal) => {
-        async fn $name() -> ApiError {
-            ApiError::not_implemented($what)
-        }
-    };
+/// `POST /api/runs`: task C2 builds it in upload.rs (and takes a [`write::WriteAccess`] like the other writes).
+async fn upload_run() -> ApiError {
+    ApiError::not_implemented("POST /api/runs (task C2)")
 }
-todo_endpoint!(list_runs, "GET /api/runs (task A)");
-todo_endpoint!(get_run, "GET /api/runs/{id} (task A)");
-todo_endpoint!(get_run_file, "GET /api/runs/{id}/files/{name} (task A)");
-todo_endpoint!(patch_tags, "PATCH /api/runs/{id}/tags (task A, auth in C2)");
-todo_endpoint!(delete_run, "DELETE /api/runs/{id} (task A, auth in C2)");
-todo_endpoint!(upload_run, "POST /api/runs (task C2)");
-todo_endpoint!(list_groups, "GET /api/groups (task A)");
-todo_endpoint!(compare, "GET /api/compare (task A)");
-todo_endpoint!(values, "GET /api/values (task A)");
-todo_endpoint!(metrics, "GET /api/metrics (task A)");
 
 async fn api_not_found(uri: Uri) -> ApiError {
     ApiError::new(StatusCode::NOT_FOUND, format!("no endpoint {}", uri.path()))
@@ -137,14 +139,17 @@ async fn static_file(uri: Uri) -> Response {
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health))
-        .route("/runs", get(list_runs).post(upload_run))
-        .route("/runs/{id}", get(get_run).delete(delete_run))
-        .route("/runs/{id}/files/{name}", get(get_run_file))
-        .route("/runs/{id}/tags", patch(patch_tags))
-        .route("/groups", get(list_groups))
-        .route("/compare", get(compare))
-        .route("/values", get(values))
-        .route("/metrics", get(metrics))
+        .route("/runs", get(read::list_runs).post(upload_run))
+        .route("/runs/{id}", get(read::get_run).delete(write::delete_run))
+        .route("/runs/{id}/files/{name}", get(read::get_run_file))
+        .route(
+            "/runs/{id}/tags",
+            patch(write::patch_tags).layer(DefaultBodyLimit::max(write::MAX_TAGS_BODY)),
+        )
+        .route("/groups", get(read::list_groups))
+        .route("/compare", get(read::compare))
+        .route("/values", get(read::values))
+        .route("/metrics", get(read::metrics))
         .fallback(api_not_found);
     Router::new()
         .nest("/api", api)
@@ -155,6 +160,7 @@ pub fn router(state: AppState) -> Router {
 /// Open the database and serve until Ctrl-C.
 pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
+    let inbox = start_inbox(&cfg)?;
     let state = AppState {
         store: Arc::new(Mutex::new(store)),
     };
@@ -165,10 +171,44 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         listener.local_addr()?,
         cfg.db.display()
     );
-    axum::serve(listener, router(state))
+    let served = axum::serve(listener, router(state))
         .with_graceful_shutdown(async {
             let _ = tokio::signal::ctrl_c().await;
         })
-        .await?;
+        .await;
+    if let Some((stop, thread)) = inbox {
+        stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        let _ = tokio::task::spawn_blocking(move || thread.join()).await;
+    }
+    served?;
     Ok(())
+}
+
+type InboxThread = (
+    Arc<std::sync::atomic::AtomicBool>,
+    std::thread::JoinHandle<()>,
+);
+
+/// Run the inbox watcher of `cfg.inbox` in its own thread with its own connection to the database.
+fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
+    use benchlens_core::inbox::{watch, InboxOptions};
+    let Some(dir) = cfg.inbox.clone() else {
+        return Ok(None);
+    };
+    let store = Store::open(&cfg.db)?;
+    let opts = InboxOptions {
+        dir,
+        interval: cfg.inbox_interval,
+    };
+    eprintln!(
+        "watching inbox {} every {}s",
+        opts.dir.display(),
+        opts.interval.as_secs_f64()
+    );
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let thread = std::thread::Builder::new()
+        .name("benchlens-inbox".into())
+        .spawn(move || watch(&store, &opts, &flag, |ev| eprintln!("inbox: {ev}")))?;
+    Ok(Some((stop, thread)))
 }

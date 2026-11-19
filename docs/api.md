@@ -9,7 +9,15 @@ this file, `docs/api-examples/`, the server and the UI together.
 - Field names are those of the Rust types in `benchlens-core` / `benchlens-rules`; the UI must not depend on
   key order.
 - **REF** (a side of a comparison): a run id, a unique run id prefix of 4+ characters, a folder name, a label
-  that matches one run, or `group:NAME` for every run of a group pooled.
+  that matches one run, or `group:NAME` for every run of a group pooled. A reference that matches several runs
+  is refused with 404 and a message such as `"twin" matches 2 runs; use a run id, or group:NAME to pool them`
+  (core has no separate "ambiguous" error yet). `%` and `_` are plain characters, not wildcards.
+- **Query strings** are checked before anything is looked up: an unknown parameter, a single-valued parameter
+  given twice, more than 32 repeats of `tag` / `other`, a value over 1024 bytes or with control characters
+  all give 400. The UI sends only the parameters listed here.
+- **`round`** means two things: in a `ValueRow` it is the repeat number inside one run (the `round` column of
+  results.tsv, 1, 2, 3 ... for a metric measured several times); the `round` *tag* (from a registry, for
+  example) is the test round a whole run belongs to. The dot plot colours by the tag.
 - **Write** endpoints need `Authorization: Bearer <token>` when the server has a token configured (C2);
   without a token configured they are open (local use).
 
@@ -22,8 +30,8 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 |---|---|
 | 400 | bad parameter, bad tag key, archive not a vmbench result, unsafe archive |
 | 401 | write without a valid token (C2) |
-| 404 | unknown run, group, file, metric table or endpoint |
-| 413 | upload larger than the configured limit (C2) |
+| 404 | unknown run, group, file, metric table or endpoint; a reference that matches several runs |
+| 413 | upload larger than the configured limit (C2); a `PATCH .../tags` body over 64 KiB |
 | 500 | anything else (the message says what) |
 | 501 | endpoint not built yet (T0 skeleton only) |
 
@@ -53,16 +61,18 @@ label, folder, group or any tag value, case-insensitive).
 ### `GET /api/runs/{id}`
 `RunDetail`: every `RunSummary` field plus `stages`, `end_utc`, `imported_at`, `pg_profile`, `web_cpus`,
 `meta` (meta.json), `hardware` (hardware.json or null) and `files` (`[{name, bytes}]`)
-([run-detail.json](api-examples/run-detail.json)). `{id}` is a run id or unique prefix.
+([run-detail.json](api-examples/run-detail.json)). `{id}` is a run id, unique prefix, folder or label (a run
+reference as above, but not `group:`, which is 400).
 
 ### `GET /api/runs/{id}/files/{name}`
 The kept file as stored, `text/plain; charset=utf-8` (`.json` files as `application/json`). Names:
 `meta.json`, `results.tsv`, `status.tsv`, `hardware.json`, `report.md`, `benchlens-tags.json`. Anything else
-is 404.
+is 404, and so is a name the run did not keep (`files` in `GET /api/runs/{id}` lists what it has).
 
 ### `PATCH /api/runs/{id}/tags` (write)
 Body `{"key": "value", ...}`; an empty value removes the tag. Keys: 1-64 of `A-Z a-z 0-9 _ - .`; values: one
-line, at most 1024 bytes. Answers the updated `RunSummary`. Special keys: `group` (changes the run's group),
+line (no `\n` or `\r`), at most 1024 bytes; at most 64 tags per request. One bad tag refuses the whole request
+(400) and changes nothing. Answers the updated `RunSummary`. Special keys: `group` (changes the run's group),
 `exclude` (comma list of stages left out).
 
 ### `DELETE /api/runs/{id}` (write)
@@ -97,13 +107,18 @@ The verdict rule is vmbench's; see docs/contract.md.
 Every raw value of one metric on one side, for the dot plot ([values.json](api-examples/values.json)):
 `{side, id, values: ValueRow[]}`, `ValueRow` = `run_id`, `id`, `name`, `section`, `unit`, `direction`,
 `tool`, `arch`, `round`, `value`. Stages that failed or are excluded are already left out. Use `run_id`
-with `/api/runs` to show which test round a dot belongs to.
+with `/api/runs` to show which test round a dot belongs to (`round` here is the repeat inside the run, see
+above). A metric id with no values on that side (or not in any table) gives 200 with `values: []`.
+`side.archs` is empty here; it is filled only in `/api/compare`.
 
 ### `GET /api/metrics?version=0.2.3`
 The metric table of a vmbench version: `Metric[]` (`id`, `unit`, `direction`, `tool`, `label`,
-`description`) ([metrics.json](api-examples/metrics.json)). 404 when there is none.
+`description`) ([metrics.json](api-examples/metrics.json)). `version` is required (400 without it); a leading
+`v` is accepted. 404 when there is no table for that version.
 
 ## Not in v1
 
-Pagination (lists are small until thousands of runs; add `limit`/`after` then), editing values, users and
-roles beyond one write token, websockets.
+- Pagination (lists are small until thousands of runs; add `limit`/`after` then), editing values, users and
+  roles beyond one write token, websockets.
+- A reference to part of a group, such as the runs of a group with tag `round=1` (follow-up in docs/plan.md:
+  `group:NAME@tag=value`); until then the UI's "Round 1 vs 2" quick picks compare one run per round.

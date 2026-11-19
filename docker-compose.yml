@@ -1,0 +1,35 @@
+# benchlens with its database in a named volume.
+#   docker compose up -d        then open http://localhost:8080
+#   docker compose run --rm -v "$PWD/results:/results:ro" benchlens import /results
+services:
+  benchlens:
+    image: ghcr.io/chaloemph/benchlens:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      BENCHLENS_DB: /data/benchlens.db
+      BENCHLENS_LISTEN: 0.0.0.0:8080
+      # Inbox: result folders and .tar/.tar.gz archives dropped into ./inbox are imported, then moved to
+      # ./inbox/done or ./inbox/failed. Uncomment this and the mount below; ./inbox must be writable by uid 65532.
+      # BENCHLENS_INBOX: /data/inbox
+    volumes:
+      - benchlens-data:/data
+      # - ./inbox:/data/inbox
+
+  # Grafana on the benchlens database, read-only (task G; not ready yet).
+  # grafana:
+  #   image: grafana/grafana-oss:latest
+  #   profiles: [grafana]
+  #   restart: unless-stopped
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     GF_INSTALL_PLUGINS: frser-sqlite-datasource
+  #   volumes:
+  #     - benchlens-data:/var/lib/benchlens:ro
+  #     - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+
+volumes:
+  benchlens-data:

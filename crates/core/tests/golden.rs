@@ -3,23 +3,17 @@
 
 mod common;
 use benchlens_core::compare;
-use benchlens_core::import::{import_path, ImportOptions};
+use benchlens_core::import::ImportOptions;
 use benchlens_core::store::Store;
+use benchlens_core::testing::import_fixtures;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
 #[test]
 fn verdicts_match_vmbench_report_compare() {
     let store = Store::open_in_memory().unwrap();
-    for ver in ["v0.2.1", "v0.2.3"] {
-        let reports = import_path(
-            &store,
-            &common::fixtures().join(ver),
-            &ImportOptions::default(),
-        )
-        .unwrap();
-        assert!(reports.iter().all(|r| r.run_id.is_some()), "{reports:?}");
-    }
+    let reports = import_fixtures(&store, &ImportOptions::default());
+    assert!(reports.iter().all(|r| r.run_id.is_some()), "{reports:?}");
     let golden: Value = serde_json::from_str(
         &std::fs::read_to_string(common::fixtures().join("../golden/compare.json")).unwrap(),
     )

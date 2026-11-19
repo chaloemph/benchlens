@@ -5,13 +5,17 @@
 //! * [`catalog`], [`verdict`]: re-exported from `benchlens-rules` (no I/O, also built for WebAssembly)
 //! * [`store`]: the SQLite database and its views
 //! * [`import`]: bringing folders and tar archives in safely
+//! * [`inbox`]: a folder watched for results to import
 //! * [`compare`]: baseline against other runs or groups
 
 pub mod compare;
 pub mod contract;
 pub mod error;
 pub mod import;
+pub mod inbox;
 pub mod store;
+#[doc(hidden)]
+pub mod testing;
 
 pub use benchlens_rules::{catalog, verdict};
 

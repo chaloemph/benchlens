@@ -3,6 +3,7 @@
 mod common;
 use benchlens_core::import::{import_path, read_tar, ImportOptions, Outcome, Registry};
 use benchlens_core::store::Store;
+use benchlens_core::testing::import_fixtures;
 use benchlens_core::Error;
 use std::collections::BTreeMap;
 use std::fs;
@@ -189,18 +190,7 @@ fn tags_registry_and_exclude() {
 #[test]
 fn auto_group_joins_rounds_of_one_machine() {
     let store = Store::open_in_memory().unwrap();
-    import_path(
-        &store,
-        &common::fixtures().join("v0.2.1"),
-        &ImportOptions::default(),
-    )
-    .unwrap();
-    import_path(
-        &store,
-        &common::fixtures().join("v0.2.3"),
-        &ImportOptions::default(),
-    )
-    .unwrap();
+    import_fixtures(&store, &ImportOptions::default());
     let runs = store.list_runs().unwrap();
     let group_of = |label: &str| {
         runs.iter()
