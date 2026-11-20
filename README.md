@@ -4,11 +4,51 @@ Look at, compare and share [vmbench](https://github.com/chaloemph/vmbench) resul
 
 benchlens imports vmbench result folders into a SQLite file and compares machines metric by metric with
 **the same rule as `vmbench report compare`**, so its "better / worse / within noise" always agrees with
-vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group.
+vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group. One
+binary: command line, web UI and JSON API, an inbox folder, upload with token auth, and an HTML export that
+opens offline.
 
-> Status: M1-M3 done: command line, web UI and JSON API, inbox folder, upload with token auth, static HTML /
-> JSON / CSV export. Next: the v0.1.0 release (a dry run of the release workflow first). See
-> [docs/plan.md](docs/plan.md) and [docs/api.md](docs/api.md).
+> Status: v0.1.0, the first public release: import (CLI, registry, inbox, upload), compare (CLI, web UI,
+> API), static HTML / JSON / CSV export, Docker image. See [CHANGELOG.md](CHANGELOG.md) and
+> [docs/plan.md](docs/plan.md).
+
+![Compare view of the example data: x86-high against arm64-high](docs/img/compare.png)
+
+## Quick start
+
+With [benchlens installed](#install), from a clone of this repository (the example data is real, from a POC
+of x86 and ARM64 VMs):
+
+```bash
+benchlens import --registry examples/poc-2026-11/registry.tsv tests/fixtures/v0.2.1 tests/fixtures/v0.2.3
+benchlens compare group:x86-high group:arm64-high      # 16-vCPU x86 VM against 16-vCPU ARM64 VM
+benchlens serve                                        # web UI on http://127.0.0.1:8080
+benchlens export html --base group:x86-high --other group:arm64-high -o report.html   # share it
+```
+
+```text
+baseline: x86-high (3 runs)
+
+== arm64-high vs x86-high: better 23, worse 37, within noise 5
+   by section (better/worse/within noise): cpu 4/25/0  disk 16/2/4  mem 0/2/1  net 0/7/0  pg 3/0/0  web 0/1/0
+...
+```
+
+Your own results: `benchlens import ~/bench-results/` (result folders, a folder of them, or `.tar.gz`).
+Output piped into a reader that stops early (`benchlens compare ... | head`) ends the command quietly, killed
+by SIGPIPE like other Unix tools (the shell reports status 141; with `set -o pipefail` that counts as a failure).
+
+## Documentation
+
+| | |
+|---|---|
+| [Walkthrough](docs/walkthrough.md) | from clone to a comparison with the example data, step by step, with screenshots |
+| [User guide](docs/guide.md) | runs, groups, tags and references; every import route; compare; export; running on a server; Docker; upgrading |
+| [HTTP API](docs/api.md) | every endpoint, parameter and JSON shape, with real examples |
+| [Data contract](docs/contract.md) | the files benchlens reads from vmbench, the metric tables, the verdict rule and its golden tests |
+| [CONTRIBUTING](CONTRIBUTING.md) | development setup, layout, ground rules, adding a vmbench version, tests |
+| [SECURITY](SECURITY.md) | supported versions, reporting a vulnerability, the security model |
+| [CHANGELOG](CHANGELOG.md) | what is in each release |
 
 ## Install
 
@@ -80,84 +120,6 @@ stopped. The defaults (admin password `admin`, anonymous viewers, port on 127.0.
 on a server set `GRAFANA_ADMIN_PASSWORD`, consider `GRAFANA_ANONYMOUS=false`, then publish the port with
 `GRAFANA_BIND=0.0.0.0`. Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
 
-## Use
-
-```bash
-# import result folders, a directory of them, or .tar / .tar.gz archives
-benchlens import ~/bench-results/
-benchlens import x86-std-20261118-233315.tar.gz --tag set=poc --tag round=1
-
-# many runs at once with a registry: a TSV with a `run` column (folder name) and one column per tag
-benchlens import --registry registry.tsv results/
-
-benchlens runs                                    # what is in the database
-benchlens compare x86-high-r2 arm64-high-r2       # run against run
-benchlens compare group:x86-std group:x86-med group:x86-high   # groups: all runs of a machine pooled
-benchlens compare x86-high x86-high-r2 --section pg --json
-benchlens tag x86-high-r2 group=poc-x86-high exclude=web        # an empty value removes a tag
-benchlens serve                                   # http://127.0.0.1:8080 (API under /api)
-
-# share a comparison: one HTML file that opens from disk, offline (baseline and sides can still be changed)
-benchlens export html --base group:x86-high --other group:arm64-high -o report.html --title "POC high"
-benchlens export json group:x86-high group:arm64-high -o values.json   # sides, values, stats per metric
-benchlens export csv group:x86-high group:arm64-high -o values.csv     # one row per raw value
-```
-
-The exported HTML inlines the web UI's compare, metric and hardware views, d3, the WebAssembly build of the
-verdict rule and the values of the exported sides (about 750 KB, 230 KB gzipped, for two POC groups), so its
-numbers equal `benchlens compare`; the Export button of the compare view downloads the same file. The CSV
-columns are `side,run_id,label,id,name,section,unit,direction,round,value` (`side` is the reference as given,
-`label` the run's label, `round` the repeat inside the run, `direction` empty for a vmbench version without a
-metric table; text starting with `= + - @` gets a leading `'` so spreadsheets do not run it as a formula). The
-JSON holds per side `side`, `stats` (`id`, `name`, `section`, `unit`, `direction`, `tool`, `n`, `median`,
-`cv`, `min`, `max`), `unjudged` and `values` (`ValueRow`, docs/api.md).
-
-The database is `benchlens.db` in the current folder unless `--db` or `BENCHLENS_DB` says otherwise.
-Importing the same run again, by any route, does not add it twice.
-Output piped into a reader that stops early (`benchlens compare ... | head`) ends the command quietly, killed
-by SIGPIPE like other Unix tools (the shell reports status 141; with `set -o pipefail` that counts as a failure).
-
-### Groups
-
-A group is the sample a machine is judged on. By default a run's group is its label without round or rerun
-suffixes (`x86-std-r2` and `x86-std-web` join `x86-std`) plus its CPU, vCPU and RAM, so rounds of one
-machine pool together and two people's `x86-std` do not. A `group` tag overrides it.
-
-### Tags
-
-Any `key=value`. Give them with `--tag`, a registry, a `benchlens-tags.json` in the result folder, or
-`benchlens tag` later (command line wins over the file, the file over the registry). Two keys mean something:
-
-- `group`: the group, see above
-- `exclude`: stages whose values are not used, e.g. `web,net` (stages that failed are always left out)
-
-### Inbox
-
-`benchlens watch` imports whatever is dropped into a folder; `benchlens serve --inbox DIR` does the same in
-the background of the server.
-
-```bash
-benchlens watch --inbox inbox/ --registry registry.tsv --tag set=poc     # Ctrl-C to stop
-benchlens serve --inbox inbox/ --registry registry.tsv --inbox-tag set=poc
-```
-
-- Drop result folders, directories of them, or `.tar` / `.tar.gz` / `.tgz` archives at the top of the inbox.
-  An entry is imported once it stayed unchanged for one scan interval (`--interval` / `--inbox-interval`,
-  5 s), then moved to `done/`, or to `failed/` with a `.reason.txt`. Upload under a name ending in `.part`,
-  `.tmp` or `.partial` and rename when complete; dotfiles and links are ignored.
-- `--registry FILE` (env `BENCHLENS_REGISTRY`; for `serve` also `registry` in benchlens.toml; the old names
-  `--inbox-registry`, `BENCHLENS_INBOX_REGISTRY` and `inbox_registry` are still accepted) and `--tag`
-  (`--inbox-tag`) tag inbox imports as `benchlens import` does, so a run dropped in again keeps its registry
-  group. The registry is read again whenever it changes, so rows can be added while the watcher runs; a file
-  that no longer parses is reported once and the previous registry stays in use.
-- One watcher per inbox: the watcher holds an advisory lock on `<inbox>/.benchlens.lock` (the file names the
-  holder's pid, host and start time). A second `watch` or `serve --inbox` on the same folder refuses to start
-  and names the holder. A lock left by a watcher that was killed is taken over with a warning; the OS
-  releases the lock with the process. On a network share whose file system ignores advisory locks, run only
-  one watcher per inbox.
-- `watch` stops on Ctrl-C or SIGTERM after the import in progress and exits 0; a second Ctrl-C stops at once
-  (an import is one transaction, so an interrupted entry is imported on the next run as already present).
-
 ## Running on a server
 
 `benchlens serve` reads its settings from flags, then `BENCHLENS_*` variables, then an optional
@@ -204,14 +166,9 @@ Details: [docs/api.md](docs/api.md#auth).
 ## For other tools
 
 The database has three views: `v_runs` (runs with their group), `v_values` (every value that counts, with its
-metric name, unit and direction) and `v_stats` (count, mean, min, max per run and metric). SQLite has no
-median, so verdicts come from benchlens itself. Ready-made Grafana dashboards on these views:
-[Grafana](#grafana).
-
-## How it stays in step with vmbench
-
-See [docs/contract.md](docs/contract.md): the files benchlens reads, the metric tables, the verdict rule and
-the golden tests that check it against vmbench.
+metric name, unit and direction) and `v_stats` (count, mean, min, max per run and metric); see
+[the guide](docs/guide.md#reading-the-database-from-other-tools). SQLite has no median, so verdicts come from
+benchlens itself. Ready-made Grafana dashboards on these views: [Grafana](#grafana).
 
 ## Example data
 
