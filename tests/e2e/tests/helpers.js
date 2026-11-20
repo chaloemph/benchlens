@@ -192,8 +192,8 @@ export async function waitForView(page, view) {
 
 /**
  * Horizontal overflow of the page: how far the document scrolls sideways, and elements that reach past the
- * right edge of the viewport outside a box that scrolls or clips on its own (body has overflow-x: hidden, so
- * such content is cut off rather than scrolled to).
+ * right edge of the viewport outside a box that scrolls or clips on its own (such content would be cut off
+ * if a page style ever hid the overflow).
  */
 export async function sidewaysOverflow(page) {
   return page.evaluate(() => {
