@@ -82,3 +82,8 @@ NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tm
 It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways
 page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. Other sides:
 `SIDES='base=...&other=...'`.
+
+The static HTML export (`web/export/offline.js`, built by `crates/server/src/export.rs`) reuses `js/main.js`
+and the views; keep `web/js/` in the plain module style the export bundler accepts (one-line imports,
+`export function|const|class`). `NODE_PATH=... tests/export/run.sh` opens an export from disk with the network
+off and checks it against `benchlens compare --json`.

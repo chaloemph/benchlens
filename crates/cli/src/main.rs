@@ -1,5 +1,7 @@
 //! benchlens: import vmbench results into a SQLite database, list them and compare them.
 
+mod export;
+
 use anyhow::{bail, Context, Result};
 use benchlens_core::catalog;
 use benchlens_core::compare::{self, Comparison};
@@ -98,6 +100,11 @@ enum Cmd {
         /// Scan twice, one interval apart, then exit.
         #[arg(long)]
         once: bool,
+    },
+    /// Export a comparison as one self-contained HTML file, or the values of sides as JSON / CSV.
+    Export {
+        #[command(subcommand)]
+        cmd: export::ExportCmd,
     },
     /// Metric tables of vmbench versions.
     Catalog {
@@ -309,6 +316,7 @@ fn main() -> Result<()> {
                 benchlens_core::inbox::watch(&store, &opts, &stop, |ev| println!("{ev}"));
             }
         }
+        Cmd::Export { cmd } => export::run(&cli.db, cmd)?,
         Cmd::Catalog { cmd } => {
             let store = Store::open(&cli.db)?;
             match cmd {

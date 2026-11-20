@@ -151,6 +151,7 @@ dependencies = [
  "benchlens-core",
  "benchlens-server",
  "clap",
+ "serde",
  "serde_json",
  "tokio",
 ]
@@ -186,6 +187,7 @@ dependencies = [
  "anyhow",
  "axum",
  "benchlens-core",
+ "benchlens-wasm",
  "http-body-util",
  "rust-embed",
  "serde",

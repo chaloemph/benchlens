@@ -1,9 +1,10 @@
 //! benchlens HTTP server: the JSON API of `docs/api.md` and the web UI in `web/`, built into the binary.
 //!
 //! Read endpoints live in [`read`], tag editing and delete in [`write`] (their token check goes in
-//! [`write::WriteAccess`]). Upload (`POST /api/runs`) still answers 501 until task C2. Keep the routes in
+//! [`write::WriteAccess`]), the static HTML export in [`export`]. Upload (`POST /api/runs`) still answers 501 until task C2. Keep the routes in
 //! [`router`] in step with docs/api.md.
 
+pub mod export;
 mod params;
 pub mod read;
 pub mod write;
@@ -150,6 +151,7 @@ pub fn router(state: AppState) -> Router {
         .route("/compare", get(read::compare))
         .route("/values", get(read::values))
         .route("/metrics", get(read::metrics))
+        .route("/export.html", get(export::export_html))
         .fallback(api_not_found);
     Router::new()
         .nest("/api", api)
