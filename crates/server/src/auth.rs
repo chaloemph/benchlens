@@ -5,6 +5,8 @@
 //!   can load the page and its token dialog. A missing or wrong token is 401 with `WWW-Authenticate: Bearer`.
 //! - No token: writes are open only when the server listens on a loopback address (local use); on any other
 //!   address they are refused with 403. Reads are open (a token is required for `read_public = false`).
+//!   Open writes from a web page of another origin are refused too (403): a browser sends a multipart POST
+//!   cross-site without asking first, so any page the local user visits could otherwise upload.
 //!
 //! The token is compared in constant time (SHA-256 of both sides, then `subtle`), so neither its content nor
 //! its length leaks through timing.
@@ -85,7 +87,7 @@ impl Access {
     pub fn check_write(&self, headers: &HeaderMap) -> Result<(), Denied> {
         match &self.token {
             Some(t) => check_bearer(t, headers),
-            None if self.open_writes => Ok(()),
+            None if self.open_writes => same_origin(headers),
             None => Err(Denied(ApiError::new(
                 StatusCode::FORBIDDEN,
                 "writes are turned off: this server listens on a non-loopback address without a token",
@@ -100,6 +102,40 @@ impl Access {
             Some(t) if !self.read_public => check_bearer(t, headers),
             _ => Ok(()),
         }
+    }
+}
+
+/// Without a token, a write must not come from a page of another origin: a browser marks such a request with
+/// `Origin` (and `Sec-Fetch-Site: cross-site`), tools such as curl send neither.
+fn same_origin(headers: &HeaderMap) -> Result<(), Denied> {
+    let cross = |why: &str| {
+        Err(Denied(
+            ApiError::new(
+                StatusCode::FORBIDDEN,
+                "write refused: it comes from a web page of another origin",
+            )
+            .with_detail(why.to_string()),
+        ))
+    };
+    if headers
+        .get("sec-fetch-site")
+        .is_some_and(|v| v.as_bytes().eq_ignore_ascii_case(b"cross-site"))
+    {
+        return cross("Sec-Fetch-Site: cross-site");
+    }
+    let Some(origin) = headers.get(header::ORIGIN) else {
+        return Ok(());
+    };
+    let host = headers.get(header::HOST).map(|h| h.as_bytes());
+    // Origin is scheme://host[:port]; it must name the Host this request was sent to
+    let origin_host = origin
+        .as_bytes()
+        .splitn(2, |b| *b == b':')
+        .nth(1)
+        .and_then(|rest| rest.strip_prefix(b"//"));
+    match (origin_host, host) {
+        (Some(o), Some(h)) if o.eq_ignore_ascii_case(h) => Ok(()),
+        _ => cross("the Origin header does not match Host"),
     }
 }
 
@@ -205,6 +241,49 @@ mod tests {
         let e = private.check_read(&HeaderMap::new()).unwrap_err();
         assert_eq!(e.0.status, StatusCode::UNAUTHORIZED);
         assert!(private.check_read(&headers(&format!("Bearer {T}"))).is_ok());
+    }
+
+    #[test]
+    fn open_writes_refuse_other_origins() {
+        let a = Access::local();
+        let with = |pairs: &[(&'static str, &'static str)]| {
+            let mut h = HeaderMap::new();
+            for (k, v) in pairs {
+                h.insert(*k, HeaderValue::from_static(v));
+            }
+            h
+        };
+        // curl and the like: no Origin
+        assert!(a.check_write(&HeaderMap::new()).is_ok());
+        // the UI itself
+        assert!(a
+            .check_write(&with(&[
+                ("host", "127.0.0.1:8080"),
+                ("origin", "http://127.0.0.1:8080"),
+                ("sec-fetch-site", "same-origin"),
+            ]))
+            .is_ok());
+        for bad in [
+            with(&[
+                ("host", "127.0.0.1:8080"),
+                ("origin", "https://evil.example"),
+            ]),
+            with(&[("host", "127.0.0.1:8080"), ("origin", "null")]),
+            with(&[("host", "127.0.0.1:8080"), ("sec-fetch-site", "cross-site")]),
+            with(&[("origin", "http://127.0.0.1:8080")]),
+        ] {
+            let e = a.check_write(&bad).unwrap_err();
+            assert_eq!(e.0.status, StatusCode::FORBIDDEN, "{bad:?}");
+        }
+        // with a token the bearer decides (a browser never adds it on its own)
+        let t = Access::with_token(Token::new(T), true);
+        assert!(t
+            .check_write(&with(&[
+                ("host", "127.0.0.1:8080"),
+                ("origin", "https://evil.example"),
+                ("authorization", "Bearer 0123456789abcdef"),
+            ]))
+            .is_ok());
     }
 
     #[test]
