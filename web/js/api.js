@@ -106,6 +106,8 @@ export const api = {
   values: (ref, id) => request('GET', 'api/values?' + new URLSearchParams({ ref, id })),
   metrics: (version) => request('GET', 'api/metrics?' + new URLSearchParams({ version })),
   fileUrl: (id, name) => 'api/runs/' + enc(id) + '/files/' + enc(name),
+  /** A kept file's content (text, or the parsed object for .json), fetched with the token when one is set. */
+  file: (id, name) => request('GET', 'api/runs/' + enc(id) + '/files/' + enc(name)),
   patchTags: (id, tags) => request('PATCH', 'api/runs/' + enc(id) + '/tags', tags),
   deleteRun: (id) => request('DELETE', 'api/runs/' + enc(id)),
   /** POST /api/runs: `file` (a File) and tags as [key, value] pairs; answers ImportReport[]. */

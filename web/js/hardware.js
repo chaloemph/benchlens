@@ -7,7 +7,7 @@ import { getComparison } from './compare.js';
 import { h, clear, stateBlock, errorBlock } from './ui.js';
 import { archName, shortDate } from './format.js';
 
-// Shared with the runs view (report.md link); dropped on every reload.
+// Run details by id; dropped on every reload.
 const detailCache = new Map();
 export function getDetail(id) {
   if (!detailCache.has(id)) {

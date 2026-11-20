@@ -72,6 +72,30 @@ export function sideInfo(ref) {
 
 export const groupRef = (g) => 'group:' + g.group;
 
+/** `group:NAME@KEY=VALUE`: the runs of a group with one tag value (docs/api.md, side references). */
+export const splitRef = (group, key, value) => `group:${group}@${key}=${value}`;
+
+const numeric = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+
+/** Tag keys a group can be split by: present on some of its runs with a value a reference can carry.
+ *  Not `group` (the same on every run), nor for a group whose name has `@` (it cannot be referred to). */
+export function splitKeys(group) {
+  if (group.includes('@')) return [];
+  const keys = new Set();
+  for (const r of runsOf(group)) for (const [k, v] of Object.entries(r.tags)) if (k !== 'group' && v && !v.includes('@')) keys.add(k);
+  return [...keys].sort(numeric);
+}
+
+/** `[{value, runs}]`: the values of a tag among a group's runs and how many runs have each. */
+export function splitValues(group, key) {
+  const n = new Map();
+  for (const r of runsOf(group)) {
+    const v = r.tags[key];
+    if (v && !v.includes('@')) n.set(v, (n.get(v) || 0) + 1);
+  }
+  return [...n].sort((a, b) => numeric(a[0], b[0])).map(([value, runs]) => ({ value, runs }));
+}
+
 /** Quick picks: { label, base, others[] } derived from the groups and run tags present. */
 export function quickPicks() {
   const picks = [];
@@ -116,10 +140,10 @@ export function quickPicks() {
   for (const g of sortedGroups()) {
     const runs = runsOf(g.group);
     if (runs.length < 2) continue;
-    const rounds = [...new Set(runs.map((r) => r.tags.round).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const rounds = [...new Set(runs.map((r) => r.tags.round).filter(Boolean))].sort(numeric);
     if (rounds.length >= 2 && !g.group.includes('@') && rounds.every((rd) => !rd.includes('@'))) {
       // every run of a round pooled (a round with a partial rerun counts both runs): group:NAME@round=VALUE
-      const roundRef = (rd) => `${groupRef(g)}@round=${rd}`;
+      const roundRef = (rd) => splitRef(g.group, 'round', rd);
       picks.push({ label: `Round ${rounds.join(' vs ')} · ${g.group}`, base: roundRef(rounds[0]), others: rounds.slice(1).map(roundRef) });
     } else if (runs.length <= 8) {
       picks.push({ label: `Runs of ${g.group}`, base: runs[0].run_id, others: runs.slice(1).map((r) => r.run_id) });

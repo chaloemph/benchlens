@@ -7,7 +7,7 @@ use crate::verdict::Direction;
 use crate::{Error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// Version of the database layout (PRAGMA user_version).
@@ -138,6 +138,8 @@ pub struct RunSummary {
     pub failed_stages: Vec<String>,
     pub tags: BTreeMap<String, String>,
     pub values: i64,
+    /// Names of the files the run kept (sorted), e.g. `report.md`; `RunDetail.files` has their sizes.
+    pub kept_files: Vec<String>,
 }
 
 pub use benchlens_rules::compare::ValueRow;
@@ -367,6 +369,7 @@ impl Store {
                     failed_stages: Vec::new(),
                     tags: BTreeMap::new(),
                     values: r.get(12)?,
+                    kept_files: Vec::new(),
                 })
             })?
             .collect::<std::result::Result<_, _>>()?;
@@ -376,7 +379,19 @@ impl Store {
         let mut fail_st = self
             .conn
             .prepare("SELECT stage FROM failed_stages WHERE run_id = ?1 ORDER BY stage")?;
+        // every kept file name in one query (no query per run)
+        let mut kept: HashMap<String, Vec<String>> = HashMap::new();
+        let mut file_st = self
+            .conn
+            .prepare("SELECT run_id, name FROM files ORDER BY run_id, name")?;
+        let rows =
+            file_st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        for row in rows {
+            let (run_id, name) = row?;
+            kept.entry(run_id).or_default().push(name);
+        }
         for run in &mut runs {
+            run.kept_files = kept.remove(&run.run_id).unwrap_or_default();
             run.tags = tag_st
                 .query_map([&run.run_id], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<std::result::Result<_, _>>()?;
