@@ -231,13 +231,13 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         cfg.max_upload_bytes / (1024 * 1024)
     );
     let hosts = if cfg.token.is_some() && cfg.allowed_hosts.is_empty() {
-        "any Host name".to_string()
+        "any".to_string()
     } else {
         let mut names = vec!["localhost".to_string(), "IP addresses".to_string()];
         names.extend(cfg.allowed_hosts.iter().cloned());
         names.join(", ")
     };
-    eprintln!("serving Host {hosts}");
+    eprintln!("Host names served: {hosts}");
     if let Some(r) = &cfg.registry {
         eprintln!("registry {} (inbox imports and uploads)", r.display());
     }
