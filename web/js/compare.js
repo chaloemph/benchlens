@@ -117,6 +117,7 @@ let renderSeq = 0;
 export function renderCompare(s) {
   currentState = () => s;
   syncPicker(s);
+  syncExport(s);
   const seq = ++renderSeq;
   const status = compareStatus();
   const body = document.getElementById('compare-body');
@@ -146,6 +147,38 @@ export function renderCompare(s) {
     clear(warnings);
     clear(status, errorBlock(err, 'Cannot compare'));
   });
+}
+
+// ---- export: the static HTML report of the current selection (only where a server can build it) ----
+function exportFileName(s) {
+  const part = (ref) => ref.replace(/^group:/, '').replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'side';
+  return 'benchlens-' + [s.base, ...s.other.slice(0, 3)].map(part).join('-vs-') + '.html';
+}
+
+function syncExport(s) {
+  const btn = document.getElementById('export-html');
+  const status = document.getElementById('export-status');
+  btn.hidden = typeof api.exportHtml !== 'function';
+  if (btn.hidden) return;
+  btn.disabled = !s.base || !s.other.length;
+  btn.onclick = async () => {
+    btn.disabled = true;
+    status.textContent = 'Building the report…';
+    try {
+      const html = await api.exportHtml(s.base, s.other);
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+      const a = h('a', { href: url, download: exportFileName(s) });
+      document.body.append(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      status.textContent = '';
+    } catch (err) {
+      status.textContent = 'Cannot export: ' + (err && err.message ? err.message : String(err));
+    } finally {
+      btn.disabled = false;
+    }
+  };
 }
 
 function compareStatus() {

@@ -73,7 +73,21 @@ benchlens compare group:x86-std group:x86-med group:x86-high   # groups: all run
 benchlens compare x86-high x86-high-r2 --section pg --json
 benchlens tag x86-high-r2 group=poc-x86-high exclude=web        # an empty value removes a tag
 benchlens serve                                   # http://127.0.0.1:8080 (API under /api)
+
+# share a comparison: one HTML file that opens from disk, offline (baseline and sides can still be changed)
+benchlens export html --base group:x86-high --other group:arm64-high -o report.html --title "POC high"
+benchlens export json group:x86-high group:arm64-high -o values.json   # sides, values, stats per metric
+benchlens export csv group:x86-high group:arm64-high -o values.csv     # one row per raw value
 ```
+
+The exported HTML inlines the web UI's compare, metric and hardware views, d3, the WebAssembly build of the
+verdict rule and the values of the exported sides (about 750 KB, 230 KB gzipped, for two POC groups), so its
+numbers equal `benchlens compare`; the Export button of the compare view downloads the same file. The CSV
+columns are `side,run_id,label,id,name,section,unit,direction,round,value` (`side` is the reference as given,
+`label` the run's label, `round` the repeat inside the run, `direction` empty for a vmbench version without a
+metric table; text starting with `= + - @` gets a leading `'` so spreadsheets do not run it as a formula). The
+JSON holds per side `side`, `stats` (`id`, `name`, `section`, `unit`, `direction`, `tool`, `n`, `median`,
+`cv`, `min`, `max`), `unjudged` and `values` (`ValueRow`, docs/api.md).
 
 The database is `benchlens.db` in the current folder unless `--db` or `BENCHLENS_DB` says otherwise.
 Importing the same run again, by any route, does not add it twice.

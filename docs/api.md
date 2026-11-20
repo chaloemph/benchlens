@@ -167,6 +167,28 @@ The metric table of a vmbench version: `Metric[]` (`id`, `unit`, `direction`, `t
 `description`) ([metrics.json](api-examples/metrics.json)). `version` is required (400 without it); a leading
 `v` is accepted. 404 when there is no table for that version.
 
+### `GET /api/export.html?base=REF&other=REF[&other=REF...][&title=T]`
+The static HTML report of a comparison, the same file as `benchlens export html`: `text/html` with
+`Content-Disposition: attachment; filename="benchlens-<base>-vs-<other>.html"` and a
+`Content-Security-Policy` that allows no network access. Same parameter checks as `/api/compare` (400 without
+`base` or `other`, 404 for an unknown side); `title` (one line, at most 1024 bytes) defaults to
+`"BASE vs OTHER, ..."`. The file opens from disk with no server: it inlines `web/index.html`, the CSS, d3,
+the modules of `web/js/` bundled with `web/export/offline.js`, the WASM verdict rule (base64, in
+`<script type="application/octet-stream" id="benchlens-wasm">`) and this JSON in
+`<script type="application/json" id="benchlens-data">` (`<`, `>`, `&`, U+2028, U+2029 written as `\uXXXX`):
+
+| Field | |
+|---|---|
+| `format` | 1 (raised when this shape changes) |
+| `benchlens`, `exported_at`, `source`, `title` | version, UTC time, database file name (`benchlens server` from this endpoint), title |
+| `base`, `others[]` | the exported references, as given |
+| `sides[]` | baseline first: `{side: Side, values: ValueRow[]}`, what `/api/compare` judges for that reference |
+| `runs[]` | `RunDetail` of every run of those sides, `files` empty |
+| `groups[]` | `GroupSummary` of the `group:` sides |
+
+In the page the reader can pick any exported side, or any single run of one, as baseline or compared side;
+comparisons are computed by the WASM `compare` and equal `/api/compare` for the same sides.
+
 ## Not in v1
 
 - Pagination (lists are small until thousands of runs; add `limit`/`after` then), editing values, users and

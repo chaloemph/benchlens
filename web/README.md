@@ -94,3 +94,8 @@ BENCHLENS_TOKEN=smoke-secret-0123456789 UPLOAD=/tmp/up.tar.gz NODE_PATH=... node
 
 With `--read-public false` on the server, add `READ_PRIVATE=1`: the views are skipped and the test checks
 that the first page load asks for the token.
+
+The static HTML export (`web/export/offline.js`, built by `crates/server/src/export.rs`) reuses `js/main.js`
+and the views; keep `web/js/` in the plain module style the export bundler accepts (one-line imports,
+`export function|const|class`). `NODE_PATH=... tests/export/run.sh` opens an export from disk with the network
+off and checks it against `benchlens compare --json`.

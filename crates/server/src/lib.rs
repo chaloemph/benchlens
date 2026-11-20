@@ -1,12 +1,13 @@
 //! benchlens HTTP server: the JSON API of `docs/api.md` and the web UI in `web/`, built into the binary.
 //!
-//! Read endpoints live in [`read`], tag editing and delete in [`write`], upload in [`upload`]. Who may read
-//! and write is decided in [`auth`] (every write handler takes a [`write::WriteAccess`]; reads go through
-//! [`auth::read_guard`]); settings come from [`config`]. Keep the routes in [`router`] in step with
-//! docs/api.md.
+//! Read endpoints live in [`read`], tag editing and delete in [`write`], upload in [`upload`], the static HTML
+//! export in [`export`]. Who may read and write is decided in [`auth`] (every write handler takes a
+//! [`write::WriteAccess`]; reads, the export included, go through [`auth::read_guard`]); settings come from
+//! [`config`]. Keep the routes in [`router`] in step with docs/api.md.
 
 pub mod auth;
 pub mod config;
+pub mod export;
 mod params;
 pub mod read;
 pub mod upload;
@@ -170,6 +171,7 @@ pub fn router(state: AppState) -> Router {
         .route("/compare", get(read::compare))
         .route("/values", get(read::values))
         .route("/metrics", get(read::metrics))
+        .route("/export.html", get(export::export_html))
         // everything above needs the token when read_public = false; health and unknown paths do not
         .route_layer(axum::middleware::from_fn_with_state(
             state.clone(),

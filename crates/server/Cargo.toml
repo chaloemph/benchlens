@@ -21,6 +21,7 @@ tokio = { workspace = true, features = ["fs", "io-util"] }
 toml.workspace = true
 
 [dev-dependencies]
+benchlens-wasm = { path = "../wasm" }
 flate2.workspace = true
 tar.workspace = true
 http-body-util.workspace = true

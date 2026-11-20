@@ -96,6 +96,13 @@ export const api = {
     for (const o of others) q.append('other', o);
     return request('GET', 'api/compare?' + q);
   },
+  /** The static HTML report of a comparison (GET /api/export.html), as text; null where there is no server. */
+  exportHtml: (base, others) => {
+    const q = new URLSearchParams();
+    q.append('base', base);
+    for (const o of others) q.append('other', o);
+    return request('GET', 'api/export.html?' + q);
+  },
   values: (ref, id) => request('GET', 'api/values?' + new URLSearchParams({ ref, id })),
   metrics: (version) => request('GET', 'api/metrics?' + new URLSearchParams({ version })),
   fileUrl: (id, name) => 'api/runs/' + enc(id) + '/files/' + enc(name),
