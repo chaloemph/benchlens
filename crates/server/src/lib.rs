@@ -260,12 +260,35 @@ type InboxThread = (
     std::thread::JoinHandle<()>,
 );
 
+/// Get an inbox ready to watch, the same way for `benchlens watch` and `serve --inbox`: refuse a registry that
+/// does not parse now (later edits are checked on every scan), create the folder, take its lock (warning when
+/// a stale lock of a watcher that did not stop cleanly is taken over). Hold the lock while watching.
+pub fn prepare_inbox(
+    opts: &benchlens_core::inbox::InboxOptions,
+) -> anyhow::Result<benchlens_core::inbox::InboxLock> {
+    use anyhow::Context;
+    use benchlens_core::import::Registry;
+    if let Some(p) = &opts.registry {
+        let text =
+            std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?;
+        Registry::parse(&text).with_context(|| format!("registry {}", p.display()))?;
+    }
+    std::fs::create_dir_all(&opts.dir)
+        .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
+    let lock = benchlens_core::inbox::InboxLock::acquire(&opts.dir)?;
+    if let Some(old) = lock.taken_over() {
+        eprintln!(
+            "warning: took over the stale inbox lock of {old} ({})",
+            lock.path().display()
+        );
+    }
+    Ok(lock)
+}
+
 /// Run the inbox watcher of `cfg.inbox` in its own thread with its own connection to the database. Fails
 /// when another watcher holds the inbox lock or the registry does not parse.
 fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
-    use anyhow::Context;
-    use benchlens_core::import::Registry;
-    use benchlens_core::inbox::{watch, InboxLock, InboxOptions};
+    use benchlens_core::inbox::{watch, InboxOptions};
     let Some(dir) = cfg.inbox.clone() else {
         return Ok(None);
     };
@@ -276,20 +299,7 @@ fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
         registry: cfg.inbox_registry.clone(),
         ..InboxOptions::new(dir)
     };
-    if let Some(p) = &opts.registry {
-        let text =
-            std::fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?;
-        Registry::parse(&text).with_context(|| format!("registry {}", p.display()))?;
-    }
-    std::fs::create_dir_all(&opts.dir)
-        .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
-    let lock = InboxLock::acquire(&opts.dir)?;
-    if let Some(old) = lock.taken_over() {
-        eprintln!(
-            "warning: took over the stale inbox lock of {old} ({})",
-            lock.path().display()
-        );
-    }
+    let lock = prepare_inbox(&opts)?;
     eprintln!(
         "watching inbox {} every {}s",
         opts.dir.display(),

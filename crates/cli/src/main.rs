@@ -405,7 +405,7 @@ fn main() -> Result<()> {
             registry,
             tags,
         } => {
-            use benchlens_core::inbox::{self, InboxLock, InboxOptions};
+            use benchlens_core::inbox::{self, InboxOptions};
             let store =
                 Store::open(&cli.db).with_context(|| format!("opening {}", cli.db.display()))?;
             let opts = InboxOptions {
@@ -414,22 +414,7 @@ fn main() -> Result<()> {
                 registry,
                 ..InboxOptions::new(inbox)
             };
-            if let Some(p) = &opts.registry {
-                // refuse a registry that does not parse now; later edits are checked on every scan
-                Registry::parse(
-                    &fs::read_to_string(p).with_context(|| format!("reading {}", p.display()))?,
-                )
-                .with_context(|| format!("registry {}", p.display()))?;
-            }
-            fs::create_dir_all(&opts.dir)
-                .with_context(|| format!("creating inbox {}", opts.dir.display()))?;
-            let lock = InboxLock::acquire(&opts.dir)?;
-            if let Some(old) = lock.taken_over() {
-                eprintln!(
-                    "warning: took over the stale lock of {old} ({})",
-                    lock.path().display()
-                );
-            }
+            let lock = benchlens_server::prepare_inbox(&opts)?;
             if once {
                 for ev in inbox::run_once(&store, &opts) {
                     println!("{ev}");
