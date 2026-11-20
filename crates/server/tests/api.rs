@@ -140,8 +140,29 @@ async fn runs_list_everything_oldest_first() {
         "failed_stages",
         "tags",
         "values",
+        "kept_files",
     ] {
         assert!(r.get(key).is_some(), "RunSummary has {key}");
+    }
+    // kept_files: the names of RunDetail's files, sorted, for every run
+    for r in a {
+        let id = r["run_id"].as_str().unwrap();
+        let d = app.get_json(&format!("/api/runs/{id}")).await;
+        let names: Vec<&str> = d["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["name"].as_str().unwrap())
+            .collect();
+        let kept: Vec<&str> = r["kept_files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f.as_str().unwrap())
+            .collect();
+        assert!(!kept.is_empty(), "{id} kept meta.json at least");
+        assert_eq!(kept, names, "{id}");
+        assert_eq!(d["kept_files"], r["kept_files"], "{id}");
     }
     // same as the store
     let direct = app.with_store(|s| as_sent(&s.list_runs().unwrap()));

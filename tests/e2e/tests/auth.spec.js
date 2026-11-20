@@ -108,3 +108,25 @@ test('private server: every /api read but health needs the token; the page asks 
   expect(html).toContain('Content-Security-Policy');
   expect(errors).toEqual([]);
 });
+
+test('private server: report.md opens from the Runs view with the token', async ({ page, request }) => {
+  const runs = await (await request.get(PRIVATE_URL + 'api/runs', { headers: bearer })).json();
+  const r = runs.find((x) => x.kept_files.includes('report.md'));
+  expect(r, 'a run with report.md').toBeTruthy();
+  const file = PRIVATE_URL + 'api/runs/' + r.run_id + '/files/report.md';
+  expect((await request.get(file)).status()).toBe(401);
+  const text = await (await request.get(file, { headers: bearer })).text();
+
+  const errors = watch(page);
+  await page.goto(PRIVATE_URL + '?view=runs');
+  await answerToken(page, TOKEN);
+  const link = page.locator(`#runs-table tr[data-run="${r.run_id}"] .report-slot a`);
+  await link.click();
+  const dlg = page.locator('#report-dialog');
+  await expect(dlg).toBeVisible();
+  await expect(dlg.locator('pre.report-text')).toHaveText(text.replace(/\n$/, ''));
+  await expect(dlg.locator('.state.error')).toHaveCount(0);
+  await dlg.getByRole('button', { name: 'Close' }).click();
+  await expect(dlg).toBeHidden();
+  expect(errors).toEqual([]);
+});

@@ -48,7 +48,13 @@
     },
     "schema": 1
   },
-  "imported_at": "2026-11-20T03:35:22Z",
+  "imported_at": "2026-11-20T05:10:12Z",
+  "kept_files": [
+    "hardware.json",
+    "meta.json",
+    "results.tsv",
+    "status.tsv"
+  ],
   "label": "x86-high-r2",
   "meta": {
     "arch": "x86_64",

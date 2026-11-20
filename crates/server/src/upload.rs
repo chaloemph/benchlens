@@ -1,5 +1,6 @@
 //! `POST /api/runs`: upload a `.tar` / `.tar.gz` of result folders (multipart field `file`, repeated
-//! `tag` = `KEY=VALUE`) and import it with the same code as `benchlens import`, source `upload`.
+//! `tag` = `KEY=VALUE`) and import it with the same code as `benchlens import`, source `upload`. The server's
+//! registry (`registry` setting), when there is one, applies too; the form's tags win over it.
 //!
 //! The file is streamed into a fresh folder under the system temp dir and counted while it arrives: one byte
 //! over the limit ends the request with 413. The folder is removed on every path (it is a `TempDir`, dropped
@@ -13,7 +14,7 @@ use axum::extract::multipart::{Field, MultipartError, MultipartRejection};
 use axum::extract::{Multipart, State};
 use axum::http::StatusCode;
 use axum::Json;
-use benchlens_core::import::{import_path, ImportOptions, ImportReport};
+use benchlens_core::import::{import_path, ImportOptions, ImportReport, Registry};
 use benchlens_core::store::{self, MAX_TAG_VALUE};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -147,10 +148,14 @@ pub async fn upload_run(
     if size == 0 {
         return Err(bad_request("the uploaded file is empty"));
     }
+    let registry = match &st.registry {
+        Some(p) => Some(read_registry(p).await?),
+        None => None,
+    };
     let opts = ImportOptions {
         source: "upload".into(),
         tags,
-        registry: None,
+        registry,
         dry_run: false,
     };
     let store = st.store.clone();
@@ -164,6 +169,19 @@ pub async fn upload_run(
     .await
     .map_err(|e| ApiError::internal(format!("import task failed: {e}")))??;
     Ok(Json(reports))
+}
+
+/// The server's registry, read at every upload so edits apply at once. A registry that cannot be read or
+/// parsed refuses the upload (500: the server's problem, said in the message) rather than importing untagged.
+async fn read_registry(path: &std::path::Path) -> Result<Registry, ApiError> {
+    let text = tokio::fs::read_to_string(path).await.map_err(|e| {
+        ApiError::internal("the server's registry cannot be read")
+            .with_detail(format!("{}: {e}", path.display()))
+    })?;
+    Registry::parse(&text).map_err(|e| {
+        ApiError::internal("the server's registry does not parse")
+            .with_detail(format!("{}: {e}", path.display()))
+    })
 }
 
 /// What a refused archive answers: unsafe entries, no result folder, and unreadable tar/gzip data are the

@@ -83,7 +83,7 @@ enum Cmd {
     /// Serve the web UI and the JSON API (docs/api.md).
     ///
     /// Settings come from the flags, then BENCHLENS_* variables (BENCHLENS_DB, _LISTEN, _INBOX,
-    /// _INBOX_INTERVAL, _INBOX_REGISTRY, _TOKEN, _READ_PUBLIC, _MAX_UPLOAD_MB), then benchlens.toml, then the defaults. The token
+    /// _INBOX_INTERVAL, _REGISTRY, _TOKEN, _READ_PUBLIC, _MAX_UPLOAD_MB, _ALLOWED_HOSTS), then benchlens.toml, then the defaults. The token
     /// has no flag (command lines are visible to other users): set BENCHLENS_TOKEN or `token` in the file.
     Serve {
         /// Config file [default: ./benchlens.toml when present].
@@ -98,9 +98,10 @@ enum Cmd {
         /// Seconds between two inbox scans [default: 5].
         #[arg(long, value_name = "SECS")]
         inbox_interval: Option<u64>,
-        /// Registry TSV for inbox imports (a `run` column and one column per tag); read again when it changes.
-        #[arg(long, value_name = "FILE")]
-        inbox_registry: Option<PathBuf>,
+        /// Registry TSV for inbox imports and uploads (a `run` column and one column per tag); read again when
+        /// it changes. Old name: --inbox-registry.
+        #[arg(long, visible_alias = "inbox-registry", value_name = "FILE")]
+        registry: Option<PathBuf>,
         /// Tag every run the inbox imports: --inbox-tag set=poc (wins over the registry).
         #[arg(long = "inbox-tag", value_name = "KEY=VALUE")]
         inbox_tags: Vec<String>,
@@ -124,8 +125,9 @@ enum Cmd {
         /// Scan twice, one interval apart, then exit.
         #[arg(long)]
         once: bool,
-        /// Registry TSV (a `run` column and one column per tag); read again when it changes.
-        #[arg(long, env = "BENCHLENS_INBOX_REGISTRY", value_name = "FILE")]
+        /// Registry TSV (a `run` column and one column per tag); read again when it changes. Env:
+        /// BENCHLENS_REGISTRY, or its old name BENCHLENS_INBOX_REGISTRY.
+        #[arg(long, env = "BENCHLENS_REGISTRY", value_name = "FILE")]
         registry: Option<PathBuf>,
         /// Tag every imported run: --tag set=poc --tag round=2 (wins over the registry and benchlens-tags.json).
         #[arg(long = "tag", value_name = "KEY=VALUE")]
@@ -215,9 +217,32 @@ fn stop_on_signal(stop: std::sync::Arc<std::sync::atomic::AtomicBool>) -> Result
         .context("installing signal handlers")
 }
 
+/// Printing commands end quietly when the reader of their output goes away (`benchlens compare ... | head`):
+/// Rust ignores SIGPIPE, so a write to a closed pipe is an error and `println!` panics. Restoring the default
+/// action makes the process end at once by SIGPIPE, without a message, like other Unix tools; the shell
+/// reports status 141 (128 + 13). `serve` keeps SIGPIPE ignored: a client that goes away must not stop it.
+#[cfg(unix)]
+fn sigpipe(default: bool) {
+    let action = if default {
+        libc::SIG_DFL
+    } else {
+        libc::SIG_IGN
+    };
+    // SAFETY: changing the SIGPIPE disposition at start-up, before this program starts other threads.
+    unsafe {
+        libc::signal(libc::SIGPIPE, action);
+    }
+}
+
 fn main() -> Result<()> {
+    #[cfg(unix)]
+    sigpipe(true); // before parsing, so `--help | head` is quiet too
     let matches = Cli::command().get_matches();
     let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
+    #[cfg(unix)]
+    if matches!(cli.cmd, Cmd::Serve { .. }) {
+        sigpipe(false);
+    }
     match cli.cmd {
         Cmd::Import {
             paths,
@@ -365,7 +390,7 @@ fn main() -> Result<()> {
             listen,
             inbox,
             inbox_interval,
-            inbox_registry,
+            registry,
             inbox_tags,
             read_public,
             max_upload_mb,
@@ -383,13 +408,13 @@ fn main() -> Result<()> {
                 listen,
                 inbox,
                 inbox_interval,
-                inbox_registry,
+                registry,
                 inbox_tags: (!inbox_tags.is_empty())
                     .then(|| parse_tags(&inbox_tags))
                     .transpose()?,
-                token: None,
                 read_public,
                 max_upload_mb,
+                ..Layer::default()
             };
             let env = Layer::from_env(|k| std::env::var(k).ok())?;
             let (path, explicit) = config_path(config);
@@ -411,7 +436,12 @@ fn main() -> Result<()> {
             let opts = InboxOptions {
                 interval: std::time::Duration::from_secs(interval.max(1)),
                 tags: parse_tags(&tags)?,
-                registry,
+                // the old variable name still works, as for serve
+                registry: registry.or_else(|| {
+                    std::env::var_os("BENCHLENS_INBOX_REGISTRY")
+                        .filter(|v| !v.is_empty())
+                        .map(PathBuf::from)
+                }),
                 ..InboxOptions::new(inbox)
             };
             let lock = benchlens_server::prepare_inbox(&opts)?;

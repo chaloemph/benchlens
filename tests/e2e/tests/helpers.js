@@ -77,6 +77,7 @@ const RUN_SUMMARY = {
   run_id: 'string', folder: 'string', label: 'string', group: 'string', arch: 'string',
   nproc: 'integer|null', ram_gb: 'number|null', cpu_model: 'string|null', vmbench_version: 'string', start_utc: 'string',
   source: 'string', catalog_known: 'boolean', failed_stages: ['string'], tags: 'object', values: 'integer',
+  kept_files: ['string'],
 };
 const SIDE = { reference: 'string', label: 'string', run_ids: ['string'], archs: ['string'] };
 

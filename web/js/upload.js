@@ -40,6 +40,7 @@ function build() {
     h('div', { class: 'field' }, h('label', { for: 'upload-file', text: 'Archive' }), file),
     h('fieldset', { class: 'upload-tagset' },
       h('legend', { text: 'Tags (optional)' }),
+      h('p', { class: 'muted', id: 'upload-registry-hint', text: 'If the server has a registry, its tags apply too; tags given here win over it.' }),
       tags,
       h('button', { type: 'button', class: 'small', id: 'upload-add-tag', text: 'Add tag', onclick: () => {
         const r = tagRow();

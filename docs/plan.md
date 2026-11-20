@@ -3,8 +3,10 @@
 Status 2026-11-20: **M1 done** (commit 298860c): core library, CLI, SQLite store, golden tests against vmbench.
 **T0 done** (PR #1). **Wave 1 done** (A, B, C1, E, F reviewed and integrated in `integration/wave1`; V in a
 vmbench PR); reviews in `docs/reviews/wave1-*.md`. **Wave 2 done** (K, I, C2, D, W, AB reviewed and integrated
-in `integration/wave2`); reviews in `docs/reviews/wave2-*.md`. With it **M2, M3 and M4 are complete**; what
-remains for `v0.1.0` is F4, the release dry run (see its row), then tagging. Follow-ups below.
+in `integration/wave2`); reviews in `docs/reviews/wave2-*.md`. With it **M2, M3 and M4 are complete**; the F4
+release dry run passed. **Wave 3 done** (S, U, G, H reviewed and integrated in `integration/wave3`; F5 and
+F12-F18 done); reviews in `docs/reviews/wave3-*.md`. **Ready for v0.1.0**: see
+[Releasing v0.1.0](#releasing-v010). Follow-ups below.
 Background and decisions: `PLAN-dashboard.md` in the performance-benchmark workspace (Thai). This file is
 the working plan for whoever builds the rest, person or agent.
 
@@ -97,8 +99,8 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 | F1 (done, K) | Group-subset reference such as `group:NAME@tag=value` (pooled runs of a group with one tag value), so "round 1 vs 2" compares pooled rounds; then switch B's quick picks to it. Contract change: api.md, core `resolve`, UI. | core, server, web | B |
 | F2 (done, K) | Distinguish ambiguous references in core (`Error::Ambiguous`, 400 or 409 instead of 404 with a message). | core, server, api.md | A |
 | F3 (done, I) | `benchlens watch`: stop cleanly on Ctrl-C between scans (the `stop` flag exists). | cli | C1 |
-| F4 | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F |
-| F5 | The real part number of the POC's HiSilicon CPU: rerun the `info` stage of vmbench (with `hw/cpu-id.txt`) on one ARM VM, add the part to `ARM_PARTS` if it is certain. | vmbench | V |
+| F4 (dry run done, L) | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F Dry run 2026-11-20 on `integration/wave2` (run 44670841928): all five targets built and packaged, SHA256SUMS made, multi-arch image built (not pushed); the first run failed in the docker job (registry cache race, fixed in the Dockerfile). Left: tag `v0.1.0` after the merge. |
+| F5 (done, main session) | The real part number of the POC's HiSilicon CPU: rerun the `info` stage of vmbench (with `hw/cpu-id.txt`) on one ARM VM, add the part to `ARM_PARTS` if it is certain. Done 2026-11-20 on the arm64 POC VMs: implementer 0x48 (HiSilicon), part 0xd03, r0p0, `midr_el1` 0x00000000480fd030, SVE2. vmbench v0.2.4 reports it as "HiSilicon part 0xd03", which is correct; the marketing name of 0xd03 is not confirmed, so nothing is added to the table. | vmbench | V |
 | F6 (done, I) | Inbox imports with tags: `--registry` for `watch` / `serve --inbox` (a re-imported run now loses its registry group). | core inbox, cli | L (E2E) |
 | F7 (done, K) | `v_values` excludes stages with `LIKE` on a section read from results.tsv; use `instr()` (needs a DB layout bump, the view is `IF NOT EXISTS`). | core store | L |
 | F8 (done, W) | Web UI items for B: keep tag-form drafts across re-renders; link report.md only when kept; delete dialog says tags are not restored. | web | B (review) |
@@ -110,13 +112,22 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 
 | ID | Follow-up | Where | From |
 |---|---|---|---|
-| F12 | `has_report` (or the `files` list) in `RunSummary`, so the Runs view needs no RunDetail request per row for the report.md link. API change: api.md, core, UI. | core, server, web | W |
-| F13 | On a private server (`read_public = false`) the report.md link opens in a new tab without the token and gets 401: fetch it with the token into a blob, or offer a short-lived signed link. | web | L (C2 review) |
-| F14 | DNS rebinding against a loopback server without a token: any `Host` is accepted, so a rebinding page is same-origin and can read and write. Accept only localhost / 127.0.0.1 / [::1] as `Host` in no-token mode, or always require a token. | server auth | L (C2 review) |
-| F15 | Reverse proxy on the same host: loopback without a token means "writes open". Documented in the README; consider refusing open writes when `Forwarded` / `X-Forwarded-For` is present. | server auth | L (C2 review) |
-| F16 | Uploads get no registry: an uploaded run without a `group` tag lands in its automatic group. Apply the server's `inbox_registry` to uploads too (and say so in the dialog). | server upload | L (E2E) |
-| F17 | The compare picker has no control for `group:NAME@KEY=VALUE` sides (only quick picks and links make them); a "split this group by tag" control. | web | L (K review) |
-| F18 | `benchlens compare ... \| head` panics with "failed printing to stdout: Broken pipe"; exit quietly on EPIPE. | cli | L (E2E) |
+| F12 (done, U) | `has_report` (or the `files` list) in `RunSummary`, so the Runs view needs no RunDetail request per row for the report.md link. API change: api.md, core, UI. Done: `kept_files` (sorted names; not `files`, which RunDetail already has with sizes). | core, server, web | W |
+| F13 (done, U) | On a private server (`read_public = false`) the report.md link opens in a new tab without the token and gets 401: fetch it with the token into a blob, or offer a short-lived signed link. Done: a click fetches it with the token and shows it as plain text in a dialog (a new tab still gets 401, fails closed). | web | L (C2 review) |
+| F14 (done, S) | DNS rebinding against a loopback server without a token: any `Host` is accepted, so a rebinding page is same-origin and can read and write. Accept only localhost / 127.0.0.1 / [::1] as `Host` in no-token mode, or always require a token. Done: without a token only `localhost`, IP addresses and `allowed_hosts` are served (403 otherwise); with a token, `allowed_hosts` when set. Every name a request gives must pass (L review). | server auth | L (C2 review) |
+| F15 (done, S) | Reverse proxy on the same host: loopback without a token means "writes open". Documented in the README; consider refusing open writes when `Forwarded` / `X-Forwarded-For` is present. Done: open writes carrying `Forwarded` / `X-Forwarded-For` / `X-Forwarded-Host` are 403. | server auth | L (C2 review) |
+| F16 (done, S) | Uploads get no registry: an uploaded run without a `group` tag lands in its automatic group. Apply the server's `inbox_registry` to uploads too (and say so in the dialog). Done: setting renamed `registry` (`inbox_registry` kept as an alias), read at every upload, form tags win. | server upload | L (E2E) |
+| F17 (done, U) | The compare picker has no control for `group:NAME@KEY=VALUE` sides (only quick picks and links make them); a "split this group by tag" control. Done: "Compare with: a group split by tag" (group, tag, values; optionally the first as baseline). | web | L (K review) |
+| F18 (done, S) | `benchlens compare ... \| head` panics with "failed printing to stdout: Broken pipe"; exit quietly on EPIPE. Done: every command but `serve` restores the default SIGPIPE action and ends quietly by SIGPIPE (shell status 141). | cli | L (E2E) |
+
+## Follow-ups from the Wave 3 review
+
+| ID | Follow-up | Where | From |
+|---|---|---|---|
+| F19 | With a token and `read_public = true`, any `Host` is served, so a DNS rebinding page can read (not write) the public data of a server on 127.0.0.1. Documented (SECURITY.md); consider applying the Host check by default when listening on loopback, also with a token (mind proxies that pass the public name). | server auth | L (S review) |
+| F20 | Grafana's anonymous Viewer can send any read-only SQL to the benchlens database (`/api/ds/query`), so Grafana shows everything even when benchlens has `read_public = false`. Documented; consider `GRAFANA_ANONYMOUS` defaulting to false when benchlens is private, or a note in the compose file. | deploy/grafana | L (G review) |
+| F21 | The release notes come from `gh release create --generate-notes`; consider using the CHANGELOG section of the tag instead. | release.yml | L |
+| F22 | No MSRV job in CI: `rust-version = 1.89` (workspace; rules 1.80, wasm 1.81 on purpose) is only checked by hand (`cargo +1.89 check --locked --all-targets` passed on `integration/wave3`). Add a CI job with the 1.89 toolchain. | ci.yml | L |
 
 ## Wave 2: done, integrated by L in `integration/wave2`
 
@@ -129,7 +140,7 @@ K (F1, F2, F7, F10), I (F3, F6, F11) and W (F8) took the Wave 1 follow-ups; C2, 
 | **AB** (done) | Integration pass: B against the real A, fix contract drift, end-to-end test (start server on fixtures, fetch every page's data). | small fixes in both | A, B | E2E test in CI |
 
 **M2** = T0 + A + B + AB. **M3** = C1 + C2. **M4** = E + D. Release `v0.1.0` after M4 with F. All three are
-complete with Wave 2; F4 (release dry run) is the last step before tagging `v0.1.0`.
+complete with Wave 2 and the F4 dry run passed; tagging `v0.1.0` is the last step.
 
 ## L: lead review, refactor and integration (after every wave)
 
@@ -149,12 +160,32 @@ L does not: merge to `main`, change the verdict rule, add features beyond what a
 
 Gate: a PR without an L review summary is not merged.
 
-## Wave 3 (after M4)
+## Wave 3 (after M4): done, integrated by L in `integration/wave3`
+
+S (F14, F15, F16, F18) and U (F12, F13, F17) took the Wave 2 follow-ups; G and H are the rows below.
 
 | ID | Task | Done when |
 |---|---|---|
-| **G** | Grafana: `deploy/grafana/` provisioning for the SQLite datasource (frser-sqlite-datasource) on the benchlens DB (read-only mount), dashboards: values over time per metric and group, group vs group bars; compose profile `grafana`. Document that verdicts live in benchlens, not Grafana. | `docker compose --profile grafana up` shows both |
-| **H** | Ecosystem docs: user guide (import routes, tags, groups, compare, export), CONTRIBUTING (adding a vmbench version: catalog + fixture + golden), security notes for running on a server, example data walkthrough with `examples/poc-2026-11`. | someone outside the team gets from clone to a comparison with the README alone |
+| **G** (done) | Grafana: `deploy/grafana/` provisioning for the SQLite datasource (frser-sqlite-datasource) on the benchlens DB (read-only mount), dashboards: values over time per metric and group, group vs group bars; compose profile `grafana`. Document that verdicts live in benchlens, not Grafana. | `docker compose --profile grafana up` shows both |
+| **H** (done) | Ecosystem docs: user guide (import routes, tags, groups, compare, export), CONTRIBUTING (adding a vmbench version: catalog + fixture + golden), security notes for running on a server, example data walkthrough with `examples/poc-2026-11`. | someone outside the team gets from clone to a comparison with the README alone |
+
+## Releasing v0.1.0
+
+Everything for v0.1.0 is on `integration/wave3`: the workspace version is `0.1.0`, CHANGELOG lists Waves 1-3
+under `[0.1.0] - unreleased`, and the release workflow passed a dry run on that branch (see the PR). Steps for
+the owner:
+
+1. Merge the Wave 3 PR into `main` (optionally first set the date in CHANGELOG's `[0.1.0]` heading in the PR;
+   the GitHub release shows the date either way).
+2. Tag the merge commit and push the tag:
+   `git fetch origin && git tag -a v0.1.0 -m "benchlens v0.1.0" origin/main && git push origin v0.1.0`
+   (check first that `origin/main` is the merge commit: `git log -1 origin/main`).
+3. `release.yml` does the rest: it checks the tag against the workspace version, builds the five targets,
+   writes `SHA256SUMS`, creates the GitHub release with the archives, and pushes the multi-arch image
+   `ghcr.io/chaloemph/benchlens` (`0.1.0`, `0.1`, `latest`, `sha-...`). Watch it with
+   `gh run watch $(gh run list --workflow release.yml -L1 --json databaseId -q '.[0].databaseId') --exit-status`.
+4. After it: make the ghcr package public if it is not (GitHub, package settings), and check
+   `docker run --rm ghcr.io/chaloemph/benchlens:0.1.0 --version`.
 
 ## Decisions (2026-11-19)
 

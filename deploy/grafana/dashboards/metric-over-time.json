@@ -1,0 +1,353 @@
+{
+  "uid": "benchlens-metric-over-time",
+  "title": "Metric over time",
+  "description": "Values of one metric per group across runs, the run's start_utc as time.",
+  "tags": [
+    "benchlens",
+    "vmbench"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "utc",
+  "templating": {
+    "list": [
+      {
+        "name": "section",
+        "label": "Section",
+        "description": "Stage / metric prefix (cpu, disk, mem, net, pg, web, ...).",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT section FROM v_values ORDER BY section",
+        "definition": "SELECT DISTINCT section FROM v_values ORDER BY section",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "pg"
+          ],
+          "value": [
+            "pg"
+          ]
+        }
+      },
+      {
+        "name": "grp",
+        "label": "Group",
+        "description": "Effective group: the run's `group` tag, else the automatic group.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "definition": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "metric",
+        "label": "Metric",
+        "description": "Metric id from the vmbench catalog (name and unit from benchlens' metric table).",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT id AS __value, id || '  \u00b7  ' || name || ' [' || unit || ']' AS __text FROM v_values WHERE section IN (${section:sqlstring}) AND grp IN (${grp:sqlstring}) ORDER BY id",
+        "definition": "SELECT DISTINCT id AS __value, id || '  \u00b7  ' || name || ' [' || unit || ']' AS __text FROM v_values WHERE section IN (${section:sqlstring}) AND grp IN (${grp:sqlstring}) ORDER BY id",
+        "refresh": 1,
+        "sort": 0,
+        "multi": false,
+        "includeAll": false,
+        "options": [],
+        "current": {
+          "text": "pg.pgbench.tpcb.tps",
+          "value": "pg.pgbench.tpcb.tps"
+        }
+      },
+      {
+        "name": "run",
+        "label": "Run",
+        "description": "Runs of the selected groups.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "definition": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "benchlens_url",
+        "label": "benchlens UI",
+        "type": "textbox",
+        "query": "http://localhost:8080",
+        "current": {
+          "text": "http://localhost:8080",
+          "value": "http://localhost:8080"
+        },
+        "description": "Where the benchlens web UI is reachable from your browser (for the links).",
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "benchlens UI",
+      "type": "link",
+      "url": "${benchlens_url}/",
+      "targetBlank": true,
+      "icon": "external link"
+    },
+    {
+      "title": "benchlens dashboards",
+      "type": "dashboards",
+      "tags": [
+        "benchlens"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Verdicts live in benchlens, not here.** These panels show raw values, means and ranges straight from the benchlens database (SQLite has no median). Whether a difference is *better*, *worse* or *within noise* (medians, CV and vmbench's noise rule) is decided by benchlens only: [open this metric in benchlens](${benchlens_url}/?view=metric&metric=${metric}). Each point is one run: the mean of its rounds (`v_stats.mean`)."
+      },
+      "transparent": true,
+      "id": 1,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "${metric:text} \u00b7 mean per run",
+      "description": "Mean of the run's rounds (v_stats), not the median benchlens compares. Runs without start_utc are left out. Time range filters on start_utc.",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "-- mean of one metric per run (rounds that count, see v_values), one series per group, at the run's start\nSELECT r.start_utc AS time, s.grp AS grp, s.mean AS value\nFROM v_stats s\nJOIN v_runs r ON r.run_id = s.run_id\nWHERE s.id = ${metric:sqlstring}\n  AND s.grp IN (${grp:sqlstring})\n  AND s.run_id IN (${run:sqlstring})\n  AND r.start_utc <> ''\n  AND CAST(strftime('%s', r.start_utc) AS INTEGER) BETWEEN ${__from:date:seconds} AND ${__to:date:seconds}\nORDER BY time",
+          "rawQueryText": "-- mean of one metric per run (rounds that count, see v_values), one series per group, at the run's start\nSELECT r.start_utc AS time, s.grp AS grp, s.mean AS value\nFROM v_stats s\nJOIN v_runs r ON r.run_id = s.run_id\nWHERE s.id = ${metric:sqlstring}\n  AND s.grp IN (${grp:sqlstring})\n  AND s.run_id IN (${run:sqlstring})\n  AND r.start_utc <> ''\n  AND CAST(strftime('%s', r.start_utc) AS INTEGER) BETWEEN ${__from:date:seconds} AND ${__to:date:seconds}\nORDER BY time",
+          "queryType": "time series",
+          "timeColumns": [
+            "time"
+          ]
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "showPoints": "always",
+            "pointSize": 8,
+            "spanNulls": true,
+            "fillOpacity": 0,
+            "axisSoftMin": 0
+          },
+          "displayName": "${__field.labels.grp}"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 2,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Runs \u00b7 ${metric:text}",
+      "description": "n = rounds that count (failed and excluded stages are left out). mean / min / max over those rounds.",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "SELECT replace(substr(r.start_utc, 1, 16), 'T', ' ') AS start, s.grp AS \"group\", s.label AS run, r.vmbench_version AS vmbench,\n       s.n, s.mean, s.min, s.max, s.unit, s.direction, s.run_id\nFROM v_stats s\nJOIN v_runs r ON r.run_id = s.run_id\nWHERE s.id = ${metric:sqlstring}\n  AND s.grp IN (${grp:sqlstring})\n  AND s.run_id IN (${run:sqlstring})\nORDER BY r.start_utc",
+          "rawQueryText": "SELECT replace(substr(r.start_utc, 1, 16), 'T', ' ') AS start, s.grp AS \"group\", s.label AS run, r.vmbench_version AS vmbench,\n       s.n, s.mean, s.min, s.max, s.unit, s.direction, s.run_id\nFROM v_stats s\nJOIN v_runs r ON r.run_id = s.run_id\nWHERE s.id = ${metric:sqlstring}\n  AND s.grp IN (${grp:sqlstring})\n  AND s.run_id IN (${run:sqlstring})\nORDER BY r.start_utc",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vmbench"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Run facts in benchlens",
+                    "targetBlank": true,
+                    "url": "${benchlens_url}/?view=hardware&run=${__data.fields.run_id}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 3,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    }
+  ]
+}

@@ -42,6 +42,8 @@ pub struct AppState {
     pub access: Arc<auth::Access>,
     /// Largest file accepted by `POST /api/runs`, in bytes.
     pub max_upload_bytes: u64,
+    /// Registry TSV applied to uploads (form tags win over it), read at every upload.
+    pub registry: Option<std::path::PathBuf>,
 }
 
 impl AppState {
@@ -51,7 +53,12 @@ impl AppState {
             store: Arc::new(Mutex::new(store)),
             access: Arc::new(auth::Access::local()),
             max_upload_bytes: config::DEFAULT_MAX_UPLOAD_MB * 1024 * 1024,
+            registry: None,
         }
+    }
+    pub fn with_registry(mut self, registry: Option<std::path::PathBuf>) -> AppState {
+        self.registry = registry;
+        self
     }
     pub fn with_access(mut self, access: auth::Access) -> AppState {
         self.access = Arc::new(access);
@@ -182,16 +189,23 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .nest("/api", api)
         .fallback(static_file)
+        // the Host check (DNS rebinding) covers every path, the static files included
+        .layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            auth::host_guard,
+        ))
         .with_state(state)
 }
 
 /// Open the database and serve until Ctrl-C or SIGTERM. The token is never printed.
 pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
-    let access = auth::Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen);
+    let access = auth::Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen)
+        .with_allowed_hosts(cfg.allowed_hosts.clone());
     let state = AppState::new(store)
         .with_access(access)
-        .with_max_upload_bytes(cfg.max_upload_bytes);
+        .with_max_upload_bytes(cfg.max_upload_bytes)
+        .with_registry(cfg.registry.clone());
     let listener = tokio::net::TcpListener::bind(cfg.listen).await?;
     let inbox = start_inbox(&cfg)?;
     eprintln!(
@@ -216,6 +230,17 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         "{reads}; {writes}; uploads up to {} MiB",
         cfg.max_upload_bytes / (1024 * 1024)
     );
+    let hosts = if cfg.token.is_some() && cfg.allowed_hosts.is_empty() {
+        "any".to_string()
+    } else {
+        let mut names = vec!["localhost".to_string(), "IP addresses".to_string()];
+        names.extend(cfg.allowed_hosts.iter().cloned());
+        names.join(", ")
+    };
+    eprintln!("Host names served: {hosts}");
+    if let Some(r) = &cfg.registry {
+        eprintln!("registry {} (inbox imports and uploads)", r.display());
+    }
     if let Some(w) = cfg.warning() {
         eprintln!("{w}");
     }
@@ -296,7 +321,7 @@ fn start_inbox(cfg: &ServeConfig) -> anyhow::Result<Option<InboxThread>> {
     let opts = InboxOptions {
         interval: cfg.inbox_interval,
         tags: cfg.inbox_tags.clone(),
-        registry: cfg.inbox_registry.clone(),
+        registry: cfg.registry.clone(),
         ..InboxOptions::new(dir)
     };
     let lock = prepare_inbox(&opts)?;

@@ -7,7 +7,7 @@ use crate::verdict::Direction;
 use crate::{Error, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// Version of the database layout (PRAGMA user_version).
@@ -138,6 +138,8 @@ pub struct RunSummary {
     pub failed_stages: Vec<String>,
     pub tags: BTreeMap<String, String>,
     pub values: i64,
+    /// Names of the files the run kept (sorted), e.g. `report.md`; `RunDetail.files` has their sizes.
+    pub kept_files: Vec<String>,
 }
 
 pub use benchlens_rules::compare::ValueRow;
@@ -182,6 +184,24 @@ pub struct Store {
     conn: Connection,
 }
 
+/// Keep `-wal` and `-shm` when the last connection closes (`SQLITE_FCNTL_PERSIST_WAL`; the WAL is still
+/// checkpointed). A read-only reader, such as Grafana on a `:ro` mount, cannot create those two files, so
+/// without this it fails with "unable to open database file" whenever no benchlens process has the database
+/// open (sqlite.org/wal.html, "Read-Only Databases"). Ignored where there is no file (in memory).
+fn persist_wal(conn: &Connection) {
+    let mut on: std::os::raw::c_int = 1;
+    // SAFETY: the handle is valid while `conn` lives; PERSIST_WAL reads (and may write) the int it points to,
+    // which outlives the call. The result code is ignored on purpose (SQLITE_NOTFOUND in memory).
+    unsafe {
+        rusqlite::ffi::sqlite3_file_control(
+            conn.handle(),
+            c"main".as_ptr(),
+            rusqlite::ffi::SQLITE_FCNTL_PERSIST_WAL,
+            (&mut on as *mut std::os::raw::c_int).cast(),
+        );
+    }
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Store> {
         Store::init(Connection::open(path)?)
@@ -194,6 +214,7 @@ impl Store {
     fn init(conn: Connection) -> Result<Store> {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "journal_mode", "WAL").ok(); // not available in memory; harmless
+        persist_wal(&conn);
         let v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         if v > DB_VERSION {
             return Err(Error::contract(format!(
@@ -367,6 +388,7 @@ impl Store {
                     failed_stages: Vec::new(),
                     tags: BTreeMap::new(),
                     values: r.get(12)?,
+                    kept_files: Vec::new(),
                 })
             })?
             .collect::<std::result::Result<_, _>>()?;
@@ -376,7 +398,19 @@ impl Store {
         let mut fail_st = self
             .conn
             .prepare("SELECT stage FROM failed_stages WHERE run_id = ?1 ORDER BY stage")?;
+        // every kept file name in one query (no query per run)
+        let mut kept: HashMap<String, Vec<String>> = HashMap::new();
+        let mut file_st = self
+            .conn
+            .prepare("SELECT run_id, name FROM files ORDER BY run_id, name")?;
+        let rows =
+            file_st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        for row in rows {
+            let (run_id, name) = row?;
+            kept.entry(run_id).or_default().push(name);
+        }
         for run in &mut runs {
+            run.kept_files = kept.remove(&run.run_id).unwrap_or_default();
             run.tags = tag_st
                 .query_map([&run.run_id], |r| Ok((r.get(0)?, r.get(1)?)))?
                 .collect::<std::result::Result<_, _>>()?;

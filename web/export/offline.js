@@ -72,6 +72,7 @@ function installApi(data) {
     }),
     metrics: () => Promise.reject(new ApiError(404, 'metric tables are not part of a static export')),
     fileUrl: () => '#',
+    file: () => Promise.reject(new ApiError(404, 'kept files such as report.md are not part of a static export')),
     patchTags: readOnly,
     deleteRun: readOnly,
     exportHtml: null,

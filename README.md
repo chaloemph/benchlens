@@ -4,11 +4,51 @@ Look at, compare and share [vmbench](https://github.com/chaloemph/vmbench) resul
 
 benchlens imports vmbench result folders into a SQLite file and compares machines metric by metric with
 **the same rule as `vmbench report compare`**, so its "better / worse / within noise" always agrees with
-vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group.
+vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group. One
+binary: command line, web UI and JSON API, an inbox folder, upload with token auth, and an HTML export that
+opens offline.
 
-> Status: M1-M3 done: command line, web UI and JSON API, inbox folder, upload with token auth, static HTML /
-> JSON / CSV export. Next: the v0.1.0 release (a dry run of the release workflow first). See
-> [docs/plan.md](docs/plan.md) and [docs/api.md](docs/api.md).
+> Status: v0.1.0, the first public release: import (CLI, registry, inbox, upload), compare (CLI, web UI,
+> API), static HTML / JSON / CSV export, Docker image. See [CHANGELOG.md](CHANGELOG.md) and
+> [docs/plan.md](docs/plan.md).
+
+![Compare view of the example data: x86-high against arm64-high](docs/img/compare.png)
+
+## Quick start
+
+With [benchlens installed](#install), from a clone of this repository (the example data is real, from a POC
+of x86 and ARM64 VMs):
+
+```bash
+benchlens import --registry examples/poc-2026-11/registry.tsv tests/fixtures/v0.2.1 tests/fixtures/v0.2.3
+benchlens compare group:x86-high group:arm64-high      # 16-vCPU x86 VM against 16-vCPU ARM64 VM
+benchlens serve                                        # web UI on http://127.0.0.1:8080
+benchlens export html --base group:x86-high --other group:arm64-high -o report.html   # share it
+```
+
+```text
+baseline: x86-high (3 runs)
+
+== arm64-high vs x86-high: better 23, worse 37, within noise 5
+   by section (better/worse/within noise): cpu 4/25/0  disk 16/2/4  mem 0/2/1  net 0/7/0  pg 3/0/0  web 0/1/0
+...
+```
+
+Your own results: `benchlens import ~/bench-results/` (result folders, a folder of them, or `.tar.gz`).
+Output piped into a reader that stops early (`benchlens compare ... | head`) ends the command quietly, killed
+by SIGPIPE like other Unix tools (the shell reports status 141; with `set -o pipefail` that counts as a failure).
+
+## Documentation
+
+| | |
+|---|---|
+| [Walkthrough](docs/walkthrough.md) | from clone to a comparison with the example data, step by step, with screenshots |
+| [User guide](docs/guide.md) | runs, groups, tags and references; every import route; compare; export; running on a server; Docker; upgrading |
+| [HTTP API](docs/api.md) | every endpoint, parameter and JSON shape, with real examples |
+| [Data contract](docs/contract.md) | the files benchlens reads from vmbench, the metric tables, the verdict rule and its golden tests |
+| [CONTRIBUTING](CONTRIBUTING.md) | development setup, layout, ground rules, adding a vmbench version, tests |
+| [SECURITY](SECURITY.md) | supported versions, reporting a vulnerability, the security model |
+| [CHANGELOG](CHANGELOG.md) | what is in each release |
 
 ## Install
 
@@ -53,7 +93,8 @@ docker run --rm -v benchlens-data:/data -v "$PWD/results:/results:ro" ghcr.io/ch
 ```
 
 The container listens on `0.0.0.0`, which is not loopback: **without `BENCHLENS_TOKEN` it is read-only**
-(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work).
+(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work),
+and it answers only `localhost` and IP addresses as host names unless `BENCHLENS_ALLOWED_HOSTS` lists more.
 With a token, the web UI asks for it once per tab. See [Running on a server](#running-on-a-server).
 `docker stop` stops it cleanly (SIGTERM).
 
@@ -64,80 +105,21 @@ BENCHLENS_TOKEN=$(openssl rand -hex 32) docker compose up -d     # http://localh
 docker compose build                 # build the image locally instead of pulling it
 ```
 
-## Use
+### Grafana
+
+The compose profile `grafana` adds Grafana (port 3000 on 127.0.0.1, anonymous viewers) with the benchlens database mounted
+read-only and three dashboards: a metric over time per group, group vs group (mean, min, max, n), and the runs
+with tags, vmbench version and failed stages.
 
 ```bash
-# import result folders, a directory of them, or .tar / .tar.gz archives
-benchlens import ~/bench-results/
-benchlens import x86-std-20261118-233315.tar.gz --tag set=poc --tag round=1
-
-# many runs at once with a registry: a TSV with a `run` column (folder name) and one column per tag
-benchlens import --registry registry.tsv results/
-
-benchlens runs                                    # what is in the database
-benchlens compare x86-high-r2 arm64-high-r2       # run against run
-benchlens compare group:x86-std group:x86-med group:x86-high   # groups: all runs of a machine pooled
-benchlens compare x86-high x86-high-r2 --section pg --json
-benchlens tag x86-high-r2 group=poc-x86-high exclude=web        # an empty value removes a tag
-benchlens serve                                   # http://127.0.0.1:8080 (API under /api)
-
-# share a comparison: one HTML file that opens from disk, offline (baseline and sides can still be changed)
-benchlens export html --base group:x86-high --other group:arm64-high -o report.html --title "POC high"
-benchlens export json group:x86-high group:arm64-high -o values.json   # sides, values, stats per metric
-benchlens export csv group:x86-high group:arm64-high -o values.csv     # one row per raw value
+BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker compose --profile grafana up -d
 ```
 
-The exported HTML inlines the web UI's compare, metric and hardware views, d3, the WebAssembly build of the
-verdict rule and the values of the exported sides (about 750 KB, 230 KB gzipped, for two POC groups), so its
-numbers equal `benchlens compare`; the Export button of the compare view downloads the same file. The CSV
-columns are `side,run_id,label,id,name,section,unit,direction,round,value` (`side` is the reference as given,
-`label` the run's label, `round` the repeat inside the run, `direction` empty for a vmbench version without a
-metric table; text starting with `= + - @` gets a leading `'` so spreadsheets do not run it as a formula). The
-JSON holds per side `side`, `stats` (`id`, `name`, `section`, `unit`, `direction`, `tool`, `n`, `median`,
-`cv`, `min`, `max`), `unjudged` and `values` (`ValueRow`, docs/api.md).
-
-The database is `benchlens.db` in the current folder unless `--db` or `BENCHLENS_DB` says otherwise.
-Importing the same run again, by any route, does not add it twice.
-
-### Groups
-
-A group is the sample a machine is judged on. By default a run's group is its label without round or rerun
-suffixes (`x86-std-r2` and `x86-std-web` join `x86-std`) plus its CPU, vCPU and RAM, so rounds of one
-machine pool together and two people's `x86-std` do not. A `group` tag overrides it.
-
-### Tags
-
-Any `key=value`. Give them with `--tag`, a registry, a `benchlens-tags.json` in the result folder, or
-`benchlens tag` later (command line wins over the file, the file over the registry). Two keys mean something:
-
-- `group`: the group, see above
-- `exclude`: stages whose values are not used, e.g. `web,net` (stages that failed are always left out)
-
-### Inbox
-
-`benchlens watch` imports whatever is dropped into a folder; `benchlens serve --inbox DIR` does the same in
-the background of the server.
-
-```bash
-benchlens watch --inbox inbox/ --registry registry.tsv --tag set=poc     # Ctrl-C to stop
-benchlens serve --inbox inbox/ --inbox-registry registry.tsv --inbox-tag set=poc
-```
-
-- Drop result folders, directories of them, or `.tar` / `.tar.gz` / `.tgz` archives at the top of the inbox.
-  An entry is imported once it stayed unchanged for one scan interval (`--interval` / `--inbox-interval`,
-  5 s), then moved to `done/`, or to `failed/` with a `.reason.txt`. Upload under a name ending in `.part`,
-  `.tmp` or `.partial` and rename when complete; dotfiles and links are ignored.
-- `--registry FILE` (`--inbox-registry` for `serve`, env `BENCHLENS_INBOX_REGISTRY` for both) and `--tag`
-  (`--inbox-tag`) tag inbox imports as `benchlens import` does, so a run dropped in again keeps its registry
-  group. The registry is read again whenever it changes, so rows can be added while the watcher runs; a file
-  that no longer parses is reported once and the previous registry stays in use.
-- One watcher per inbox: the watcher holds an advisory lock on `<inbox>/.benchlens.lock` (the file names the
-  holder's pid, host and start time). A second `watch` or `serve --inbox` on the same folder refuses to start
-  and names the holder. A lock left by a watcher that was killed is taken over with a warning; the OS
-  releases the lock with the process. On a network share whose file system ignores advisory locks, run only
-  one watcher per inbox.
-- `watch` stops on Ctrl-C or SIGTERM after the import in progress and exits 0; a second Ctrl-C stops at once
-  (an import is one transaction, so an interrupted entry is imported on the next run as already present).
+Grafana shows means and ranges (SQLite has no median); verdicts (better / worse / within noise) are decided
+by benchlens only. Grafana reads the live database (SQLite WAL on a read-only mount), also while benchlens is
+stopped. The defaults (admin password `admin`, anonymous viewers, port on 127.0.0.1) are for a local machine;
+on a server set `GRAFANA_ADMIN_PASSWORD`, consider `GRAFANA_ANONYMOUS=false`, then publish the port with
+`GRAFANA_BIND=0.0.0.0`. Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
 
 ## Running on a server
 
@@ -150,7 +132,9 @@ listen = "0.0.0.0:8080"
 token = "..."            # or BENCHLENS_TOKEN; at least 16 characters, e.g. `openssl rand -hex 32`
 read_public = true       # false: reading needs the token too (the page still loads and asks for it)
 max_upload_mb = 256      # largest archive accepted by upload
-# inbox = "/data/inbox"  # optional, with inbox_interval = 5, inbox_registry = "/data/registry.tsv"
+# allowed_hosts = ["bench.example.com"]   # or BENCHLENS_ALLOWED_HOSTS=a,b: Host names served (see below)
+# registry = "/data/registry.tsv"   # tags for inbox imports and uploads (old name: inbox_registry)
+# inbox = "/data/inbox"  # optional, with inbox_interval = 5
 # inbox_tags = { set = "poc" }
 ```
 
@@ -161,25 +145,31 @@ max_upload_mb = 256      # largest archive accepted by upload
   (command lines are visible to other users); the token is never printed.
 - **read_public = false** keeps the data private: every `/api` call except `/api/health` needs the token.
   The server refuses to start like that without a token.
+- **Host names** (DNS rebinding guard): without a token, the server answers only requests addressed to
+  `localhost` or an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port); any other `Host` gets 403.
+  This stops a web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To
+  reach a token-less server by a name (`http://bench.lan:8080`), list it in `allowed_hosts` /
+  `BENCHLENS_ALLOWED_HOSTS`. With a token every name is served, unless `allowed_hosts` is set, which then
+  limits the names in the same way (set it if public reads of a local server must not reach web pages).
 - **Upload**: the Upload button in the web UI, or
   `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
+  The server's `registry`, when set, tags uploaded runs too (tags of the upload win over it).
 - **Reverse proxy**: benchlens speaks plain HTTP; put TLS in front (Caddy, nginx) so the token is not sent in
   the clear, and set a token even when benchlens itself listens on 127.0.0.1 behind the proxy: the proxy makes
-  it reachable from outside, and without a token loopback means "writes open". Allow request bodies of at
-  least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
+  it reachable from outside, and without a token loopback means "writes open". As a safety net, a token-less
+  server refuses writes (403) that carry `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host`, which proxies
+  add; a proxy that sends none of them is not detected, so the token is still needed. With a token, pass the
+  proxy's public name in `allowed_hosts` if you like, or keep the original `Host` (nginx: `proxy_set_header
+  Host $host`). Allow request bodies of at least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
 
 Details: [docs/api.md](docs/api.md#auth).
 
 ## For other tools
 
 The database has three views: `v_runs` (runs with their group), `v_values` (every value that counts, with its
-metric name, unit and direction) and `v_stats` (count, mean, min, max per run and metric). SQLite has no
-median, so verdicts come from benchlens itself.
-
-## How it stays in step with vmbench
-
-See [docs/contract.md](docs/contract.md): the files benchlens reads, the metric tables, the verdict rule and
-the golden tests that check it against vmbench.
+metric name, unit and direction) and `v_stats` (count, mean, min, max per run and metric); see
+[the guide](docs/guide.md#reading-the-database-from-other-tools). SQLite has no median, so verdicts come from
+benchlens itself. Ready-made Grafana dashboards on these views: [Grafana](#grafana).
 
 ## Example data
 

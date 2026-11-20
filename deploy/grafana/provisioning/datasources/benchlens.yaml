@@ -1,0 +1,14 @@
+# The benchlens SQLite database, read-only. The file comes from the benchlens service's named volume, mounted
+# :ro at /var/lib/benchlens (see docker-compose.yml and deploy/grafana/README.md for the WAL notes).
+apiVersion: 1
+datasources:
+  - name: benchlens
+    uid: benchlens
+    type: frser-sqlite-datasource
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      path: /var/lib/benchlens/benchlens.db
+      pathPrefix: "file:"
+      pathOptions: "mode=ro"
