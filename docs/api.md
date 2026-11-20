@@ -1,6 +1,6 @@
 # benchlens HTTP API v1
 
-The contract between the server (task A, C2) and the web UI (task B). Change it only in a PR that updates
+The contract between the server (tasks A, C2, D) and the web UI (tasks B, W). Change it only in a PR that updates
 this file, `docs/api-examples/`, the server and the UI together.
 
 - Base path `/api`. Everything is JSON (UTF-8) except `GET /api/runs/{id}/files/{name}`.
@@ -39,7 +39,7 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 |---|---|
 | 400 | bad parameter, bad tag key, badly written REF, a REF that matches several runs, archive not a vmbench result, unsafe archive, upload not a tar / tar.gz |
 | 401 | token needed and missing or wrong (with `WWW-Authenticate: Bearer realm="benchlens"`) |
-| 403 | write on a server that listens on a non-loopback address without a token |
+| 403 | write on a server that listens on a non-loopback address without a token; without a token, a write from a web page of another origin |
 | 404 | unknown run, group, file, metric table or endpoint; a `group:NAME@KEY=VALUE` that selects no run |
 | 413 | upload larger than `max_upload_mb`; a `PATCH .../tags` body over 64 KiB |
 | 500 | anything else (the message says what) |
@@ -65,6 +65,13 @@ default `true`).
 - The server refuses to start with a token shorter than 16 characters (or with spaces or non-ASCII), and with
   `read_public = false` but no token. It never prints the token. An empty `BENCHLENS_TOKEN` counts as unset.
 - The token check runs before the body is read, so a refused upload is not received.
+- Without a token, a write that a browser marks as coming from another site (`Sec-Fetch-Site: cross-site`, or
+  an `Origin` that does not name the `Host`) is 403: a multipart upload needs no CORS preflight, so any page
+  the local user visits could otherwise post to a loopback server. Requests without `Origin` (curl, scripts)
+  are not affected.
+- `/api/export.html` is a read like the others: with `read_public = false` it needs the token.
+- Kept files (`/api/runs/{id}/files/{name}`) are reads too; on a private server the UI's plain report.md link
+  opens in a new tab without the token and gets 401 (known gap, docs/plan.md).
 - A reverse proxy in front of a loopback listener makes it reachable from outside while writes stay open:
   set a token whenever anything but the local machine can reach the server.
 
@@ -167,13 +174,14 @@ read from the database). A metric id with no values on that side (or not in any 
 ### `GET /api/metrics?version=0.2.3`
 The metric table of a vmbench version: `Metric[]` (`id`, `unit`, `direction`, `tool`, `label`,
 `description`) ([metrics.json](api-examples/metrics.json)). `direction` is `higher` (higher is better),
-`lower` (lower is better) or `none` (a context value such as CPU steal: shown, never judged). `version` is required (400 without it); a leading
-`v` is accepted. 404 when there is no table for that version.
+`lower` (lower is better) or `none` (a context value such as CPU steal: shown, never judged). `version` is
+required (400 without it); a leading `v` is accepted. 404 when there is no table for that version.
 
 ### `GET /api/export.html?base=REF&other=REF[&other=REF...][&title=T]`
 The static HTML report of a comparison, the same file as `benchlens export html`: `text/html` with
 `Content-Disposition: attachment; filename="benchlens-<base>-vs-<other>.html"` and a
-`Content-Security-Policy` that allows no network access. Same parameter checks as `/api/compare` (400 without
+`Content-Security-Policy` that allows no network access. A read: with `read_public = false` it needs the token
+(401). Same parameter checks as `/api/compare` (400 without
 `base` or `other`, 404 for an unknown side); `title` (one line, at most 1024 bytes) defaults to
 `"BASE vs OTHER, ..."`. The file opens from disk with no server: it inlines `web/index.html`, the CSS, d3,
 the modules of `web/js/` bundled with `web/export/offline.js`, the WASM verdict rule (base64, in
@@ -187,7 +195,7 @@ the modules of `web/js/` bundled with `web/export/offline.js`, the WASM verdict 
 | `base`, `others[]` | the exported references, as given |
 | `sides[]` | baseline first: `{side: Side, values: ValueRow[]}`, what `/api/compare` judges for that reference |
 | `runs[]` | `RunDetail` of every run of those sides, `files` empty |
-| `groups[]` | `GroupSummary` of the `group:` sides |
+| `groups[]` | `GroupSummary` of the groups named by `group:NAME` and `group:NAME@KEY=VALUE` sides |
 
 In the page the reader can pick any exported side, or any single run of one, as baseline or compared side;
 comparisons are computed by the WASM `compare` and equal `/api/compare` for the same sides.
