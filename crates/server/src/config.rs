@@ -198,6 +198,9 @@ pub struct Settings {
     pub max_upload_bytes: u64,
     /// `Host` names served besides `localhost` and IP addresses: lower case, no port.
     pub allowed_hosts: Vec<String>,
+    /// The config file's `allowed_hosts` when `BENCHLENS_ALLOWED_HOSTS` hides it with another list (the
+    /// Docker image sets that variable), for a start-up warning.
+    pub file_hosts_ignored: Option<Vec<String>>,
 }
 
 impl Settings {
@@ -238,6 +241,14 @@ impl Settings {
             benchlens_core::store::check_tag(k, v).context("inbox_tags")?;
         }
         let allowed_hosts = check_hosts(pick!(allowed_hosts).unwrap_or_default())?;
+        // the environment beats the file; say so when that hides a different list in the file
+        let file_hosts_ignored = match (&env.allowed_hosts, &file.allowed_hosts) {
+            (Some(_), Some(f)) if flags.allowed_hosts.is_none() => {
+                let f_clean = check_hosts(f.clone()).unwrap_or_else(|_| f.clone());
+                (f_clean != allowed_hosts).then_some(f_clean)
+            }
+            _ => None,
+        };
         // within one layer `registry` wins over its old name; a flag of either name beats the environment
         let registry = layers
             .iter()
@@ -253,20 +264,38 @@ impl Settings {
             read_public,
             max_upload_bytes: mb * 1024 * 1024,
             allowed_hosts,
+            file_hosts_ignored,
         })
     }
 
-    /// A warning to print at start-up, if any: serving other machines without a token.
-    pub fn warning(&self) -> Option<String> {
+    /// Warnings to print at start-up: serving other machines without a token, and a config file's
+    /// `allowed_hosts` hidden by `BENCHLENS_ALLOWED_HOSTS`.
+    pub fn warnings(&self) -> Vec<String> {
+        let mut out = Vec::new();
         if self.token.is_none() && !is_loopback(self.listen.ip()) {
-            Some(format!(
+            out.push(format!(
                 "warning: listening on {} without a token: anyone who can reach it can read, and writes \
                  (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them",
                 self.listen
-            ))
-        } else {
-            None
+            ));
         }
+        if let Some(f) = &self.file_hosts_ignored {
+            let shown = |l: &[String]| {
+                if l.is_empty() {
+                    "none".to_string()
+                } else {
+                    l.join(",")
+                }
+            };
+            out.push(format!(
+                "warning: allowed_hosts in the config file ({}) is ignored: BENCHLENS_ALLOWED_HOSTS ({}) wins \
+                 over the file (the Docker image sets it to localhost); put the names in \
+                 BENCHLENS_ALLOWED_HOSTS, or set it to an empty value to use the file's list",
+                shown(f),
+                shown(&self.allowed_hosts)
+            ));
+        }
+        out
     }
 }
 
@@ -295,7 +324,7 @@ mod tests {
         assert!(s.token.is_none());
         assert!(s.read_public);
         assert_eq!(s.max_upload_bytes, 256 * 1024 * 1024);
-        assert!(s.warning().is_none());
+        assert!(s.warnings().is_empty());
     }
 
     #[test]
@@ -422,14 +451,14 @@ mod tests {
             ..Layer::default()
         };
         let s = Settings::resolve(&l, &Layer::default(), &Layer::default()).unwrap();
-        assert!(s.warning().unwrap().contains("without a token"));
+        assert!(s.warnings()[0].contains("without a token"));
         let l = Layer {
             listen: Some("0.0.0.0:8080".into()),
             token: Some(Token::new(TOKEN)),
             ..Layer::default()
         };
         let s = Settings::resolve(&l, &Layer::default(), &Layer::default()).unwrap();
-        assert!(s.warning().is_none());
+        assert!(s.warnings().is_empty());
     }
 
     #[test]
@@ -511,14 +540,14 @@ mod tests {
             &Layer::default(),
         )
         .unwrap();
-        assert!(s.warning().is_none());
+        assert!(s.warnings().is_empty());
         let s = Settings::resolve(
             &Layer::default(),
             &env(&[("BENCHLENS_LISTEN", "[::ffff:192.168.1.5]:8080")]),
             &Layer::default(),
         )
         .unwrap();
-        assert!(s.warning().is_some());
+        assert!(!s.warnings().is_empty());
     }
 
     #[test]
@@ -533,6 +562,7 @@ mod tests {
         let file = Layer::from_toml("allowed_hosts = [\"a.example\"]").unwrap();
         let s = Settings::resolve(&Layer::default(), &Layer::default(), &file).unwrap();
         assert_eq!(s.allowed_hosts, ["a.example"]);
+        assert!(s.warnings().is_empty());
         for bad in [
             "http://a.example",
             "a.example:8080",
@@ -549,6 +579,54 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    /// F23 review: the Docker image sets BENCHLENS_ALLOWED_HOSTS=localhost, which beats `allowed_hosts` in a
+    /// mounted benchlens.toml; the server says so at start-up instead of silently ignoring the file.
+    #[test]
+    fn env_hiding_file_hosts_warns() {
+        let file = Layer::from_toml("allowed_hosts = [\"Bench.LAN\"]").unwrap();
+        let docker = env(&[
+            ("BENCHLENS_LISTEN", "0.0.0.0:8080"),
+            ("BENCHLENS_TOKEN", TOKEN),
+            ("BENCHLENS_ALLOWED_HOSTS", "localhost"),
+        ]);
+        let s = Settings::resolve(&Layer::default(), &docker, &file).unwrap();
+        assert_eq!(s.allowed_hosts, ["localhost"]);
+        let w = s.warnings();
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(
+            w[0].contains("allowed_hosts in the config file (bench.lan) is ignored"),
+            "{}",
+            w[0]
+        );
+        assert!(
+            w[0].contains("BENCHLENS_ALLOWED_HOSTS (localhost)"),
+            "{}",
+            w[0]
+        );
+        assert!(!w[0].contains(TOKEN));
+        // an empty variable counts as not set: the file's list is used, no warning
+        let opt_out = env(&[
+            ("BENCHLENS_LISTEN", "0.0.0.0:8080"),
+            ("BENCHLENS_TOKEN", TOKEN),
+            ("BENCHLENS_ALLOWED_HOSTS", ""),
+        ]);
+        let s = Settings::resolve(&Layer::default(), &opt_out, &file).unwrap();
+        assert_eq!(s.allowed_hosts, ["bench.lan"]);
+        assert!(s.warnings().is_empty());
+        // the same list in both (after clean-up): nothing is hidden
+        let same = env(&[("BENCHLENS_ALLOWED_HOSTS", "bench.lan")]);
+        let s = Settings::resolve(&Layer::default(), &same, &file).unwrap();
+        assert!(s.warnings().is_empty());
+        // an empty list in the file is hidden too (it would turn the check off with a token)
+        let empty = Layer::from_toml("allowed_hosts = []").unwrap();
+        let s = Settings::resolve(&Layer::default(), &docker, &empty).unwrap();
+        assert!(
+            s.warnings()[0].contains("(none) is ignored"),
+            "{:?}",
+            s.warnings()
+        );
     }
 
     #[test]

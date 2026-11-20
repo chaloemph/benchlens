@@ -235,7 +235,7 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     if let Some(r) = &cfg.registry {
         eprintln!("registry {} (inbox imports and uploads)", r.display());
     }
-    if let Some(w) = cfg.warning() {
+    for w in cfg.warnings() {
         eprintln!("{w}");
     }
     let served = axum::serve(listener, router(state))
