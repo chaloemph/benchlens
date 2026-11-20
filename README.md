@@ -64,6 +64,20 @@ BENCHLENS_TOKEN=$(openssl rand -hex 32) docker compose up -d     # http://localh
 docker compose build                 # build the image locally instead of pulling it
 ```
 
+### Grafana
+
+The compose profile `grafana` adds Grafana (port 3000, anonymous viewers) with the benchlens database mounted
+read-only and three dashboards: a metric over time per group, group vs group (mean, min, max, n), and the runs
+with tags, vmbench version and failed stages.
+
+```bash
+BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker compose --profile grafana up -d
+```
+
+Grafana shows means and ranges (SQLite has no median); verdicts (better / worse / within noise) are decided
+by benchlens only. Grafana reads the live database while `benchlens serve` runs (SQLite WAL on a read-only
+mount). Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
+
 ## Use
 
 ```bash
@@ -174,7 +188,8 @@ Details: [docs/api.md](docs/api.md#auth).
 
 The database has three views: `v_runs` (runs with their group), `v_values` (every value that counts, with its
 metric name, unit and direction) and `v_stats` (count, mean, min, max per run and metric). SQLite has no
-median, so verdicts come from benchlens itself.
+median, so verdicts come from benchlens itself. Ready-made Grafana dashboards on these views:
+[Grafana](#grafana).
 
 ## How it stays in step with vmbench
 
