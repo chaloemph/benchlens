@@ -43,7 +43,8 @@ fn main() {
 
     let r2 = runs.iter().find(|r| r.label == "x86-high-r2").unwrap();
     let mut detail = serde_json::to_value(store.run_detail(&r2.run_id).unwrap()).unwrap();
-    detail["meta"] = json!("... meta.json as stored ...");
+    // meta (an object, meta.json as stored) and stages (a string) are shown as they are; hardware.json is cut
+    // to its cpu part (docs/api.md says so)
     if let Some(hw) = detail["hardware"].as_object_mut() {
         hw.retain(|k, _| k == "cpu" || k == "schema");
         hw.insert(

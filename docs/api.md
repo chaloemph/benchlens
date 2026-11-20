@@ -94,7 +94,8 @@ label, folder, group or any tag value, case-insensitive).
 ### `GET /api/runs/{id}`
 `RunDetail`: every `RunSummary` field plus `stages`, `end_utc`, `imported_at`, `pg_profile`, `web_cpus`,
 `meta` (meta.json), `hardware` (hardware.json or null) and `files` (`[{name, bytes}]`)
-([run-detail.json](api-examples/run-detail.json)). `{id}` is a run id, unique prefix, folder or label (a run
+([run-detail.json](api-examples/run-detail.json); `stages` is the space-separated list from meta.json, `meta`
+the meta.json object as stored; the example cuts `hardware` to its `cpu` part). `{id}` is a run id, unique prefix, folder or label (a run
 reference as above, but not `group:`, which is 400).
 
 ### `GET /api/runs/{id}/files/{name}`
@@ -145,7 +146,7 @@ holding no result folder (no `meta.json`), or data that is not tar / tar.gz. 413
 | Field | |
 |---|---|
 | `base`, `others[]` | `Side`: `reference`, `label`, `run_ids`, `archs` |
-| `rows[]` | one per metric and compared side: `other` (index into `others`), `id`, `name`, `section`, `unit`, `direction` (`higher`/`lower`), `base`, `value` (medians), `cv_base`, `cv_value` (% or null when measured once), `n_base`, `n_value`, `diff` (% or null), `noise` (% threshold used), `verdict` (`better` / `worse` / `not_clear`, from the compared side's point of view), `cross_arch` (sysbench across architectures: show, do not count) |
+| `rows[]` | one per metric and compared side: `other` (index into `others`), `id`, `name`, `section`, `unit`, `direction` (`higher`/`lower`; metrics with direction `none` are never judged and have no row), `base`, `value` (medians), `cv_base`, `cv_value` (% or null when measured once), `n_base`, `n_value`, `diff` (% or null), `noise` (% threshold used), `verdict` (`better` / `worse` / `not_clear`, from the compared side's point of view), `cross_arch` (sysbench across architectures: show, do not count) |
 | `tallies[]` | one per `others` entry: `better`, `worse`, `not_clear`, `by_section` (`{section: [better, worse, not_clear]}`); `cross_arch` rows are not counted |
 | `warnings[]` | sentences to show as they are |
 
@@ -155,7 +156,8 @@ The verdict rule is vmbench's; see docs/contract.md.
 ### `GET /api/values?ref=REF&id=METRIC`
 Every raw value of one metric on one side, for the dot plot ([values.json](api-examples/values.json)):
 `{side, id, values: ValueRow[]}`, `ValueRow` = `run_id`, `id`, `name`, `section`, `unit`, `direction`,
-`tool`, `arch`, `round`, `value`. Stages that failed or are excluded are already left out. Use `run_id`
+`tool`, `arch`, `round`, `value` (`direction` as in `/api/metrics`, or null for a vmbench version without a
+metric table). Stages that failed or are excluded are already left out. Use `run_id`
 with `/api/runs` to show which test round a dot belongs to (`round` here is the repeat inside the run, see
 above). The values are exactly the rows of that metric among all the side's values (only that metric is
 read from the database). A metric id with no values on that side (or not in any table) gives 200 with
@@ -164,7 +166,8 @@ read from the database). A metric id with no values on that side (or not in any 
 
 ### `GET /api/metrics?version=0.2.3`
 The metric table of a vmbench version: `Metric[]` (`id`, `unit`, `direction`, `tool`, `label`,
-`description`) ([metrics.json](api-examples/metrics.json)). `version` is required (400 without it); a leading
+`description`) ([metrics.json](api-examples/metrics.json)). `direction` is `higher` (higher is better),
+`lower` (lower is better) or `none` (a context value such as CPU steal: shown, never judged). `version` is required (400 without it); a leading
 `v` is accepted. 404 when there is no table for that version.
 
 ### `GET /api/export.html?base=REF&other=REF[&other=REF...][&title=T]`
