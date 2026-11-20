@@ -71,9 +71,9 @@ impl RunFilter {
         self.tags
             .iter()
             .all(|(k, v)| r.tags.get(k).is_some_and(|x| x == v))
-            && self.arch.as_ref().map_or(true, |a| &r.arch == a)
-            && self.group.as_ref().map_or(true, |g| &r.group == g)
-            && self.q.as_ref().map_or(true, |q| {
+            && self.arch.as_ref().is_none_or(|a| &r.arch == a)
+            && self.group.as_ref().is_none_or(|g| &r.group == g)
+            && self.q.as_ref().is_none_or(|q| {
                 [&r.label, &r.folder, &r.group]
                     .into_iter()
                     .chain(r.tags.values())
