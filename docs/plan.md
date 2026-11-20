@@ -171,6 +171,9 @@ S (F14, F15, F16, F18) and U (F12, F13, F17) took the Wave 2 follow-ups; G and H
 
 ## Releasing v0.1.0
 
+**Released 2026-11-20** (tag `v0.1.0` on the Wave 3 merge commit 51855e0). The steps below are what was done and
+the template for the next release.
+
 Everything for v0.1.0 is on `integration/wave3`: the workspace version is `0.1.0`, CHANGELOG lists Waves 1-3
 under `[0.1.0] - unreleased`, and the release workflow passed a dry run on that branch (see the PR). Steps for
 the owner:
