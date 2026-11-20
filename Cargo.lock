@@ -152,6 +152,7 @@ dependencies = [
  "benchlens-core",
  "benchlens-server",
  "clap",
+ "libc",
  "serde",
  "serde_json",
  "tokio",

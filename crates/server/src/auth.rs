@@ -8,15 +8,27 @@
 //!   Open writes from a web page of another origin are refused too (403): a browser sends a multipart POST
 //!   cross-site without asking first, so any page the local user visits could otherwise upload.
 //!
+//! - Host check (DNS rebinding): without a token, a request is served only when its `Host` names this machine
+//!   in a way a web page cannot rebind: `localhost`, an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...)
+//!   or one of the configured `allowed_hosts`, with any port. A page on `http://evil.example:8080` whose name
+//!   the attacker re-points at 127.0.0.1 sends `Host: evil.example:8080` and is refused (403), for the API
+//!   and the static files alike. With a token any `Host` is served (a rebinding page cannot read the token),
+//!   unless `allowed_hosts` is set, which then applies in the same way. A request without `Host` (HTTP/1.0
+//!   tools) is served: browsers always send one.
+//! - Reverse proxy: open writes (loopback, no token) are refused when the request carries `Forwarded`,
+//!   `X-Forwarded-For` or `X-Forwarded-Host`: a proxy on the same machine would otherwise turn "local" into
+//!   "anyone who reaches the proxy". Serve behind a proxy with a token.
+//!
 //! The token is compared in constant time (SHA-256 of both sides, then `subtle`), so neither its content nor
 //! its length leaks through timing.
 
 use crate::{ApiError, AppState};
 use axum::extract::{Request, State};
-use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode, Uri};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use sha2::{Digest, Sha256};
+use std::net::IpAddr;
 use subtle::ConstantTimeEq;
 
 pub use crate::config::Token;
@@ -28,6 +40,8 @@ pub struct Access {
     read_public: bool,
     /// Without a token, may anyone write? True when listening on loopback only.
     open_writes: bool,
+    /// Extra `Host` names served besides `localhost` and IP addresses (lower case, no port).
+    allowed_hosts: Vec<String>,
 }
 
 impl Default for Access {
@@ -44,6 +58,7 @@ impl Access {
             token: None,
             read_public: true,
             open_writes: true,
+            allowed_hosts: Vec::new(),
         }
     }
 
@@ -53,6 +68,7 @@ impl Access {
             token: None,
             read_public: true,
             open_writes: false,
+            allowed_hosts: Vec::new(),
         }
     }
 
@@ -62,7 +78,15 @@ impl Access {
             token: Some(token),
             read_public,
             open_writes: false,
+            allowed_hosts: Vec::new(),
         }
+    }
+
+    /// Also serve these `Host` names (see [`check_host`](Access::check_host)); names are matched without
+    /// case and without a trailing dot.
+    pub fn with_allowed_hosts(mut self, hosts: impl IntoIterator<Item = String>) -> Access {
+        self.allowed_hosts = hosts.into_iter().map(|h| normalize_name(&h)).collect();
+        self
     }
 
     /// The rules for these settings. `read_public = false` without a token is refused earlier, in
@@ -87,13 +111,50 @@ impl Access {
     pub fn check_write(&self, headers: &HeaderMap) -> Result<(), Denied> {
         match &self.token {
             Some(t) => check_bearer(t, headers),
-            None if self.open_writes => same_origin(headers),
+            None if self.open_writes => not_forwarded(headers).and_then(|()| same_origin(headers)),
             None => Err(Denied(ApiError::new(
                 StatusCode::FORBIDDEN,
                 "writes are turned off: this server listens on a non-loopback address without a token",
             )
             .with_detail("start it with BENCHLENS_TOKEN (or `token` in benchlens.toml) to allow upload, tags and delete"))),
         }
+    }
+
+    /// May this request be served at all, given its `Host` (or HTTP/2 `:authority`)? See the module docs.
+    pub fn check_host(&self, headers: &HeaderMap, uri: &Uri) -> Result<(), Denied> {
+        if self.token.is_some() && self.allowed_hosts.is_empty() {
+            return Ok(());
+        }
+        let given = match headers.get(header::HOST) {
+            Some(h) => Some(h.to_str().unwrap_or("\u{fffd}").to_string()),
+            None => uri.authority().map(|a| a.as_str().to_string()),
+        };
+        let Some(given) = given else {
+            return Ok(());
+        };
+        let name = host_name(&given);
+        if name == "localhost"
+            || name.parse::<IpAddr>().is_ok()
+            || self.allowed_hosts.contains(&name)
+        {
+            return Ok(());
+        }
+        let shown: String = given.chars().take(100).collect();
+        let why = if self.token.is_some() {
+            "it is not in allowed_hosts"
+        } else {
+            "without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)"
+        };
+        Err(Denied(
+            ApiError::new(
+                StatusCode::FORBIDDEN,
+                format!("Host {shown:?} refused: {why}"),
+            )
+            .with_detail(
+                "to serve this name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS \
+                 (comma list), or set a token",
+            ),
+        ))
     }
 
     /// May this request read `/api` data?
@@ -103,6 +164,41 @@ impl Access {
             _ => Ok(()),
         }
     }
+}
+
+/// Without a token, a write must not come through a reverse proxy: on the same machine it would look local.
+fn not_forwarded(headers: &HeaderMap) -> Result<(), Denied> {
+    match ["forwarded", "x-forwarded-for", "x-forwarded-host"]
+        .into_iter()
+        .find(|h| headers.contains_key(*h))
+    {
+        None => Ok(()),
+        Some(h) => Err(Denied(
+            ApiError::new(
+                StatusCode::FORBIDDEN,
+                "write refused: it came through a reverse proxy and this server has no token",
+            )
+            .with_detail(format!(
+                "the request carries {h}; set a token (BENCHLENS_TOKEN or `token` in benchlens.toml) when \
+                 serving behind a proxy"
+            )),
+        )),
+    }
+}
+
+/// The name of a `Host` value, without port, brackets of an IPv6 address, case or trailing dot.
+fn host_name(host: &str) -> String {
+    let host = host.trim();
+    let name = if let Some(rest) = host.strip_prefix('[') {
+        rest.split(']').next().unwrap_or("")
+    } else {
+        host.rsplit_once(':').map_or(host, |(n, _)| n)
+    };
+    normalize_name(name)
+}
+
+fn normalize_name(name: &str) -> String {
+    name.trim().trim_end_matches('.').to_ascii_lowercase()
 }
 
 /// Without a token, a write must not come from a page of another origin: a browser marks such a request with
@@ -189,6 +285,14 @@ impl IntoResponse for Denied {
             );
         }
         res
+    }
+}
+
+/// Middleware on every route, the static files included: refuses a `Host` that may come from DNS rebinding.
+pub async fn host_guard(State(st): State<AppState>, req: Request, next: Next) -> Response {
+    match st.access.check_host(req.headers(), req.uri()) {
+        Ok(()) => next.run(req).await,
+        Err(d) => d.into_response(),
     }
 }
 
@@ -284,6 +388,82 @@ mod tests {
                 ("authorization", "Bearer 0123456789abcdef"),
             ]))
             .is_ok());
+    }
+
+    fn host(h: &'static str) -> HeaderMap {
+        let mut m = HeaderMap::new();
+        m.insert(header::HOST, HeaderValue::from_static(h));
+        m
+    }
+
+    #[test]
+    fn host_check_without_token() {
+        let a = Access::local();
+        let uri = Uri::from_static("/api/runs");
+        for ok in [
+            "localhost",
+            "localhost:8080",
+            "LocalHost.:8080",
+            "127.0.0.1",
+            "127.0.0.1:8080",
+            "[::1]",
+            "[::1]:8080",
+            "192.168.1.5:8080",
+        ] {
+            assert!(a.check_host(&host(ok), &uri).is_ok(), "{ok}");
+        }
+        for bad in [
+            "evil.example",
+            "evil.example:8080",
+            "localhost.evil.example",
+            "127.0.0.1.nip.io:8080",
+            "bench.lan",
+            "",
+        ] {
+            let e = a.check_host(&host(bad), &uri).unwrap_err();
+            assert_eq!(e.0.status, StatusCode::FORBIDDEN, "{bad}");
+            assert!(e.0.detail.unwrap().contains("allowed_hosts"));
+        }
+        // no Host: not a browser
+        assert!(a.check_host(&HeaderMap::new(), &uri).is_ok());
+        // HTTP/2 :authority
+        let h2 = Uri::from_static("http://evil.example:8080/");
+        assert!(a.check_host(&HeaderMap::new(), &h2).is_err());
+        // allowed_hosts
+        let a = Access::public_read_only().with_allowed_hosts(["Bench.LAN".to_string()]);
+        assert!(a.check_host(&host("bench.lan:8080"), &uri).is_ok());
+        assert!(a.check_host(&host("bench.lan."), &uri).is_ok());
+        assert!(a.check_host(&host("other.lan"), &uri).is_err());
+        assert!(a.check_host(&host("localhost:8080"), &uri).is_ok());
+    }
+
+    #[test]
+    fn host_check_with_token() {
+        let uri = Uri::from_static("/");
+        let a = Access::with_token(Token::new(T), true);
+        assert!(a.check_host(&host("evil.example:8080"), &uri).is_ok());
+        let a = a.with_allowed_hosts(["bench.example.com".to_string()]);
+        assert!(a.check_host(&host("bench.example.com"), &uri).is_ok());
+        assert!(a.check_host(&host("127.0.0.1:8080"), &uri).is_ok());
+        let e = a.check_host(&host("evil.example"), &uri).unwrap_err();
+        assert!(e.0.error.contains("allowed_hosts"), "{}", e.0.error);
+    }
+
+    #[test]
+    fn open_writes_refuse_proxied_requests() {
+        let a = Access::local();
+        for h in ["forwarded", "x-forwarded-for", "x-forwarded-host"] {
+            let mut m = host("127.0.0.1:8080");
+            m.insert(h, HeaderValue::from_static("for=192.0.2.1"));
+            let e = a.check_write(&m).unwrap_err();
+            assert_eq!(e.0.status, StatusCode::FORBIDDEN);
+            assert!(e.0.detail.unwrap().contains("token"));
+        }
+        // with a token the proxy is fine
+        let t = Access::with_token(Token::new(T), true);
+        let mut m = headers(&format!("Bearer {T}"));
+        m.insert("x-forwarded-for", HeaderValue::from_static("192.0.2.1"));
+        assert!(t.check_write(&m).is_ok());
     }
 
     #[test]
