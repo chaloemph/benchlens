@@ -7,7 +7,8 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/chaloemph/benchlens"
-rust-version = "1.80"
+# 1.89: std File::try_lock (the inbox lock in core); benchlens-rules and benchlens-wasm state their own
+rust-version = "1.89"
 
 [workspace.dependencies]
 anyhow = "1"
