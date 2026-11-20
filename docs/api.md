@@ -26,8 +26,9 @@ this file, `docs/api-examples/`, the server and the UI together.
 - **`round`** means two things: in a `ValueRow` it is the repeat number inside one run (the `round` column of
   results.tsv, 1, 2, 3 ... for a metric measured several times); the `round` *tag* (from a registry, for
   example) is the test round a whole run belongs to. The dot plot colours by the tag.
-- **Write** endpoints need `Authorization: Bearer <token>` when the server has a token configured (C2);
-  without a token configured they are open (local use).
+- **Access**: see [Auth](#auth). In short: with a token configured, writes need `Authorization: Bearer
+  <token>` (and reads too when `read_public = false`); without one, writes are open only on a loopback
+  address.
 
 ## Errors
 
@@ -36,12 +37,36 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 
 | Status | When |
 |---|---|
-| 400 | bad parameter, bad tag key, badly written REF, a REF that matches several runs, archive not a vmbench result, unsafe archive |
-| 401 | write without a valid token (C2) |
+| 400 | bad parameter, bad tag key, badly written REF, a REF that matches several runs, archive not a vmbench result, unsafe archive, upload not a tar / tar.gz |
+| 401 | token needed and missing or wrong (with `WWW-Authenticate: Bearer realm="benchlens"`) |
+| 403 | write on a server that listens on a non-loopback address without a token |
 | 404 | unknown run, group, file, metric table or endpoint; a `group:NAME@KEY=VALUE` that selects no run |
-| 413 | upload larger than the configured limit (C2); a `PATCH .../tags` body over 64 KiB |
+| 413 | upload larger than `max_upload_mb`; a `PATCH .../tags` body over 64 KiB |
 | 500 | anything else (the message says what) |
 | 501 | endpoint not built yet (T0 skeleton only) |
+
+## Auth
+
+Settings of `benchlens serve` (flag > `BENCHLENS_*` variable > `benchlens.toml` > default): `token`
+(`BENCHLENS_TOKEN`; no command-line flag) and `read_public` (`--read-public`, `BENCHLENS_READ_PUBLIC`,
+default `true`).
+
+| Configuration | Reads (`/api/...`) | Writes (`PATCH .../tags`, `DELETE /api/runs/{id}`, `POST /api/runs`) |
+|---|---|---|
+| no token, listening on loopback (`127.0.0.1`, `::1`) | open | open |
+| no token, any other address | open | **403** (the server prints a warning at start) |
+| token, `read_public = true` (default) | open | `Authorization: Bearer <token>`, else **401** |
+| token, `read_public = false` | `Authorization: Bearer <token>`, else **401** | same |
+
+- Always open: `GET /api/health` and the web UI files (everything outside `/api`), so the page and its token
+  dialog load on a private server. An unknown `/api/...` path is 404 without a token check.
+- 401 bodies are the usual JSON error and carry `WWW-Authenticate: Bearer realm="benchlens"`. The scheme
+  `Bearer` is case-insensitive. The token is compared in constant time (SHA-256 of both sides).
+- The server refuses to start with a token shorter than 16 characters (or with spaces or non-ASCII), and with
+  `read_public = false` but no token. It never prints the token. An empty `BENCHLENS_TOKEN` counts as unset.
+- The token check runs before the body is read, so a refused upload is not received.
+- A reverse proxy in front of a loopback listener makes it reachable from outside while writes stay open:
+  set a token whenever anything but the local machine can reach the server.
 
 ## Endpoints
 
@@ -86,12 +111,28 @@ line (no `\n` or `\r`), at most 1024 bytes; at most 64 tags per request. One bad
 ### `DELETE /api/runs/{id}` (write)
 Removes the run and its values. `204` with no body.
 
-### `POST /api/runs` (write, C2)
-`multipart/form-data`: `file` = a `.tar` / `.tar.gz` of one or more result folders; optional repeated
-`tag` = `KEY=VALUE`. Same import path and rules as `benchlens import`. Answers `ImportReport[]`
-([import-report.json](api-examples/import-report.json)) with status 200 even when some folders failed (each
-report says `outcome`: `imported`, `already_present`, `failed`); 400 for an unsafe or empty archive, 413 when
-too large.
+### `POST /api/runs` (write)
+`multipart/form-data` with exactly one `file` field (a `.tar` or `.tar.gz` of one or more result folders;
+gzip is detected from the content, not the name) and optional repeated `tag` fields `KEY=VALUE` (at most 64,
+same key/value rules as `PATCH .../tags`; key and value are trimmed; an empty value removes that tag, e.g.
+one from `benchlens-tags.json`). Any other field name is 400.
+
+```bash
+curl -H "Authorization: Bearer $BENCHLENS_TOKEN" -F file=@x86-std-r2.tar.gz -F tag=set=poc -F tag=round=2 \
+     http://127.0.0.1:8080/api/runs
+```
+
+The file is streamed to a fresh folder under the system temp dir, counted as it arrives (one byte over
+`max_upload_mb`, default 256 MiB, ends the request with 413; the whole request body may be at most the
+limit plus 256 KiB), then imported with the same code as `benchlens import`, source `upload`. A folder at
+the root of the archive is named after the uploaded file name, as with `benchlens import name.tar.gz`. The
+temp folder is removed on every path.
+
+Answers `ImportReport[]` ([import-report.json](api-examples/import-report.json)) with status 200 even when
+some folders failed (each report says `outcome`: `imported`, `already_present`, `failed`); uploading a run
+that is already there answers `already_present` and applies the tags. 400 for: no `file`, an empty file,
+two `file` fields, a bad tag, an archive with an absolute path, `..`, a link or device entry, an archive
+holding no result folder (no `meta.json`), or data that is not tar / tar.gz. 413 when too large.
 
 ### `GET /api/groups`
 `GroupSummary[]` ([groups.json](api-examples/groups.json)): `group`, `runs`, `labels`, `archs`, `nproc`,

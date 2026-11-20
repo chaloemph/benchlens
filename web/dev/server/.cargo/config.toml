@@ -1,3 +1,0 @@
-[build]
-# keep build output out of web/ (the server embeds everything under web/)
-target-dir = "../../../target/webdev"

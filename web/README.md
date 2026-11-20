@@ -25,8 +25,12 @@ All state is in the query string, so any page can be shared as a link:
 The UI never computes medians, CV, differences or verdicts: every number is shown as `/api/compare` returns
 it, so it equals `benchlens compare --json` for the same sides.
 
-Writes: when the server answers 401, a dialog asks for a token; it is kept in `sessionStorage` for the tab
-and sent as `Authorization: Bearer <token>` on every request after that.
+Upload: the header's Upload button opens a dialog (archive, optional tag rows) that posts to `POST /api/runs`
+and lists the import report of every folder; the runs reload after it.
+
+Token: when the server answers 401 (a write, or any read on a server with `read_public = false`), a dialog
+asks for the token; it is kept in `sessionStorage` for the tab and sent as `Authorization: Bearer <token>` on
+every request after that. Requests refused at the same time share one dialog.
 
 ## Files
 
@@ -41,6 +45,7 @@ js/compare.js       compare view
 js/detail.js        metric view (dot plot)
 js/runs.js          runs view
 js/hardware.js      hardware view
+js/upload.js        upload dialog
 js/format.js        number and label formatting
 js/ui.js            DOM helpers (textContent only), tooltip, dialogs
 vendor/             d3 v7.9.0 (dist/d3.min.js, licence header kept; LICENSE-d3.txt)
@@ -61,15 +66,9 @@ cargo run -p benchlens -- --db /tmp/poc.db import --registry examples/poc-2026-1
 cargo run -p benchlens -- --db /tmp/poc.db serve          # http://127.0.0.1:8080
 ```
 
-`web/dev/server` is the stand-in for API v1 used before the real server existed (its own Cargo project on
-`benchlens-core`, outside the workspace). It is still useful for two things the real server cannot do yet:
-`BENCHLENS_DEV_TOKEN=secret` makes writes need a token (the 401 prompt; real tokens come with task C2) and
-`BENCHLENS_DEV_DELAY_MS=800` slows every answer (loading states). Neither `web/dev/` nor the READMEs are built
-into the binary.
-
-```bash
-cargo run --manifest-path web/dev/server/Cargo.toml -- --db /tmp/poc.db --listen 127.0.0.1:8090
-```
+To try the token prompt, start the server with a token (`BENCHLENS_TOKEN=some-long-dev-token cargo run -p
+benchlens -- --db /tmp/poc.db serve`), and add `--read-public false` for a private server. Neither `web/dev/`
+nor the READMEs are built into the binary.
 
 Smoke test in a headless browser (needs the `playwright` npm package and its chromium; it is not a project
 dependency):
@@ -81,4 +80,17 @@ NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tm
 
 It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways
 page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. Other sides:
-`SIDES='base=...&other=...'`.
+`SIDES='base=...&other=...'` (the fixtures alone have no `x86-med` group: use
+`SIDES='base=group:x86-high&other=group:arm64-high'` then).
+
+Auth and upload: start the server with `BENCHLENS_TOKEN=...` and pass the same variable to the smoke test, plus
+`UPLOAD=` an archive to send through the Upload dialog (a wrong token is tried first, then the right one):
+
+```bash
+tar -czf /tmp/up.tar.gz -C tests/fixtures/v0.2.3 x86-std-r2-20261119-103253
+BENCHLENS_TOKEN=smoke-secret-0123456789 benchlens --db /tmp/poc.db serve &
+BENCHLENS_TOKEN=smoke-secret-0123456789 UPLOAD=/tmp/up.tar.gz NODE_PATH=... node web/dev/smoke.mjs http://127.0.0.1:8080 /tmp/shots /tmp/cmp.json
+```
+
+With `--read-public false` on the server, add `READ_PRIVATE=1`: the views are skipped and the test checks
+that the first page load asks for the token.

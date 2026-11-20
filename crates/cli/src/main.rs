@@ -6,7 +6,7 @@ use benchlens_core::compare::{self, Comparison};
 use benchlens_core::import::{self, ImportOptions, Outcome, Registry};
 use benchlens_core::store::Store;
 use benchlens_core::verdict::{Direction, Verdict, HIGH_CV};
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
@@ -79,22 +79,36 @@ enum Cmd {
         json: bool,
     },
     /// Serve the web UI and the JSON API (docs/api.md).
+    ///
+    /// Settings come from the flags, then BENCHLENS_* variables (BENCHLENS_DB, _LISTEN, _INBOX,
+    /// _INBOX_INTERVAL, _INBOX_REGISTRY, _TOKEN, _READ_PUBLIC, _MAX_UPLOAD_MB), then benchlens.toml, then the defaults. The token
+    /// has no flag (command lines are visible to other users): set BENCHLENS_TOKEN or `token` in the file.
     Serve {
-        /// Address to listen on; use 0.0.0.0:8080 to serve other machines.
-        #[arg(long, env = "BENCHLENS_LISTEN", default_value = "127.0.0.1:8080")]
-        listen: std::net::SocketAddr,
+        /// Config file [default: ./benchlens.toml when present].
+        #[arg(long, env = "BENCHLENS_CONFIG", value_name = "FILE")]
+        config: Option<PathBuf>,
+        /// Address to listen on [default: 127.0.0.1:8080]; 0.0.0.0:8080 serves other machines (set a token).
+        #[arg(long, value_name = "ADDR")]
+        listen: Option<String>,
         /// Also watch this inbox folder and import what is dropped into it (off when not given).
-        #[arg(long, env = "BENCHLENS_INBOX", value_name = "DIR")]
+        #[arg(long, value_name = "DIR")]
         inbox: Option<PathBuf>,
-        /// Seconds between two inbox scans.
-        #[arg(long, value_name = "SECS", default_value_t = 5)]
-        inbox_interval: u64,
+        /// Seconds between two inbox scans [default: 5].
+        #[arg(long, value_name = "SECS")]
+        inbox_interval: Option<u64>,
         /// Registry TSV for inbox imports (a `run` column and one column per tag); read again when it changes.
-        #[arg(long, env = "BENCHLENS_INBOX_REGISTRY", value_name = "FILE")]
+        #[arg(long, value_name = "FILE")]
         inbox_registry: Option<PathBuf>,
         /// Tag every run the inbox imports: --inbox-tag set=poc (wins over the registry).
         #[arg(long = "inbox-tag", value_name = "KEY=VALUE")]
         inbox_tags: Vec<String>,
+        /// false: reading the API needs the token too [default: true].
+        #[arg(long, value_name = "BOOL", action = clap::ArgAction::Set,
+              value_parser = clap::builder::BoolishValueParser::new())]
+        read_public: Option<bool>,
+        /// Largest upload accepted by POST /api/runs, in MiB [default: 256].
+        #[arg(long, value_name = "MB")]
+        max_upload_mb: Option<u64>,
     },
     /// Watch an inbox folder: import result folders and archives dropped into it, then move them to done/
     /// or failed/ (with a .reason.txt).
@@ -197,7 +211,8 @@ fn stop_on_signal(stop: std::sync::Arc<std::sync::atomic::AtomicBool>) -> Result
 }
 
 fn main() -> Result<()> {
-    let cli = Cli::parse();
+    let matches = Cli::command().get_matches();
+    let cli = Cli::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
     match cli.cmd {
         Cmd::Import {
             paths,
@@ -341,21 +356,42 @@ fn main() -> Result<()> {
             }
         }
         Cmd::Serve {
+            config,
             listen,
             inbox,
             inbox_interval,
             inbox_registry,
             inbox_tags,
+            read_public,
+            max_upload_mb,
         } => {
-            let rt = tokio::runtime::Runtime::new()?;
-            rt.block_on(benchlens_server::serve(benchlens_server::ServeConfig {
-                db: cli.db.clone(),
+            use benchlens_server::config::{config_path, Layer, Settings};
+            // --db is global with a default; only a value typed on the command line counts as a flag here,
+            // so BENCHLENS_DB and the file keep their place in the order.
+            let db_typed = matches
+                .subcommand_matches("serve")
+                .and_then(|m| m.value_source("db"))
+                .or_else(|| matches.value_source("db"))
+                == Some(clap::parser::ValueSource::CommandLine);
+            let flags = Layer {
+                db: db_typed.then(|| cli.db.clone()),
                 listen,
                 inbox,
-                inbox_interval: std::time::Duration::from_secs(inbox_interval.max(1)),
+                inbox_interval,
                 inbox_registry,
-                inbox_tags: parse_tags(&inbox_tags)?,
-            }))?;
+                inbox_tags: (!inbox_tags.is_empty())
+                    .then(|| parse_tags(&inbox_tags))
+                    .transpose()?,
+                token: None,
+                read_public,
+                max_upload_mb,
+            };
+            let env = Layer::from_env(|k| std::env::var(k).ok())?;
+            let (path, explicit) = config_path(config);
+            let file = Layer::from_file(&path, explicit)?;
+            let settings = Settings::resolve(&flags, &env, &file)?;
+            let rt = tokio::runtime::Runtime::new()?;
+            rt.block_on(benchlens_server::serve(settings))?;
         }
         Cmd::Watch {
             inbox,

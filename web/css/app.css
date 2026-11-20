@@ -224,3 +224,18 @@ dialog { border: 1px solid var(--line); border-radius: var(--radius); background
 dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 dialog form { display: flex; flex-direction: column; gap: 10px; }
 dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* upload (js/upload.js) */
+.upload-open { margin-left: auto; }
+dialog.upload { width: min(520px, calc(100vw - 32px)); max-width: min(520px, calc(100vw - 32px)); }
+dialog.upload p { margin: 0; }
+.upload-tagset { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
+.upload-tags { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.upload-tags .row { display: flex; gap: 4px; min-width: 0; }
+.upload-tags input { flex: 1 1 0; min-width: 0; }
+input[type="file"] { font: inherit; font-size: .9rem; max-width: 100%; }
+.upload-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; overflow-wrap: anywhere; }
+.upload-result { border-left: 4px solid var(--neutral); padding: 2px 8px; }
+.upload-result.imported { border-color: var(--good); }
+.upload-result.failed { border-color: var(--bad); }
+.upload-result .outcome { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }

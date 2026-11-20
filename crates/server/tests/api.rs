@@ -8,7 +8,6 @@ use benchlens_core::testing::{fixture_store, repo_root};
 use benchlens_server::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 
 struct App {
@@ -38,9 +37,7 @@ impl Res {
 impl App {
     fn new() -> App {
         App {
-            state: AppState {
-                store: Arc::new(Mutex::new(fixture_store(true))),
-            },
+            state: AppState::new(fixture_store(true)),
         }
     }
 
@@ -667,8 +664,9 @@ async fn delete_run() {
 }
 
 #[tokio::test]
-async fn upload_is_left_to_c2() {
+async fn upload_without_multipart_is_400() {
     let app = App::new();
-    let r = app.call(Method::POST, "/api/runs", None).await;
-    assert_eq!(r.status, StatusCode::NOT_IMPLEMENTED);
+    app.call(Method::POST, "/api/runs", None)
+        .await
+        .assert_error(StatusCode::BAD_REQUEST);
 }
