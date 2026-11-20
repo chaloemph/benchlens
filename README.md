@@ -6,8 +6,9 @@ benchlens imports vmbench result folders into a SQLite file and compares machine
 **the same rule as `vmbench report compare`**, so its "better / worse / within noise" always agrees with
 vmbench's own reports. Compare one run with another, or pool repeated runs of a machine as one group.
 
-> Status: M1 done (core and command line). `benchlens serve` and the API skeleton are in place; the web UI,
-> inbox folder and upload come next. See [docs/plan.md](docs/plan.md) and [docs/api.md](docs/api.md).
+> Status: M1-M3 done: command line, web UI and JSON API, inbox folder, upload with token auth, static HTML /
+> JSON / CSV export. Next: the v0.1.0 release (a dry run of the release workflow first). See
+> [docs/plan.md](docs/plan.md) and [docs/api.md](docs/api.md).
 
 ## Install
 
@@ -45,15 +46,21 @@ The image (`ghcr.io/chaloemph/benchlens`, linux/amd64 and linux/arm64) runs `ben
 non-root user on port 8080 with the database at `/data/benchlens.db`:
 
 ```bash
-docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data ghcr.io/chaloemph/benchlens
+docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data \
+  -e BENCHLENS_TOKEN="$(openssl rand -hex 32)" ghcr.io/chaloemph/benchlens
 # import: make the results readable in the container, then run the same image with another command
 docker run --rm -v benchlens-data:/data -v "$PWD/results:/results:ro" ghcr.io/chaloemph/benchlens import /results
 ```
 
+The container listens on `0.0.0.0`, which is not loopback: **without `BENCHLENS_TOKEN` it is read-only**
+(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work).
+With a token, the web UI asks for it once per tab. See [Running on a server](#running-on-a-server).
+`docker stop` stops it cleanly (SIGTERM).
+
 Or with Compose, from a checkout ([docker-compose.yml](docker-compose.yml)):
 
 ```bash
-docker compose up -d                 # http://localhost:8080
+BENCHLENS_TOKEN=$(openssl rand -hex 32) docker compose up -d     # http://localhost:8080
 docker compose build                 # build the image locally instead of pulling it
 ```
 
@@ -143,7 +150,8 @@ listen = "0.0.0.0:8080"
 token = "..."            # or BENCHLENS_TOKEN; at least 16 characters, e.g. `openssl rand -hex 32`
 read_public = true       # false: reading needs the token too (the page still loads and asks for it)
 max_upload_mb = 256      # largest archive accepted by upload
-# inbox = "/data/inbox"  # optional, with inbox_interval = 5
+# inbox = "/data/inbox"  # optional, with inbox_interval = 5, inbox_registry = "/data/registry.tsv"
+# inbox_tags = { set = "poc" }
 ```
 
 - **Token**: with a token, uploading, tag editing and delete need it (`Authorization: Bearer <token>`; the

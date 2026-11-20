@@ -2,7 +2,10 @@
 # benchlens: a static musl binary on distroless/static, running as non-root.
 #
 #   docker build -t benchlens .
-#   docker run -d -p 8080:8080 -v benchlens-data:/data benchlens
+#   docker run -d -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN=<16+ characters> benchlens
+#
+# It listens on 0.0.0.0 (not loopback): without BENCHLENS_TOKEN the server is read-only and upload, tag
+# editing and delete answer 403. `docker stop` sends SIGTERM, which stops the server gracefully.
 
 ARG RUST_VERSION=1
 FROM rust:${RUST_VERSION}-alpine AS build
