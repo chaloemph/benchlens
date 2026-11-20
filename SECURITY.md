@@ -86,6 +86,9 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   the browser of a user on the same network can read what `read_public = true` makes public. Set
   `allowed_hosts` (or `read_public = false`) if that matters. Loopback listeners check the `Host` also with
   a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
+  **Docker counts as non-loopback**: the container listens on 0.0.0.0, so a token-protected container whose
+  port is published (also as `127.0.0.1:8080:8080`) serves any `Host`. Set `BENCHLENS_ALLOWED_HOSTS=localhost`
+  (or the names you use) to turn the check on there; `localhost` and IP addresses are always served.
 - **Anyone with the token can do everything**: upload, retag, delete. There is no audit log beyond each
   run's `source` (`cli`, `inbox`, `upload`) and import time.
 - **Reads are public by default.** Benchmark results and `hardware.json` (CPU model, memory, disks; vmbench

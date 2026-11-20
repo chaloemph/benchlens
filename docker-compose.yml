@@ -20,7 +20,9 @@ services:
       # ./inbox/done or ./inbox/failed. Uncomment this and the mount below; ./inbox must be writable by uid 65532.
       # BENCHLENS_INBOX: /data/inbox
       # BENCHLENS_REGISTRY: /data/registry.tsv   # tags for inbox imports and uploads (a mounted file)
-      # BENCHLENS_ALLOWED_HOSTS: bench.lan       # without a token, Host names served besides localhost and IPs
+      # Host names served besides localhost and IPs (DNS rebinding guard). Without a token the check is always on;
+      # with a token the container (0.0.0.0, not loopback) serves any Host unless this is set, e.g. to localhost.
+      # BENCHLENS_ALLOWED_HOSTS: localhost,bench.lan
     volumes:
       - benchlens-data:/data
       # - ./inbox:/data/inbox

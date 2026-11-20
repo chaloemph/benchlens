@@ -138,7 +138,13 @@ impl Access {
             return "any".to_string();
         }
         let mut names = vec!["localhost".to_string(), "IP addresses".to_string()];
-        names.extend(self.allowed_hosts.iter().cloned());
+        // `localhost` in allowed_hosts only turns the check on (Docker with a token); do not list it twice
+        names.extend(
+            self.allowed_hosts
+                .iter()
+                .filter(|h| *h != "localhost")
+                .cloned(),
+        );
         names.join(", ")
     }
 
@@ -609,6 +615,13 @@ mod tests {
         let lan: std::net::SocketAddr = "192.168.1.5:8080".parse().unwrap();
         let a = Access::for_listen(Some(Token::new(T)), true, lan);
         assert!(a.check_host(&host("bench.lan"), &uri).is_ok());
+        // Docker (0.0.0.0 in the container) with a token: allowed_hosts = ["localhost"] turns the check on
+        let a = Access::for_listen(Some(Token::new(T)), true, any)
+            .with_allowed_hosts(["localhost".to_string()]);
+        assert!(a.check_host(&host("localhost:8080"), &uri).is_ok());
+        assert!(a.check_host(&host("127.0.0.1:8080"), &uri).is_ok());
+        assert!(a.check_host(&host("evil.example:8080"), &uri).is_err());
+        assert_eq!(a.hosts_served(), "localhost, IP addresses");
         // without a token, non-loopback: a token is still a way out
         let a = Access::for_listen(None, true, any);
         let e = a.check_host(&host("bench.lan"), &uri).unwrap_err();

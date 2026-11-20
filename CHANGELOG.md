@@ -22,6 +22,11 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ### Changed
 
+- **Behaviour change** (from the Host check above): with a token on a loopback address, opening the server by
+  a name other than `localhost` (an `/etc/hosts` alias, a tunnel or same-host proxy that passes another name as
+  `Host`) now gets 403 until that name is in `allowed_hosts`. `localhost` and IP addresses work as before.
+  Docker containers listen on 0.0.0.0 and are not affected; set `BENCHLENS_ALLOWED_HOSTS=localhost` there to
+  get the same check.
 - The start-up line `Host names served:` reflects the loopback Host check (`localhost, IP addresses` on
   loopback with a token, where 0.1.0 printed `any`).
 - The Host-check 403 says exactly what to set (`allowed_hosts = ["name"]` / `BENCHLENS_ALLOWED_HOSTS=name`)
@@ -34,6 +39,8 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
   pushed, and the dry run prints the notes.
 - New CI job `msrv`: `cargo check --locked --workspace --all-targets` with the workspace `rust-version`
   (1.89), read from `Cargo.toml`.
+- The release's `notes` job also checks that the tag matches the workspace version, so a mismatched tag fails
+  before any build.
 
 ## [0.1.0] - 2026-11-20
 

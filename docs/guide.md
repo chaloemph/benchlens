@@ -574,6 +574,11 @@ $ curl -s -H 'Host: evil.example:18084' http://127.0.0.1:18084/api/health
 {"error":"Host \"evil.example:18084\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"evil.example\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=evil.example (keep any names already listed)"}
 ```
 
+This applies with a token too (since 0.1.1): if you open a loopback server by a name, such as an
+`/etc/hosts` alias (`http://bench.local:8080`) or a name that a tunnel or proxy passes on as `Host`, that
+name gets 403 until it is in `allowed_hosts`. `http://localhost:8080` and `http://127.0.0.1:8080` always
+work, also through `ssh -L 8080:127.0.0.1:8080` (the browser sends `Host: localhost:8080`).
+
 To reach a loopback server by a name, list it:
 
 ```text

@@ -48,7 +48,7 @@ jobs:
       - name: read rust-version from Cargo.toml
         id: msrv
         run: |
-          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          version=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^rust-version *= *"\([0-9.]*\)".*/\1/p' Cargo.toml)
           if [ -z "$version" ]; then
             echo "::error::no rust-version in [workspace.package] of Cargo.toml"
             exit 1

@@ -20,15 +20,23 @@ jobs:
   notes:
     name: release notes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Extract the CHANGELOG section
         run: |
+          crate=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             version="${GITHUB_REF_NAME#v}"
+            # fail before any build (build checks this again for its archive names)
+            if [ "$version" != "$crate" ]; then
+              echo "::error::tag $GITHUB_REF_NAME does not match workspace version $crate"
+              exit 1
+            fi
           else
             # dry run: the workspace version
-            version=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+            version=$crate
           fi
           scripts/release-notes.sh "$version" > release-notes.md
           echo "Release notes for $version:"
