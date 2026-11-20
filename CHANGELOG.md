@@ -4,7 +4,7 @@ All notable changes to benchlens. Versions follow [semantic versioning](https://
 version is 0.x, a minor release may change the API, the CLI or the database layout (layouts are migrated
 automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-11-20
 
 First public release.
 
