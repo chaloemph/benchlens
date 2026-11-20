@@ -1,0 +1,713 @@
+# benchlens user guide
+
+benchlens keeps [vmbench](https://github.com/chaloemph/vmbench) results in one SQLite file and compares
+machines metric by metric with the same rule as `vmbench report compare`. This guide covers everything it
+does in v0.1.0. For a guided first run see [walkthrough.md](walkthrough.md); for the HTTP API see
+[api.md](api.md); for what benchlens reads from vmbench see [contract.md](contract.md).
+
+Every command below was run on the result folders in this repository (`tests/fixtures/`, real vmbench
+results from a POC of x86 and ARM64 VMs) and the output is pasted as printed, cut where marked `...`.
+The examples use a database `poc.db` in the current folder:
+
+```bash
+export BENCHLENS_DB=poc.db       # same as --db poc.db on every command; the default is ./benchlens.db
+```
+
+Contents: [Concepts](#concepts) · [Importing](#importing) · [Comparing](#comparing) ·
+[Exporting](#exporting) · [Running on a server](#running-on-a-server) · [Docker](#docker-and-compose) ·
+[Upgrading](#upgrading) · [Other tools](#reading-the-database-from-other-tools)
+
+## Concepts
+
+**Run.** One vmbench result folder (`meta.json`, `results.tsv`, `status.tsv`, optionally `hardware.json`
+and `report.md`). Its id is a hash of label, start time, architecture and vCPU count, so the same run
+imported again, by any route, keeps its id and is not stored twice. A run can be named by its id, a unique
+id prefix of 4 or more characters, its folder name, or its label when only one run has that label.
+
+**Value.** One line of `results.tsv`: metric id, value, unit and `round` (the repeat number inside the
+run; a metric measured three times has rounds 1, 2, 3).
+
+**Metric table.** For every vmbench version, which metrics exist, their unit and their direction (`higher`
+is better, `lower` is better, or `none`: shown, never judged). The tables of vmbench 0.2.1 to 0.2.3 are
+built in; see [Upgrading](#upgrading) for newer versions.
+
+**Group.** The sample a machine is judged on: all runs of a group are pooled, so three runs with three
+repeats each give nine values per metric. By default a run's group is its label without round or rerun
+suffixes (`-r2`, `-round2`, `-web`, `-rerun`, `-retry`) plus its CPU, vCPU count and RAM, so the rounds of
+one machine pool together and two people's `x86-std` on different hardware do not. Imported without tags,
+the fixtures get these groups:
+
+```text
+$ benchlens runs
+RUN               LABEL                         ARCH      vCPU  VMBENCH  GROUP / TAGS
+a96af04543575da1  arm64-high                    aarch64     16  v0.2.1   arm64-high (HiSilicon, 16 vCPU, 31 GB)
+180fba1956b130d0  x86-high                      x86_64      16  v0.2.1   x86-high (INTEL(R) XEON(R) GOLD 6526Y, 16 vCPU, 31 GB)
+d95fc3263e8efb18  arm64-high-web                aarch64     16  v0.2.3   arm64-high (HiSilicon, 16 vCPU, 31 GB)
+74cbd13504ee0072  x86-high-web                  x86_64      16  v0.2.3   x86-high (INTEL(R) XEON(R) GOLD 6526Y, 16 vCPU, 31 GB)
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   x86-std (INTEL(R) XEON(R) GOLD 6526Y, 2 vCPU, 4 GB)
+970595d84a8ab297  arm64-high-r2                 aarch64     16  v0.2.3   arm64-high (HiSilicon, 16 vCPU, 31 GB)
+d6422680ad835889  x86-high-r2                   x86_64      16  v0.2.3   x86-high (INTEL(R) XEON(R) GOLD 6526Y, 16 vCPU, 31 GB)
+```
+
+A `group` tag overrides the automatic group (the registry in `examples/poc-2026-11/` names them
+`x86-high`, `arm64-high`, ...).
+
+**Tags.** Any `key=value` on a run. Keys are 1-64 of `A-Z a-z 0-9 _ - .`; values are one line of at most
+1024 bytes. Two keys mean something to benchlens:
+
+- `group`: the run's group (above);
+- `exclude`: a comma list of stages whose values are not used, e.g. `exclude=web` or `exclude=disk,net`.
+
+Every other tag (`round`, `set`, `owner`, `note` ...) is yours: shown in the runs list, usable as a filter in
+the web UI and the API, and usable to split a group (next paragraph). The dot plot of the web UI colours
+values by the `round` tag when runs have one.
+
+**REF** (a side of a comparison). One of:
+
+| REF | Means |
+|---|---|
+| `x86-high-r2`, `d6422680ad835889`, `d642`, `x86-high-r2-20261119-145026` | one run: label, id, id prefix (4+ characters), folder |
+| `group:x86-high` | every run of group `x86-high`, pooled |
+| `group:x86-high@round=1` | the runs of group `x86-high` whose tag `round` is exactly `1`, pooled |
+
+`group:NAME@KEY=VALUE` takes exactly one `@KEY=VALUE`; the value is compared as it is (no trimming, no case
+folding). A selection with no runs is an error that says so:
+
+```text
+$ benchlens compare x86-high group:x86-high@round=9
+Error: none of the 3 runs of group "x86-high" has tag round="9"
+```
+
+A name that matches several runs is refused with a message asking for a run id or `group:NAME`.
+
+**Excluded and failed stages.** A stage with a `FAIL` line in `status.tsv` contributes no values, always;
+`benchlens runs` flags such a run with `[failed: STAGE,...]`, and the web UI's Runs view shows the flag too.
+A stage listed in the `exclude` tag is left out in the same way, but only because you said so (for
+example, a stage that ran with a wrong setting). Both are left out of comparisons, exports, `/api/values`
+and the `v_values` view; the stored values stay, so removing the tag brings them back.
+
+**Verdict.** For each metric: median of each side, CV (population standard deviation over the mean, in %),
+difference = (other − baseline) / |baseline|. Within noise when |difference| ≤ max(1 %, CV of either side);
+otherwise better or worse from the compared side's point of view, taking the direction into account.
+sysbench cpu across architectures is shown but not counted (it depends on the compiler). This is exactly
+vmbench's `judge()`, checked by golden tests ([contract.md](contract.md#verdict-rule)).
+
+## Importing
+
+Every route goes through the same import code, so a run arrives the same way whichever you use, and a run
+that is already there is reported as present instead of being added twice.
+
+What can be imported: a result folder; a directory whose sub-folders are result folders (one level, as
+vmbench writes them); a `.tar` or `.tar.gz` (`.tgz`) archive holding one or more result folders. Archives are
+read in memory, never extracted: an entry with an absolute path, `..`, a link or a device refuses the whole
+archive. Only the files of the [data contract](contract.md#files) are kept.
+
+### Command line: folders and archives
+
+```text
+$ benchlens import --dry-run tests/fixtures/v0.2.1
+would import  a96af04543575da1  arm64-high-20261118-203447  141 values, vmbench v0.2.1
+would import  180fba1956b130d0  x86-high-20261119-033546  141 values, vmbench v0.2.1
+0 imported, 0 already present, 2 would import, 0 failed, 0 refused (dry run: nothing written)
+```
+
+```text
+$ benchlens import tests/fixtures/v0.2.3/x86-std-r2-20261119-103253
+present   7969870900abc86d  x86-std-r2-20261119-103253  already imported
+0 imported, 1 already present, 0 would import, 0 failed, 0 refused
+```
+
+`--tag KEY=VALUE` (repeatable) tags every run of the command; `--json` prints the import reports as JSON.
+The exit status is 1 when anything failed or was refused:
+
+```text
+$ benchlens import evil.tar          # an archive holding a symbolic link
+refused evil.tar: unsafe archive entry link: links, devices and other special entries are not allowed
+0 imported, 0 already present, 0 would import, 0 failed, 1 refused
+```
+
+### Registry: many runs at once
+
+A registry is a TSV file with a `run` column holding the result folder name and one column per tag; empty
+cells are skipped. [examples/poc-2026-11/registry.tsv](../examples/poc-2026-11/registry.tsv) tags the 18 runs
+of the POC:
+
+```text
+run	group	set	size	round	host	exclude	note
+x86-std-20261118-233315	x86-std	poc-x86	std	1	proxmox	web	web failed (CPU pinning), rerun in x86-std-web
+...
+```
+
+```text
+$ benchlens import --registry examples/poc-2026-11/registry.tsv tests/fixtures/v0.2.1 tests/fixtures/v0.2.3
+imported  a96af04543575da1  arm64-high-20261118-203447  141 values, vmbench v0.2.1
+imported  180fba1956b130d0  x86-high-20261119-033546  141 values, vmbench v0.2.1
+imported  970595d84a8ab297  arm64-high-r2-20261119-074530  141 values, vmbench v0.2.3
+imported  d95fc3263e8efb18  arm64-high-web-20261119-030942  5 values, vmbench v0.2.3
+imported  d6422680ad835889  x86-high-r2-20261119-145026  141 values, vmbench v0.2.3
+imported  74cbd13504ee0072  x86-high-web-20261119-101442  5 values, vmbench v0.2.3
+imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2.3
+7 imported, 0 already present, 0 would import, 0 failed, 0 refused
+```
+
+```text
+$ benchlens runs
+RUN               LABEL                         ARCH      vCPU  VMBENCH  GROUP / TAGS
+a96af04543575da1  arm64-high                    aarch64     16  v0.2.1   arm64-high  exclude=web host=proxmox note=web used 8 CPUs only, rerun round=1 set=poc-arm64 size=high
+180fba1956b130d0  x86-high                      x86_64      16  v0.2.1   x86-high  exclude=web host=proxmox note=web used 8 CPUs only, rerun in x86-high-web round=1 set=poc-x86 size=high
+d95fc3263e8efb18  arm64-high-web                aarch64     16  v0.2.3   arm64-high  host=proxmox note=web rerun v0.2.3 round=1 set=poc-arm64 size=high
+74cbd13504ee0072  x86-high-web                  x86_64      16  v0.2.3   x86-high  host=proxmox note=web rerun v0.2.3 round=1 set=poc-x86 size=high
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   x86-std  host=proxmox round=2 set=poc-x86 size=std
+970595d84a8ab297  arm64-high-r2                 aarch64     16  v0.2.3   arm64-high  host=proxmox round=2 set=poc-arm64 size=high
+d6422680ad835889  x86-high-r2                   x86_64      16  v0.2.3   x86-high  host=proxmox round=2 set=poc-x86 size=high
+```
+
+### benchlens-tags.json in the result folder
+
+A result folder may carry `benchlens-tags.json`, `{"key": "value", ...}`, written by you (vmbench does not
+write it). It travels with the folder or archive, so the tags arrive by every route. Precedence when a key
+is given more than once: **command line (`--tag`, upload `tag` fields) > benchlens-tags.json > registry**.
+
+```bash
+mkdir work && cp -r tests/fixtures/v0.2.3/x86-std-r2-20261119-103253 work/
+echo '{"group": "poc-x86-std", "owner": "team-a"}' > work/x86-std-r2-20261119-103253/benchlens-tags.json
+tar -czf x86-std-r2.tar.gz -C work x86-std-r2-20261119-103253
+```
+
+```text
+$ benchlens --db fresh.db import x86-std-r2.tar.gz --tag round=2 --tag owner=team-b
+imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2.3
+1 imported, 0 already present, 0 would import, 0 failed, 0 refused
+$ benchlens --db fresh.db runs
+RUN               LABEL                         ARCH      vCPU  VMBENCH  GROUP / TAGS
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   poc-x86-std  owner=team-b round=2
+```
+
+Importing a run that is already there applies the tags of this import and says so:
+
+```text
+$ benchlens --db fresh.db import --json x86-std-r2.tar.gz
+[
+  {
+    "folder": "x86-std-r2-20261119-103253",
+    "run_id": "7969870900abc86d",
+    "outcome": "already_present",
+    "message": "already imported; tags updated"
+  }
+]
+```
+
+### Tags after the import
+
+`benchlens tag RUN KEY=VALUE...` sets tags; an empty value removes one.
+
+```text
+$ benchlens tag x86-std-r2 exclude=disk,net note="disk shared with a noisy neighbour"
+tags set on 7969870900abc86d
+$ benchlens runs | grep x86-std-r2
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   x86-std  exclude=disk,net host=proxmox note=disk shared with a noisy neighbour round=2 set=poc-x86 size=std
+$ benchlens compare x86-std-r2 x86-high-r2 | sed -n 1,4p
+baseline: x86-std-r2 (1 run)
+
+== x86-high-r2 vs x86-std-r2: better 22, worse 5, within noise 11
+   by section (better/worse/within noise): cpu 16/4/11  mem 2/1/0  pg 3/0/0  web 1/0/0
+$ benchlens tag x86-std-r2 exclude= note=
+tags set on 7969870900abc86d
+$ benchlens tag x86-std-r2 'bad key=1'
+Error: tag key "bad key": use 1-64 letters, digits, _ - or .
+```
+
+The disk and net sections are gone from the tally while `exclude=disk,net` is set. In the web UI, the Runs
+view edits tags inline. `benchlens delete RUN` removes a run and its values (its tags are not kept).
+
+### Inbox: drop files into a folder
+
+`benchlens watch` imports whatever is dropped into a folder; `benchlens serve --inbox DIR` does the same in
+the background of the server.
+
+- Drop result folders, directories of them, or `.tar` / `.tar.gz` / `.tgz` archives at the top of the inbox.
+  An entry is imported once it stayed unchanged for one scan interval (`--interval`, `--inbox-interval` for
+  `serve`; 5 s by default), then moved to `done/`, or to `failed/` with a `.reason.txt`.
+- Copy under a name ending in `.part`, `.tmp` or `.partial` and rename when complete; dotfiles and links are
+  ignored.
+- `--registry FILE` (`--inbox-registry` for `serve`, env `BENCHLENS_INBOX_REGISTRY`) and `--tag`
+  (`--inbox-tag`) tag inbox imports as `benchlens import` does. The registry is read again whenever it
+  changes, so rows can be added while the watcher runs; a registry that no longer parses is reported once
+  and the previous one stays in use.
+
+`--once` scans twice, one interval apart, and exits. With a result folder, the archive made above and a
+folder that is not a result:
+
+```text
+$ benchlens --db inbox.db watch --inbox inbox --interval 1 --once --registry examples/poc-2026-11/registry.tsv --tag set=poc
+registry  examples/poc-2026-11/registry.tsv: 18 runs
+waiting   not-a-run (imported once it stops changing)
+waiting   x86-high-r2-20261119-145026 (imported once it stops changing)
+waiting   x86-std-r2.tar.gz (imported once it stops changing)
+FAILED    not-a-run: refused: inbox/not-a-run: no vmbench result folder here (a folder with meta.json, or folders that hold one) -> inbox/failed/20261120-051044-not-a-run
+done      x86-high-r2-20261119-145026: 1 imported, 0 already present -> inbox/done/20261120-051044-x86-high-r2-20261119-145026
+done      x86-std-r2.tar.gz: 1 imported, 0 already present -> inbox/done/20261120-051044-x86-std-r2.tar.gz
+$ cat inbox/failed/*.reason.txt
+refused: inbox/not-a-run: no vmbench result folder here (a folder with meta.json, or folders that hold one)
+$ benchlens --db inbox.db runs
+RUN               LABEL                         ARCH      vCPU  VMBENCH  GROUP / TAGS
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   poc-x86-std  host=proxmox owner=team-a round=2 set=poc size=std
+d6422680ad835889  x86-high-r2                   x86_64      16  v0.2.3   x86-high  host=proxmox round=2 set=poc size=high
+```
+
+(The registry line printed the full path of the registry; shortened here.) The archive's
+`benchlens-tags.json` group `poc-x86-std` won over the registry's `x86-std`, as the precedence says.
+
+**One watcher per inbox.** The watcher holds an advisory lock on `<inbox>/.benchlens.lock` (the file names
+the holder's pid, host and start time). A second `watch` or `serve --inbox` on the same folder refuses to
+start:
+
+```text
+$ benchlens watch --inbox inbox --once
+Error: inbox is already watched by pid 425278 on <host> (started 20261120-051049 UTC); stop that watcher first (lock file inbox/.benchlens.lock; remove it only if that process is gone)
+```
+
+(The host name is replaced by `<host>` here.) A lock left by a watcher that was killed is taken over with a warning. On a network share whose file system
+ignores advisory locks, run only one watcher per inbox yourself. `watch` stops on Ctrl-C or SIGTERM after the
+import in progress and exits 0; a second Ctrl-C stops at once (an import is one transaction, so an
+interrupted entry is imported again on the next run):
+
+```text
+watching inbox every 5s (Ctrl-C to stop)
+stopping after the import in progress (Ctrl-C again to stop now)
+stopped watching inbox
+```
+
+### Web upload
+
+The Upload button in the header of the web UI opens a dialog: pick a `.tar` / `.tar.gz`, optionally add tag
+rows, and it lists the import report of every folder in the archive. On a server with a token the UI asks
+for the token first (see [Running on a server](#running-on-a-server)).
+
+<!-- TODO(H, in flight): uploads applying the server's inbox registry (plan F16) are being added on another
+branch. On main today an uploaded run gets only its benchlens-tags.json and the tags typed in the dialog;
+update this paragraph when that lands. -->
+
+### HTTP API
+
+`POST /api/runs` takes the same archive as multipart field `file`, plus repeated `tag` fields
+([api.md](api.md#post-apiruns-write)). On a server started with a token:
+
+```text
+$ curl -s -F file=@x86-std-r2.tar.gz http://127.0.0.1:18080/api/runs
+{"error":"a token is needed: send Authorization: Bearer <token>"}
+$ curl -s -H "Authorization: Bearer $TOKEN" -F file=@x86-std-r2.tar.gz -F tag=round=2 http://127.0.0.1:18080/api/runs
+[{"folder":"x86-std-r2-20261119-103253","run_id":"7969870900abc86d","outcome":"imported","message":"141 values, vmbench v0.2.3"}]
+$ curl -s -H "Authorization: Bearer $TOKEN" -F file=@evil.tar http://127.0.0.1:18080/api/runs
+{"error":"unsafe archive entry link: links, devices and other special entries are not allowed"}
+```
+
+The first answer is 401, the second 200 (each folder's `outcome` is `imported`, `already_present` or
+`failed`), the third 400. Tags can be changed with `PATCH /api/runs/{id}/tags` (an empty value removes):
+
+```text
+$ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"owner":""}' http://127.0.0.1:18080/api/runs/x86-std-r2/tags
+{"run_id":"7969870900abc86d","folder":"x86-std-r2-20261119-103253","label":"x86-std-r2","group":"poc-x86-std","arch":"x86_64","nproc":2,"ram_gb":4.0,"cpu_model":"INTEL(R) XEON(R) GOLD 6526Y","vmbench_version":"v0.2.3","start_utc":"2026-11-19T03:32:55Z","source":"upload","catalog_known":true,"failed_stages":[],"tags":{"group":"poc-x86-std","round":"2"},"values":141}
+```
+
+Each run records how it arrived in `source`: `cli`, `inbox` or `upload`.
+
+## Comparing
+
+### Command line
+
+`benchlens compare BASE OTHER [OTHER...]` with any REFs. Groups against groups:
+
+```text
+$ benchlens compare group:x86-high group:arm64-high
+baseline: x86-high (3 runs)
+
+== arm64-high vs x86-high: better 23, worse 37, within noise 5
+   by section (better/worse/within noise): cpu 4/25/0  disk 16/2/4  mem 0/2/1  net 0/7/0  pg 3/0/0  web 0/1/0
+   metric                                           x86-high   arm64-high     diff  verdict
+   7z rating · all vCPU ↑ (MIPS)                      80,940       66,346   -18.0%  worse
+   cpubench crypto/aes-gcm · 1 thread ↑ (MB/s)         6,582        3,729   -43.4%  worse
+   cpubench crypto/aes-gcm · all vCPU ↑ (MB/s)        91,723       56,616   -38.3%  worse !
+...
+   pgbench tpcb-like tps ↑ (TPS)                       4,820       11,105  +130.4%  better
+   cpubench web mix max RPS @ SLO (loopback) ↑        31,990       15,997   -50.0%  worse !
+
+↑ higher is better, ↓ lower is better; * measured once (noise unknown); ! CV of 5% or more
+note: x86-high and arm64-high are different architectures: sysbench cpu is shown but not counted (it depends on the compiler)
+```
+
+Reading it: medians of each side, the difference from the baseline, and the verdict from the compared side's
+point of view. `!` marks a metric whose run-to-run variation is 5 % or more on either side, `*` one measured
+only once (no noise estimate, so any difference over 1 % counts). The x86-high group pools x86-high (round 1,
+with its web stage excluded), its web rerun x86-high-web, and x86-high-r2.
+
+Rounds of one machine against each other, with group subsets and `--section` (rows of one section only; the
+tallies stay complete):
+
+```text
+$ benchlens compare group:x86-high@round=1 group:x86-high@round=2 --section mem
+baseline: x86-high · round=1 (2 runs)
+
+== x86-high · round=2 vs x86-high · round=1: better 13, worse 18, within noise 36
+   by section (better/worse/within noise): cpu 0/5/26  disk 8/7/7  mem 1/2/0  net 3/3/1  pg 1/1/1  web 0/0/1
+   metric                                       x86-high · round=1 x86-high · round=2     diff  verdict
+   lat_mem_rd · 1 thread ↓ (ns)                                147                135    -8.5%  better
+   stream copy · all vCPU ↑ (MB/s)                         189,348            176,347    -6.9%  worse !
+   stream triad · all vCPU ↑ (MB/s)                        164,316            147,856   -10.0%  worse
+
+↑ higher is better, ↓ lower is better; * measured once (noise unknown); ! CV of 5% or more
+```
+
+One run against another:
+
+```text
+$ benchlens compare x86-std-r2 x86-high-r2 --section pg
+baseline: x86-std-r2 (1 run)
+
+== x86-high-r2 vs x86-std-r2: better 39, worse 10, within noise 18
+   by section (better/worse/within noise): cpu 16/4/11  disk 11/4/7  mem 2/1/0  net 6/1/0  pg 3/0/0  web 1/0/0
+   metric                                         x86-std-r2  x86-high-r2     diff  verdict
+   pgbench single-session latency ↓ (ms)               1.475        1.270   -13.9%  better *
+   tps stability 100*(1-cv) ↑ (%)                       85.8         86.9    +1.2%  better *
+   pgbench tpcb-like tps ↑ (TPS)                       1,733        4,837  +179.0%  better *
+
+↑ higher is better, ↓ lower is better; * measured once (noise unknown); ! CV of 5% or more
+```
+
+More than one OTHER gives one block per side, each against the same baseline. `--json` prints the
+`Comparison` of [api.md](api.md#get-apicomparebaserefotherrefotherrefsectioncpu) (`base`, `others`, `rows`,
+`tallies`, `warnings`), the same numbers the web UI shows:
+
+```text
+$ benchlens compare d642 group:arm64-high --json
+{
+  "base": {
+    "reference": "d642",
+    "label": "x86-high-r2",
+    "run_ids": [
+      "d6422680ad835889"
+    ],
+...
+  "rows": [
+    {
+      "other": 0,
+      "id": "cpu.7z.rating.max",
+      "name": "7z rating · all vCPU",
+      "section": "cpu",
+      "unit": "MIPS",
+      "direction": "higher",
+      "base": 80154.0,
+      "value": 66346.5,
+      "cv_base": 0.49581319153273695,
+      "cv_value": 1.4482838610465507,
+      "n_base": 3,
+      "n_value": 6,
+      "diff": -17.226214537016244,
+...
+```
+
+### Web UI
+
+`benchlens serve` and open <http://127.0.0.1:8080>. Four views, all state in the URL (any page can be shared
+as a link):
+
+- **Compare**: baseline picker, "compare with" checkboxes for groups and single runs, quick picks derived from
+  the data (such as "x86 vs ARM64 · high" or "Round 1 vs 2 · x86-high"), a takeaway sentence, the tally table
+  per section, and a heatmap of every metric (key metrics or one section; sysbench across architectures
+  hatched and not counted). Choosing a metric name opens the Metric view.
+- **Metric**: a dot plot of every raw value of one metric per side, coloured by the run's `round` tag, with
+  the median tick, and the statistics table.
+- **Runs**: search and filters (text, architecture, group, tag), inline tag editing, delete with
+  confirmation, a link to the run's `report.md` when it kept one, flags for failed stages, excluded stages and
+  missing metric tables.
+- **Hardware**: `hardware.json` of the selected runs side by side, differing rows highlighted.
+
+The URL keys are `view`, `base`, `other` (repeated), `section`, `metric`, `run`, and the runs filters `q`,
+`arch`, `group`, `tag`; for example
+`/?view=compare&base=group:x86-high&other=group:arm64-high&section=key`. The UI computes no numbers itself:
+everything comes from `/api/compare` and equals `benchlens compare --json`. Screenshots are in
+[walkthrough.md](walkthrough.md#5-the-web-ui).
+
+<!-- TODO(H, in flight): a picker control for group:NAME@KEY=VALUE sides (plan F17) is being added on another
+branch. On main today such sides come from the quick picks ("Round 1 vs 2 · ...") or a link with
+base=/other= in the URL; describe the control here when it lands. -->
+
+## Exporting
+
+To share a comparison with someone who has no benchlens:
+
+```text
+$ benchlens export html --base group:x86-high --other group:arm64-high -o report.html --title "POC high: x86 vs ARM64"
+wrote report.html (752 KB): 2 sides, 6 runs, 568 values
+```
+
+The file opens from disk with no server and no network (about 230 KB gzipped for these two groups). It
+inlines the web UI's compare, metric and hardware views, d3, the WebAssembly build of the verdict rule and the
+values of the exported sides. In the page the reader can:
+
+- pick any exported side, or any single run of one, as the baseline or a compared side (a group exported as a
+  side can be split into its runs, not into runs of other groups);
+- see the tally, heatmap, dot plots, statistics and hardware tables, as in the served UI;
+- trust that the numbers equal `benchlens compare`: they come from the same rule, compiled to WebAssembly.
+
+It cannot import, tag or reach other data. A Content-Security-Policy in the file allows no network access.
+The Export HTML button of the Compare view (and `GET /api/export.html`) produces the same file for the
+shown sides.
+
+Values for a spreadsheet or a script, one row per raw value:
+
+```text
+$ benchlens export csv group:x86-high group:arm64-high -o values.csv
+$ head -4 values.csv
+side,run_id,label,id,name,section,unit,direction,round,value
+group:x86-high,180fba1956b130d0,x86-high,cpu.7z.rating.max,7z rating · all vCPU,cpu,MIPS,higher,1,81684
+group:x86-high,180fba1956b130d0,x86-high,cpu.7z.rating.max,7z rating · all vCPU,cpu,MIPS,higher,2,81853
+group:x86-high,180fba1956b130d0,x86-high,cpu.7z.rating.max,7z rating · all vCPU,cpu,MIPS,higher,3,82158
+```
+
+`side` is the REF as given, `label` the run's label, `round` the repeat inside the run, `direction` empty for a
+vmbench version without a metric table. Text starting with `= + - @` gets a leading `'` so spreadsheets do not
+run it as a formula. Excluded and failed stages are left out, as in comparisons.
+
+`export json` writes `{benchlens, exported_at, source, sides}`; each side holds `side`, `stats` (per metric:
+`id`, `name`, `section`, `unit`, `direction`, `tool`, `n`, `median`, `cv`, `min`, `max`), `unjudged` and
+`values`. Without `-o`, `json` and `csv` write to stdout. One entry of `stats` of the first side of
+`benchlens export json group:x86-high@round=2 x86-std-r2`:
+
+```json
+{
+ "id": "cpu.7z.rating.max",
+ "name": "7z rating · all vCPU",
+ "section": "cpu",
+ "unit": "MIPS",
+ "direction": "higher",
+ "tool": "7-Zip",
+ "n": 3,
+ "median": 80154.0,
+ "cv": 0.49581319153273695,
+ "min": 79336.0,
+ "max": 80197.0
+}
+```
+
+## Running on a server
+
+`benchlens serve` listens on `127.0.0.1:8080` by default. Its settings come from flags, then `BENCHLENS_*`
+variables, then an optional `benchlens.toml` (`--config FILE` / `BENCHLENS_CONFIG`, else `./benchlens.toml`
+when present), then the defaults. The [README](../README.md#running-on-a-server) lists every key.
+
+| Setting | Flag | Variable | benchlens.toml | Default |
+|---|---|---|---|---|
+| database | `--db` | `BENCHLENS_DB` | `db` | `benchlens.db` |
+| address | `--listen` | `BENCHLENS_LISTEN` | `listen` | `127.0.0.1:8080` |
+| token | (none) | `BENCHLENS_TOKEN` | `token` | none |
+| reads need the token | `--read-public false` | `BENCHLENS_READ_PUBLIC` | `read_public` | `true` |
+| largest upload | `--max-upload-mb` | `BENCHLENS_MAX_UPLOAD_MB` | `max_upload_mb` | 256 |
+| inbox | `--inbox` | `BENCHLENS_INBOX` | `inbox` | off |
+| inbox scan interval | `--inbox-interval` | `BENCHLENS_INBOX_INTERVAL` | `inbox_interval` | 5 |
+| inbox registry | `--inbox-registry` | `BENCHLENS_INBOX_REGISTRY` | `inbox_registry` | none |
+| inbox tags | `--inbox-tag K=V` | | `inbox_tags = { k = "v" }` | none |
+
+### Who may read and write
+
+| Configuration | Reads | Writes (upload, tags, delete) |
+|---|---|---|
+| no token, loopback address | open | open (local use) |
+| no token, any other address | open | refused, 403 |
+| token, `read_public = true` | open | `Authorization: Bearer <token>`, else 401 |
+| token, `read_public = false` | token, else 401 (`/api/health` and the page itself stay open) | token |
+
+Without a token, a write that a browser marks as coming from a page of another origin is also refused (403),
+so a web page you visit cannot upload to your local server. The web UI asks for the token once per tab when
+the server answers 401.
+
+The start-up lines say which case applies:
+
+```text
+$ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
+benchlens 0.1.0 on http://127.0.0.1:18080 (database srv.db)
+reads open; writes need the token; uploads up to 256 MiB
+```
+
+```text
+$ benchlens --db srv.db serve --listen 0.0.0.0:18081
+benchlens 0.1.0 on http://0.0.0.0:18081 (database srv.db)
+reads open; writes refused (no token); uploads up to 256 MiB
+warning: listening on 0.0.0.0:18081 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
+$ curl -s -X DELETE http://127.0.0.1:18081/api/runs/x86-std-r2
+{"error":"writes are turned off: this server listens on a non-loopback address without a token","detail":"start it with BENCHLENS_TOKEN (or `token` in benchlens.toml) to allow upload, tags and delete"}
+```
+
+The token has no command-line flag (command lines are visible to other users of the machine), must be at
+least 16 characters and is never printed. Misconfigurations stop the server before it listens:
+
+```text
+$ benchlens --db srv.db serve --listen 127.0.0.1:18082 --read-public false
+Error: read_public = false needs a token (BENCHLENS_TOKEN or `token` in benchlens.toml)
+$ BENCHLENS_TOKEN=short benchlens --db srv.db serve --listen 127.0.0.1:18082
+Error: the token is too short: use at least 16 characters (e.g. `openssl rand -hex 32`)
+```
+
+A private server with an inbox, from a `benchlens.toml` (the token is a placeholder here):
+
+```toml
+db = "/srv/benchlens/srv.db"
+listen = "127.0.0.1:18083"
+token = "<output of openssl rand -hex 32>"
+read_public = false
+inbox = "/srv/benchlens/inbox2"
+inbox_registry = "/srv/benchlens/registry.tsv"
+inbox_tags = { set = "poc" }
+```
+
+```text
+$ benchlens serve                      # in the folder holding benchlens.toml
+watching inbox /srv/benchlens/inbox2 every 5s
+benchlens 0.1.0 on http://127.0.0.1:18083 (database /srv/benchlens/srv.db)
+reads need the token; writes need the token; uploads up to 256 MiB
+inbox: registry  /srv/benchlens/registry.tsv: 18 runs
+inbox: waiting   arm64-high-r2-20261119-074530 (imported once it stops changing)
+inbox: done      arm64-high-r2-20261119-074530: 1 imported, 0 already present -> /srv/benchlens/inbox2/done/20261120-051128-arm64-high-r2-20261119-074530
+$ curl -s http://127.0.0.1:18083/api/runs
+{"error":"a token is needed: send Authorization: Bearer <token>"}
+$ curl -s http://127.0.0.1:18083/api/health
+{"benchlens":"0.1.0","db_layout":2,"runs":1}
+```
+
+(Paths were in a scratch folder when this ran; shown here as `/srv/benchlens`.) `benchlens serve` stops
+cleanly on Ctrl-C or SIGTERM.
+
+### Behind a reverse proxy
+
+benchlens speaks plain HTTP. Put TLS in front (Caddy, nginx) so the token is not sent in the clear, and
+**set a token even when benchlens listens on 127.0.0.1 behind the proxy**: the proxy makes it reachable
+from outside, and on loopback without a token writes are open. Allow request bodies of at least
+`max_upload_mb` in the proxy (nginx: `client_max_body_size`). For example, a minimal Caddyfile (not part of the test runs of this guide):
+
+```text
+bench.example.org {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+<!-- TODO(H, in flight): Host-header checks in no-token mode (plan F14, DNS rebinding) and handling of
+proxy headers (F15, Forwarded / X-Forwarded-For) are being added to the server on another branch. Neither is
+on main today: describe the accepted Host names and the proxy behaviour here once they land. -->
+
+What the server does and does not protect against: [SECURITY.md](../SECURITY.md).
+
+## Docker and Compose
+
+The image `ghcr.io/chaloemph/benchlens` (linux/amd64 and linux/arm64) is a static binary on distroless,
+running `benchlens serve` as uid 65532 on `0.0.0.0:8080` with the database at `/data/benchlens.db` (a
+volume). Because `0.0.0.0` is not loopback, **without `BENCHLENS_TOKEN` the container is read-only**.
+
+The commands below ran against an image built from this checkout (`docker build -t benchlens:h-docs .`);
+with the published image, use `ghcr.io/chaloemph/benchlens` instead of `benchlens:h-docs`.
+
+```text
+$ docker run --rm -v benchlens-data:/data -v "$PWD/tests/fixtures:/results:ro" benchlens:h-docs import /results/v0.2.1 /results/v0.2.3
+imported  a96af04543575da1  arm64-high-20261118-203447  141 values, vmbench v0.2.1
+...
+imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2.3
+7 imported, 0 already present, 0 would import, 0 failed, 0 refused
+$ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$(openssl rand -hex 32)" benchlens:h-docs
+<container id>
+$ docker logs benchlens
+benchlens 0.1.0 on http://0.0.0.0:8080 (database /data/benchlens.db)
+reads open; writes need the token; uploads up to 256 MiB
+$ curl -s http://localhost:8080/api/health
+{"benchlens":"0.1.0","db_layout":2,"runs":7}
+$ docker stop benchlens               # SIGTERM: the server stops cleanly
+```
+
+(Run with another container name, volume and host port, so as not to disturb a running instance; the output
+is otherwise as printed.) The import runs the same image with another command; mount the results read-only.
+Keep the token somewhere: the web UI and `curl` need it for upload, tag editing and delete. Started without
+`BENCHLENS_TOKEN`, the container says so:
+
+```text
+benchlens 0.1.0 on http://0.0.0.0:8080 (database /data/benchlens.db)
+reads open; writes refused (no token); uploads up to 256 MiB
+warning: listening on 0.0.0.0:8080 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
+```
+
+Compose, from a checkout ([docker-compose.yml](../docker-compose.yml)):
+
+```bash
+BENCHLENS_TOKEN=$(openssl rand -hex 32) docker compose up -d     # http://localhost:8080
+docker compose run --rm -v "$PWD/results:/results:ro" benchlens import /results
+```
+
+```text
+$ docker compose run --rm -v "$PWD/results:/results:ro" benchlens import /results
+imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2.3
+1 imported, 0 already present, 0 would import, 0 failed, 0 refused
+```
+
+(Checked with `docker compose config` and the `run` line above; `up -d` was not run for this guide because
+port 8080 was taken on the test machine. `docker compose build` builds the image locally instead of pulling
+it.)
+
+The compose file has commented lines for an inbox (`BENCHLENS_INBOX=/data/inbox`, a mounted `./inbox`
+writable by uid 65532) and `BENCHLENS_READ_PUBLIC: "false"`.
+
+<!-- TODO(H, in flight): Grafana dashboards under deploy/grafana (compose profile `grafana`, plan task G) are
+being added on another branch; add a section here when they land. -->
+
+## Upgrading
+
+**The binary.** Replace it (or pull the new image) and start it on the same database. The database layout
+has a version (`PRAGMA user_version`, shown as `db_layout` by `/api/health`). A newer benchlens migrates an
+older layout automatically when it opens the file, in one transaction; tables and data are kept (layout 2
+only recreated the views). An older benchlens refuses a newer layout instead of misreading it:
+
+```text
+$ benchlens --db future.db runs
+Error: database layout 3 is newer than this benchlens understands (2); upgrade benchlens
+```
+
+(`future.db` was a copy with its `user_version` set to 3 by hand.) Back up the database file before
+upgrading if you may want to go back.
+
+**A newer vmbench.** Each release of benchlens carries the metric tables of the vmbench versions it knows:
+
+```text
+$ benchlens catalog list
+0.2.1        98 metrics  built in
+0.2.2        98 metrics  built in
+0.2.3        98 metrics  built in
+```
+
+Runs of a vmbench version without a table are imported, flagged `[no metric table]`, and their values are
+not judged. Add the table from the new vmbench itself; it is stored in the database, and runs already
+imported are judged from then on:
+
+```text
+$ vmbench run --metrics > metrics.txt          # on a machine with the new vmbench
+$ benchlens catalog add 0.3.0 metrics.txt
+added 98 metrics for vmbench 0.3.0
+$ benchlens catalog list
+0.2.1        98 metrics  built in
+0.2.2        98 metrics  built in
+0.2.3        98 metrics  built in
+0.3.0        98 metrics  added
+```
+
+(For this example `metrics.txt` was a copy of the built-in 0.2.3 table, `crates/rules/catalog/vmbench-0.2.3.txt`,
+since no vmbench 0.3.0 exists yet; the `vmbench` line was not run.) A file without
+`id|unit|direction|tool|label|description` lines is refused. If vmbench changes its result format it raises
+`schema` in `meta.json`, and benchlens refuses those folders with a clear message until a release learns the
+new schema ([contract.md](contract.md#when-vmbench-changes-its-format)).
+
+## Reading the database from other tools
+
+The SQLite file has three views for other tools (SQLite has no median, so verdicts come only from benchlens):
+
+| View | Columns |
+|---|---|
+| `v_runs` | `run_id`, `folder`, `label`, `arch`, `nproc`, `ram_gb`, `cpu_model`, `vmbench_version`, `pg_profile`, `web_cpus`, `stages`, `start_utc`, `end_utc`, `auto_group`, `source`, `imported_at`, `meta_json`, `hardware_json`, `grp` (the effective group), `catalog_known` |
+| `v_values` | every value that counts (failed and excluded stages left out): `run_id`, `label`, `grp`, `arch`, `nproc`, `ram_gb`, `cpu_model`, `vmbench_version`, `id`, `name`, `section`, `unit`, `direction`, `tool`, `round`, `value` |
+| `v_stats` | per run and metric: `run_id`, `label`, `grp`, `id`, `name`, `section`, `unit`, `direction`, `n`, `mean`, `min`, `max` |
+
+Open the file read-only from other tools while benchlens is running.
