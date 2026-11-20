@@ -6,6 +6,10 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.1] - 2026-11-20
+
 ### Security
 
 - On a loopback address (`127.0.0.1`, `::1`) the server now checks the `Host` header also when a token is
@@ -104,4 +108,6 @@ First public release.
   dashboards (metric over time, group vs group, runs). benchlens keeps the SQLite `-wal` and `-shm` files
   when it closes the database, so a read-only reader keeps working while benchlens is stopped.
 
+[Unreleased]: https://github.com/chaloemph/benchlens/compare/v0.1.1...main
+[0.1.1]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.1
 [0.1.0]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.0
