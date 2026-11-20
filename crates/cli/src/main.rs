@@ -497,6 +497,30 @@ fn fmt_num(v: f64) -> String {
     }
 }
 
+/// Widest side label shown in a column head of the compare table.
+const MAX_HEAD: usize = 32;
+
+/// Column heads for the two value columns: the side labels, padded to at least 12 characters and cut at
+/// [`MAX_HEAD`]. Labels that are still the same after cutting (or were the same to begin with) become
+/// "baseline" and "other", so the columns never look alike.
+fn column_heads(base: &str, other: &str) -> (String, String) {
+    let head = |l: &str| {
+        let n = l.chars().count();
+        let cut: String = if n > MAX_HEAD {
+            l.chars().take(MAX_HEAD - 1).chain(['…']).collect()
+        } else {
+            l.to_string()
+        };
+        format!("{cut:>12}")
+    };
+    let (b, o) = (head(base), head(other));
+    if b.trim() == o.trim() {
+        (format!("{:>12}", "baseline"), format!("{:>12}", "other"))
+    } else {
+        (b, o)
+    }
+}
+
 fn print_comparison(c: &Comparison) {
     println!(
         "baseline: {} ({} run{})",
@@ -519,12 +543,11 @@ fn print_comparison(c: &Comparison) {
             "   by section (better/worse/within noise): {}",
             secs.join("  ")
         );
+        let (head_base, head_side) = column_heads(&c.base.label, &side.label);
+        let (wb, ws) = (head_base.chars().count(), head_side.chars().count());
         println!(
-            "   {:<44} {:>12} {:>12} {:>8}  verdict",
-            "metric",
-            c.base.label.chars().take(12).collect::<String>(),
-            side.label.chars().take(12).collect::<String>(),
-            "diff"
+            "   {:<44} {head_base:>wb$} {head_side:>ws$} {:>8}  verdict",
+            "metric", "diff"
         );
         for r in c.rows.iter().filter(|r| r.other == i) {
             let verdict = if r.cross_arch {
@@ -553,7 +576,7 @@ fn print_comparison(c: &Comparison) {
                 "↑"
             };
             println!(
-                "   {:<44} {:>12} {:>12} {:>8}  {verdict}{noisy}{once}",
+                "   {:<44} {:>wb$} {:>ws$} {:>8}  {verdict}{noisy}{once}",
                 format!("{} {dir} ({})", r.name, r.unit)
                     .chars()
                     .take(44)
@@ -569,5 +592,31 @@ fn print_comparison(c: &Comparison) {
     println!("\n↑ higher is better, ↓ lower is better; * measured once (noise unknown); ! CV of {HIGH_CV:.0}% or more");
     for w in &c.warnings {
         println!("note: {w}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::column_heads;
+
+    #[test]
+    fn column_heads_stay_distinguishable() {
+        // the labels of group subset sides share a long prefix: both must show in full
+        let (b, o) = column_heads("x86-high · round=1", "x86-high · round=2");
+        assert_eq!(
+            (b.as_str(), o.as_str()),
+            ("x86-high · round=1", "x86-high · round=2")
+        );
+        // short labels keep the 12-character column
+        let (b, o) = column_heads("x86", "arm");
+        assert_eq!((b.chars().count(), o.chars().count()), (12, 12));
+        // cut at the limit, still different
+        let long = "g".repeat(40);
+        let (b, o) = column_heads(&format!("{long}1"), &format!("{long}2"));
+        assert_ne!(b, o);
+        assert!(b.trim() == "baseline" && o.trim() == "other");
+        let (b, _) = column_heads(&long, "x");
+        assert_eq!(b.chars().count(), 32);
+        assert!(b.ends_with('…'));
     }
 }
