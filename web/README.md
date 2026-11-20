@@ -37,7 +37,7 @@ every request after that. Requests refused at the same time share one dialog.
 ```
 index.html          page skeleton (every view, dialogs)
 css/app.css         styles; light and dark themes via prefers-color-scheme and custom properties
-js/app.js           entry point: loading, routing between views
+js/app.js           entry point of the served UI (main.js + upload dialog)
 js/api.js           fetch wrapper, API errors, 401 token prompt
 js/state.js         URL query string state
 js/data.js          runs/groups store, picker entries, quick picks
@@ -49,7 +49,8 @@ js/upload.js        upload dialog
 js/format.js        number and label formatting
 js/ui.js            DOM helpers (textContent only), tooltip, dialogs
 vendor/             d3 v7.9.0 (dist/d3.min.js, licence header kept; LICENSE-d3.txt)
-dev/                development tools only (below); not used by the UI
+js/main.js          UI shell shared with the static export: loading, routing between views
+export/             static HTML export entry (offline.js: API answered from inlined data, WASM compare)
 ```
 
 Rules: values go into the page with `textContent` (the `h()` helper), never `innerHTML`; SVG charts carry
@@ -67,39 +68,15 @@ cargo run -p benchlens -- --db /tmp/poc.db serve          # http://127.0.0.1:808
 ```
 
 To try the token prompt, start the server with a token (`BENCHLENS_TOKEN=some-long-dev-token cargo run -p
-benchlens -- --db /tmp/poc.db serve`), and add `--read-public false` for a private server. Neither `web/dev/`
-nor the READMEs are built into the binary.
+benchlens -- --db /tmp/poc.db serve`), and add `--read-public false` for a private server. The READMEs are not
+built into the binary.
 
-Smoke test in a headless browser (needs the `playwright` npm package and its chromium; it is not a project
-dependency):
-
-```bash
-benchlens --db /tmp/poc.db compare group:x86-high group:arm64-high group:x86-med --json > /tmp/cmp.json
-NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tmp/shots /tmp/cmp.json
-```
-
-It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways
-page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. In the runs view it
-checks that a tag draft survives a re-render, a ticked checkbox and a filter change, that report.md is linked
-exactly for the runs whose file list has it (at least one must, and the folder named by `NO_REPORT`, default
-`x86-std-r2-20261119-103253`, must not: the fixtures keep no report.md, so add one to copies of the other
-folders before importing), and the delete dialog's wording. Other sides:
-`SIDES='base=...&other=...'` (the fixtures alone have no `x86-med` group: use
-`SIDES='base=group:x86-high&other=group:arm64-high'` then).
-
-Auth and upload: start the server with `BENCHLENS_TOKEN=...` and pass the same variable to the smoke test, plus
-`UPLOAD=` an archive to send through the Upload dialog (a wrong token is tried first, then the right one):
-
-```bash
-tar -czf /tmp/up.tar.gz -C tests/fixtures/v0.2.3 x86-std-r2-20261119-103253
-BENCHLENS_TOKEN=smoke-secret-0123456789 benchlens --db /tmp/poc.db serve &
-BENCHLENS_TOKEN=smoke-secret-0123456789 UPLOAD=/tmp/up.tar.gz NODE_PATH=... node web/dev/smoke.mjs http://127.0.0.1:8080 /tmp/shots /tmp/cmp.json
-```
-
-With `--read-public false` on the server, add `READ_PRIVATE=1`: the views are skipped and the test checks
-that the first page load asks for the token.
+Browser tests: `scripts/e2e.sh` (Playwright, `tests/e2e/`; see tests/e2e/README.md) starts the server on the
+fixtures (open, with a token, and private) and checks every view at 1280 and 400 px in light and dark, the
+numbers on screen against the API, URL state, tag editing and drafts, report.md links, the delete dialog,
+upload with the token prompt, private reads and the Export button. It replaced the old `web/dev/smoke.mjs`.
 
 The static HTML export (`web/export/offline.js`, built by `crates/server/src/export.rs`) reuses `js/main.js`
 and the views; keep `web/js/` in the plain module style the export bundler accepts (one-line imports,
-`export function|const|class`). `NODE_PATH=... tests/export/run.sh` opens an export from disk with the network
-off and checks it against `benchlens compare --json`.
+`export function|const|class`). `tests/export/run.sh` (run by `scripts/e2e.sh`) opens an export from disk with the
+network off and checks it against `benchlens compare --json`.

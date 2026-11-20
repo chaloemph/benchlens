@@ -57,16 +57,3 @@ for (const scheme of SCHEMES) {
     });
   }
 }
-
-// UI bug (docs/reviews/wave1-b.md, item 2): the Runs view links report.md for every run, but the fixtures keep
-// none, so the link opens a 404. Enable when the link is shown only for runs whose `files` list report.md.
-test.fixme('runs: report.md is linked only for runs that kept it', async ({ page, request }) => {
-  const runs = await api(request, 'api/runs');
-  await page.goto('?view=runs');
-  await waitForView(page, 'runs');
-  for (const r of runs) {
-    const d = await api(request, 'api/runs/' + r.run_id);
-    const has = d.files.some((f) => f.name === 'report.md');
-    await expect(page.locator(`#runs-table tr[data-run="${r.run_id}"] a`, { hasText: 'report.md' })).toHaveCount(has ? 1 : 0);
-  }
-});

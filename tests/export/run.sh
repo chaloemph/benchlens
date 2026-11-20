@@ -6,14 +6,20 @@
 #
 #   NODE_PATH=/path/to/node_modules tests/export/run.sh [OUT_DIR]
 #
-# Needs the `playwright` npm package and its chromium (not a project dependency), like web/dev/smoke.mjs.
+# Needs the `playwright` npm package and its chromium: scripts/e2e.sh runs it with NODE_PATH set to
+# tests/e2e/node_modules (installed from tests/e2e/package-lock.json) and BENCHLENS_BIN set to its release build;
+# without BENCHLENS_BIN it builds and uses the debug binary.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 out=${1:-target/export-test}
 rm -rf "$out"
 mkdir -p "$out"
-cargo build -q -p benchlens
-bl() { target/debug/benchlens --db "$out/poc.db" "$@"; }
+bin=${BENCHLENS_BIN:-}
+if [[ -z "$bin" ]]; then
+  cargo build -q -p benchlens
+  bin=target/debug/benchlens
+fi
+bl() { "$bin" --db "$out/poc.db" "$@"; }
 
 bl import tests/fixtures/v0.2.1 tests/fixtures/v0.2.3 --registry examples/poc-2026-11/registry.tsv >/dev/null
 X=group:x86-high A=group:arm64-high
