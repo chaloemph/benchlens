@@ -90,7 +90,9 @@ impl From<benchlens_core::Error> for ApiError {
         use benchlens_core::Error as E;
         let status = match &e {
             E::NotFound(_) => StatusCode::NOT_FOUND,
-            E::Contract(_) | E::UnsafeArchive { .. } => StatusCode::BAD_REQUEST,
+            E::Contract(_) | E::UnsafeArchive { .. } | E::Ambiguous(_) | E::BadReference(_) => {
+                StatusCode::BAD_REQUEST
+            }
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
         ApiError::new(status, e.to_string())

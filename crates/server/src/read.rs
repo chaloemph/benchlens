@@ -186,8 +186,11 @@ pub async fn values(State(st): State<AppState>, q: Pairs) -> Result<Json<Values>
     check_ref("ref", &reference)?;
     let id = required(&p, "id")?.to_string();
     check_word("id", &id)?;
-    let (side, values) = db(&st, move |s| Ok(compare::load(s, &reference)?)).await?;
-    let values = values.into_iter().filter(|v| v.id == id).collect();
+    let metric = id.clone();
+    let (side, values) = db(&st, move |s| {
+        Ok(compare::load_metric(s, &reference, &metric)?)
+    })
+    .await?;
     Ok(Json(Values { side, id, values }))
 }
 
