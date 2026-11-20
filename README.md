@@ -129,8 +129,8 @@ benchlens serve --inbox inbox/ --registry registry.tsv --inbox-tag set=poc
   An entry is imported once it stayed unchanged for one scan interval (`--interval` / `--inbox-interval`,
   5 s), then moved to `done/`, or to `failed/` with a `.reason.txt`. Upload under a name ending in `.part`,
   `.tmp` or `.partial` and rename when complete; dotfiles and links are ignored.
-- `--registry FILE` (env `BENCHLENS_INBOX_REGISTRY` for `watch`; for `serve` also `BENCHLENS_REGISTRY` and
-  `registry` in benchlens.toml, old name `--inbox-registry` / `inbox_registry` still accepted) and `--tag`
+- `--registry FILE` (env `BENCHLENS_REGISTRY`; for `serve` also `registry` in benchlens.toml; the old names
+  `--inbox-registry`, `BENCHLENS_INBOX_REGISTRY` and `inbox_registry` are still accepted) and `--tag`
   (`--inbox-tag`) tag inbox imports as `benchlens import` does, so a run dropped in again keeps its registry
   group. The registry is read again whenever it changes, so rows can be added while the watcher runs; a file
   that no longer parses is reported once and the previous registry stays in use.

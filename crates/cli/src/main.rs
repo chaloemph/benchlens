@@ -125,8 +125,9 @@ enum Cmd {
         /// Scan twice, one interval apart, then exit.
         #[arg(long)]
         once: bool,
-        /// Registry TSV (a `run` column and one column per tag); read again when it changes.
-        #[arg(long, env = "BENCHLENS_INBOX_REGISTRY", value_name = "FILE")]
+        /// Registry TSV (a `run` column and one column per tag); read again when it changes. Env:
+        /// BENCHLENS_REGISTRY, or its old name BENCHLENS_INBOX_REGISTRY.
+        #[arg(long, env = "BENCHLENS_REGISTRY", value_name = "FILE")]
         registry: Option<PathBuf>,
         /// Tag every imported run: --tag set=poc --tag round=2 (wins over the registry and benchlens-tags.json).
         #[arg(long = "tag", value_name = "KEY=VALUE")]
@@ -435,7 +436,12 @@ fn main() -> Result<()> {
             let opts = InboxOptions {
                 interval: std::time::Duration::from_secs(interval.max(1)),
                 tags: parse_tags(&tags)?,
-                registry,
+                // the old variable name still works, as for serve
+                registry: registry.or_else(|| {
+                    std::env::var_os("BENCHLENS_INBOX_REGISTRY")
+                        .filter(|v| !v.is_empty())
+                        .map(PathBuf::from)
+                }),
                 ..InboxOptions::new(inbox)
             };
             let lock = benchlens_server::prepare_inbox(&opts)?;

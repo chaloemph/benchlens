@@ -125,27 +125,35 @@ impl Access {
         if self.token.is_some() && self.allowed_hosts.is_empty() {
             return Ok(());
         }
-        let given = match headers.get(header::HOST) {
-            Some(h) => Some(h.to_str().unwrap_or("\u{fffd}").to_string()),
-            None => uri.authority().map(|a| a.as_str().to_string()),
-        };
-        let Some(given) = given else {
-            return Ok(());
-        };
-        let name = host_name(&given);
-        if name == "localhost"
-            || name.parse::<IpAddr>().is_ok()
-            || self.allowed_hosts.contains(&name)
-        {
-            return Ok(());
+        // Every name the request gives must pass: each `Host` header and the authority of the request target
+        // (HTTP/2 `:authority`, or an HTTP/1.1 absolute-form target such as `GET http://name/ HTTP/1.1`), so a
+        // request cannot pass with one name and be routed or cached by another.
+        let names = headers
+            .get_all(header::HOST)
+            .iter()
+            .map(|h| h.to_str().unwrap_or("\u{fffd}").to_string())
+            .chain(uri.authority().map(|a| a.as_str().to_string()));
+        for given in names {
+            let name = host_name(&given);
+            if name == "localhost"
+                || name.parse::<IpAddr>().is_ok()
+                || self.allowed_hosts.contains(&name)
+            {
+                continue;
+            }
+            return Err(self.host_refused(&given));
         }
+        Ok(())
+    }
+
+    fn host_refused(&self, given: &str) -> Denied {
         let shown: String = given.chars().take(100).collect();
         let why = if self.token.is_some() {
             "it is not in allowed_hosts"
         } else {
             "without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)"
         };
-        Err(Denied(
+        Denied(
             ApiError::new(
                 StatusCode::FORBIDDEN,
                 format!("Host {shown:?} refused: {why}"),
@@ -154,7 +162,7 @@ impl Access {
                 "to serve this name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS \
                  (comma list), or set a token",
             ),
-        ))
+        )
     }
 
     /// May this request read `/api` data?
@@ -190,7 +198,12 @@ fn not_forwarded(headers: &HeaderMap) -> Result<(), Denied> {
 fn host_name(host: &str) -> String {
     let host = host.trim();
     let name = if let Some(rest) = host.strip_prefix('[') {
-        rest.split(']').next().unwrap_or("")
+        // `[v6]` or `[v6]:port`; anything else is not a name (refused)
+        match rest.split_once(']') {
+            Some((v6, "")) => v6,
+            Some((v6, port)) if port.starts_with(':') => v6,
+            _ => return String::new(),
+        }
     } else {
         host.rsplit_once(':').map_or(host, |(n, _)| n)
     };
@@ -426,6 +439,41 @@ mod tests {
         }
         // no Host: not a browser
         assert!(a.check_host(&HeaderMap::new(), &uri).is_ok());
+        // other spellings of a loopback or IP address are still addresses (cannot be rebound)
+        for ok in [
+            "LOCALHOST",
+            "127.0.0.1.:8080",
+            "[::ffff:127.0.0.1]:8080",
+            "[0:0:0:0:0:0:0:1]",
+            "localhost:",
+        ] {
+            assert!(a.check_host(&host(ok), &uri).is_ok(), "{ok}");
+        }
+        // names that only look like an address, userinfo, odd ports and IPv6 without brackets are refused
+        for bad in [
+            "2130706433",
+            "0x7f.1",
+            "user@localhost",
+            "evil.example:80@127.0.0.1",
+            "evil.example@127.0.0.1",
+            "127.0.0.1:8080:evil.example",
+            "::1",
+            "[::1",
+            "[::1]evil.example",
+            "localhost evil.example",
+            "*.localhost",
+            "app.localhost",
+        ] {
+            assert!(a.check_host(&host(bad), &uri).is_err(), "{bad}");
+        }
+        // every name must pass: a second Host header, or an absolute-form target naming another host
+        let mut two = host("localhost:8080");
+        two.append(header::HOST, HeaderValue::from_static("evil.example"));
+        assert!(a.check_host(&two, &uri).is_err());
+        let absolute = Uri::from_static("http://evil.example:8080/api/runs");
+        assert!(a.check_host(&host("localhost:8080"), &absolute).is_err());
+        let absolute = Uri::from_static("http://127.0.0.1:8080/api/runs");
+        assert!(a.check_host(&host("localhost:8080"), &absolute).is_ok());
         // HTTP/2 :authority
         let h2 = Uri::from_static("http://evil.example:8080/");
         assert!(a.check_host(&HeaderMap::new(), &h2).is_err());

@@ -62,7 +62,9 @@ names only, no scheme or port).
 - **Host check** (DNS rebinding), before anything else and for every path, the web UI files included:
   without a token, a request is served only when its `Host` (HTTP/2: `:authority`) is `localhost`, an IP
   address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or a name in `allowed_hosts`, with any port; anything
-  else is **403** with a JSON error naming `allowed_hosts`. A rebinding page (its domain re-pointed at
+  else is **403** with a JSON error naming `allowed_hosts`. Names are compared without case and without a
+  trailing dot; when a request gives more than one name (two `Host` headers, or an absolute-form target such
+  as `GET http://name/ HTTP/1.1`), every one must pass. A rebinding page (its domain re-pointed at
   127.0.0.1) sends its own domain as `Host`, so it is refused; an IP address cannot be rebound, and the port
   is not checked so port mappings (`docker -p 9000:8080`) keep working. With a token every `Host` is served
   (a rebinding page never sees the token), unless `allowed_hosts` is set: then the same rule applies. A
