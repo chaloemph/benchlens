@@ -20,7 +20,7 @@ use axum::extract::rejection::QueryRejection;
 use axum::extract::{Query, State};
 use axum::http::header;
 use axum::response::{IntoResponse, Response};
-use benchlens_core::compare::{self, Side, ValueRow};
+use benchlens_core::compare::{self, Reference, Side, ValueRow};
 use benchlens_core::store::{GroupSummary, RunDetail, Store};
 use serde::Serialize;
 use std::collections::BTreeSet;
@@ -101,9 +101,13 @@ pub fn collect(
             Ok(d)
         })
         .collect::<benchlens_core::Result<Vec<_>>>()?;
+    // group:NAME and group:NAME@KEY=VALUE both name the group NAME
     let group_names: BTreeSet<&str> = sides
         .iter()
-        .filter_map(|s| s.side.reference.strip_prefix("group:"))
+        .filter_map(|s| match Reference::parse(&s.side.reference) {
+            Ok(Reference::Group { name, .. }) => Some(name),
+            _ => None,
+        })
         .collect();
     let groups = store
         .list_groups()?

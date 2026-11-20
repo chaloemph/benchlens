@@ -139,6 +139,26 @@ fn page_inlines_data_wasm_and_code() {
     assert!(store.list_runs().unwrap().len() > runs.len());
 }
 
+#[test]
+fn subset_sides_carry_their_group() {
+    let store = fixture_store(true);
+    let html = export(
+        &store,
+        "group:x86-high@round=1",
+        &["group:x86-high@round=2"],
+        None,
+    );
+    let d = data_of(&html);
+    let groups: Vec<&str> = d["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["group"].as_str().unwrap())
+        .collect();
+    assert_eq!(groups, ["x86-high"]);
+    assert_eq!(d["sides"][0]["side"]["label"], "x86-high · round=1");
+}
+
 /// What the page computes (the inlined sides through the verdict rule of the WASM crate, natively) is byte for
 /// byte what `benchlens compare --json` computes.
 #[test]
