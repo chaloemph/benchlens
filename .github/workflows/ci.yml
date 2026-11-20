@@ -39,6 +39,30 @@ jobs:
           git diff --quiet -- web/wasm || echo "::warning::web/wasm differs from a fresh build (rustc $(rustc -V)): rebuild with scripts/build-wasm.sh if crates/rules or crates/wasm changed"
           scripts/test-wasm.sh
 
+  msrv:
+    # the workspace `rust-version` (Cargo.toml [workspace.package]); benchlens-rules (1.80) and
+    # benchlens-wasm (1.81) state lower versions on purpose, checking the workspace with this one is enough
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: read rust-version from Cargo.toml
+        id: msrv
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/s/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          if [ -z "$version" ]; then
+            echo "::error::no rust-version in [workspace.package] of Cargo.toml"
+            exit 1
+          fi
+          echo "MSRV $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: msrv-${{ steps.msrv.outputs.version }}
+      - run: cargo +${{ steps.msrv.outputs.version }} check --locked --workspace --all-targets
+
   docker:
     runs-on: ubuntu-latest
     steps:

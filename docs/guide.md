@@ -553,12 +553,15 @@ Without a token, a write that a browser marks as coming from a page of another o
 so a web page you visit cannot upload to your local server. The web UI asks for the token once per tab when
 the server answers 401.
 
-**Host names (DNS rebinding).** Without a token, the server answers only requests addressed to `localhost`
-or an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port), and the names in `allowed_hosts`; any other
-`Host` gets 403, for the web UI files as well as the API. A web page whose domain is re-pointed at
-127.0.0.1 sends its own domain as `Host`, so it cannot read or write a local server; an IP address cannot be
-re-pointed, and the port is not checked so port mappings keep working. With a token every name is served,
-unless `allowed_hosts` is set, which then limits the names in the same way:
+**Host names (DNS rebinding).** On a loopback address (`127.0.0.1`, `::1`), with or without a token, and on
+any address without a token, the server answers only requests addressed to `localhost` or an IP address
+(`127.0.0.1`, `[::1]`, `192.168.1.5`, any port), and the names in `allowed_hosts`; any other `Host` gets 403,
+for the web UI files as well as the API. A web page whose domain is re-pointed at 127.0.0.1 sends its own
+domain as `Host`, so it cannot read or write a local server, not even the data that `read_public = true`
+makes public on a server with a token; an IP address cannot be re-pointed, and the port is not checked so
+port mappings keep working. On a non-loopback address with a token every name is served, unless
+`allowed_hosts` is set, which then limits the names in the same way. The 403 names the exact setting that
+would serve the refused name:
 
 ```text
 $ benchlens --db local.db serve --listen 127.0.0.1:18084
@@ -568,10 +571,10 @@ Host names served: localhost, IP addresses
 $ curl -s http://localhost:18084/api/health
 {"benchlens":"0.1.0","db_layout":2,"runs":0}
 $ curl -s -H 'Host: evil.example:18084' http://127.0.0.1:18084/api/health
-{"error":"Host \"evil.example:18084\" refused: without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS (comma list), or set a token"}
+{"error":"Host \"evil.example:18084\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"evil.example\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=evil.example (keep any names already listed)"}
 ```
 
-To reach a token-less server by a name, list it:
+To reach a loopback server by a name, list it:
 
 ```text
 $ BENCHLENS_ALLOWED_HOSTS=bench.lan benchlens --db local.db serve --listen 127.0.0.1:18084
@@ -587,6 +590,13 @@ The start-up lines say which case applies:
 ```text
 $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
 benchlens 0.1.0 on http://127.0.0.1:18080 (database srv.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: localhost, IP addresses
+```
+
+```text
+$ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 0.0.0.0:18085
+benchlens 0.1.0 on http://0.0.0.0:18085 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: any
 ```
@@ -628,7 +638,7 @@ $ benchlens serve                      # in the folder holding benchlens.toml
 watching inbox /srv/benchlens/inbox2 every 5s
 benchlens 0.1.0 on http://127.0.0.1:18083 (database /srv/benchlens/srv.db)
 reads need the token; writes need the token; uploads up to 256 MiB
-Host names served: any
+Host names served: localhost, IP addresses
 registry /srv/benchlens/registry.tsv (inbox imports and uploads)
 inbox: registry  /srv/benchlens/registry.tsv: 18 runs
 inbox: waiting   arm64-high-r2-20261119-074530 (imported once it stops changing)
@@ -664,9 +674,27 @@ $ curl -s -X DELETE -H 'X-Forwarded-For: 203.0.113.7' http://127.0.0.1:18084/api
 ```
 
 A proxy that adds none of these headers is not detected (nginx's plain `proxy_pass` adds none), so the token
-is still what protects the server. With a token, every `Host` is served; if you set `allowed_hosts`, list
-the public name and make the proxy pass the original `Host` (Caddy does; nginx: `proxy_set_header Host
-$host`), or nginx's default (the upstream address, an IP) is served anyway.
+is still what protects the server.
+
+**The proxy's Host.** benchlens on 127.0.0.1 checks the `Host` also with a token. A proxy that passes the
+public name as `Host` (Caddy does by default; nginx with `proxy_set_header Host $host`) gets 403 until that
+name is in `allowed_hosts`; nginx's default (`Host` is the upstream address, `127.0.0.1:8080`) is an IP
+address and is served. The 403 says what to set:
+
+```text
+$ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
+$ curl -s -H 'Host: bench.example.org' http://127.0.0.1:18080/api/health
+{"error":"Host \"bench.example.org\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"bench.example.org\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=bench.example.org (keep any names already listed)"}
+$ BENCHLENS_TOKEN=$TOKEN BENCHLENS_ALLOWED_HOSTS=bench.example.org benchlens --db srv.db serve --listen 127.0.0.1:18080
+benchlens 0.1.0 on http://127.0.0.1:18080 (database srv.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: localhost, IP addresses, bench.example.org
+$ curl -s -H 'Host: bench.example.org' http://127.0.0.1:18080/api/health
+{"benchlens":"0.1.0","db_layout":2,"runs":0}
+```
+
+(The start-up lines of the first server are left out.) On a non-loopback address with a token every `Host`
+is served unless `allowed_hosts` is set.
 
 What the server does and does not protect against: [SECURITY.md](../SECURITY.md).
 
@@ -746,10 +774,21 @@ BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker 
 # http://localhost:3000 (Grafana) and http://localhost:8080 (benchlens)
 ```
 
-The defaults are meant for one machine: the admin password is `admin` unless `GRAFANA_ADMIN_PASSWORD` is
-set, anonymous visitors can view, and the port is published on 127.0.0.1 only. **On a server**, set
-`GRAFANA_ADMIN_PASSWORD` before the first start, set `GRAFANA_ANONYMOUS=false` unless the results are for
-everyone who can reach the port, then publish it with `GRAFANA_BIND=0.0.0.0`, preferably behind a TLS proxy.
+Log in as `admin` / `$GRAFANA_ADMIN_PASSWORD`; anonymous access is off, so without a login Grafana shows
+only its login page. **The admin password defaults to `admin`: change it** by setting
+`GRAFANA_ADMIN_PASSWORD` before the first start (Grafana keeps the first password in its volume). On your own
+machine you can opt in to anonymous viewers:
+
+```bash
+GRAFANA_ANONYMOUS=true GRAFANA_ADMIN_PASSWORD=change-me docker compose --profile grafana up -d
+```
+
+Grafana reads the database file, not the benchlens API, so benchlens' token and `read_public = false` do not
+apply to it: anyone who can use Grafana (and with `GRAFANA_ANONYMOUS=true`, anyone who reaches the port) can
+see every run and send any read-only SQL. Do not expose Grafana for a private benchlens. The port is
+published on 127.0.0.1 only; **on a server**, set a real password, leave anonymous access off unless the
+results are for everyone who can reach the port, then publish it with `GRAFANA_BIND=0.0.0.0`, preferably
+behind a TLS proxy.
 Grafana keeps reading while benchlens is stopped (benchlens keeps the SQLite `-wal` and `-shm` files that a
 read-only reader cannot create). Versions, the dashboards' queries and the WAL details:
 [deploy/grafana/README.md](../deploy/grafana/README.md).

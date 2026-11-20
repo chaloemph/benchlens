@@ -14,16 +14,34 @@ docker compose run --rm -v "$PWD/results:/results:ro" \
   -v "$PWD/examples/poc-2026-11/registry.tsv:/registry.tsv:ro" benchlens import --registry /registry.tsv /results
 ```
 
-Open http://localhost:3000: anonymous visitors are Viewers (set `GRAFANA_ANONYMOUS=false` to require a login);
-`admin` / `$GRAFANA_ADMIN_PASSWORD` can edit.
+Open http://localhost:3000 and log in as `admin` / `$GRAFANA_ADMIN_PASSWORD`. Anonymous access is **off**
+by default: without a login Grafana answers only its login page.
 
-**Defaults are for a local machine.** The admin password defaults to `admin` and anyone who reaches port
-3000 can view, so compose publishes the port on **127.0.0.1 only**. On a server:
+> **Change the admin password.** Without `GRAFANA_ADMIN_PASSWORD` the password is `admin`. Set it before the
+> first start: Grafana keeps the password it was first started with in the `grafana-data` volume, so setting
+> the variable later changes nothing (change it in the UI, or with `docker compose exec grafana grafana cli
+> admin reset-admin-password ...`).
 
-- set `GRAFANA_ADMIN_PASSWORD` to a real password (Grafana keeps the password it was first started with in
-  the `grafana-data` volume; change it later in the UI or with `docker compose exec grafana grafana cli admin
-  reset-admin-password ...`);
-- set `GRAFANA_ANONYMOUS=false` unless the results are meant for everyone who can reach the port;
+**Anonymous viewers, for a local machine only.** To look at the dashboards without logging in, opt in:
+
+```bash
+GRAFANA_ANONYMOUS=true GRAFANA_ADMIN_PASSWORD=change-me docker compose --profile grafana up -d
+```
+
+Anonymous visitors are then Viewers; `admin` can still log in and edit.
+
+**Grafana bypasses benchlens' access rules.** Grafana reads the database file itself, not the benchlens API,
+so benchlens' token and `read_public = false` do not apply to it. Every Grafana user, and with
+`GRAFANA_ANONYMOUS=true` everyone who reaches port 3000, can see every run, and a Viewer can send any
+read-only SQL to the database through Grafana's query API (`/api/ds/query`), not only the dashboards'
+queries. For a private benchlens (`read_public = false`), do not expose Grafana to anyone who should not see
+all the data: keep it on 127.0.0.1, keep anonymous access off, and give Grafana logins only to people who
+may read everything.
+
+**Defaults are for a local machine.** Compose publishes the port on **127.0.0.1 only**. On a server:
+
+- set `GRAFANA_ADMIN_PASSWORD` to a real password before the first start (above);
+- leave `GRAFANA_ANONYMOUS` unset (off) unless the results are meant for everyone who can reach the port;
 - set `GRAFANA_BIND=0.0.0.0` (or a LAN address) to publish the port, preferably behind a reverse proxy with
   TLS, like benchlens itself.
 

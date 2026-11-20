@@ -202,6 +202,7 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
     let access = auth::Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen)
         .with_allowed_hosts(cfg.allowed_hosts.clone());
+    let access_hosts = access.hosts_served();
     let state = AppState::new(store)
         .with_access(access)
         .with_max_upload_bytes(cfg.max_upload_bytes)
@@ -230,14 +231,7 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         "{reads}; {writes}; uploads up to {} MiB",
         cfg.max_upload_bytes / (1024 * 1024)
     );
-    let hosts = if cfg.token.is_some() && cfg.allowed_hosts.is_empty() {
-        "any".to_string()
-    } else {
-        let mut names = vec!["localhost".to_string(), "IP addresses".to_string()];
-        names.extend(cfg.allowed_hosts.iter().cloned());
-        names.join(", ")
-    };
-    eprintln!("Host names served: {hosts}");
+    eprintln!("Host names served: {access_hosts}");
     if let Some(r) = &cfg.registry {
         eprintln!("registry {} (inbox imports and uploads)", r.display());
     }

@@ -1,7 +1,10 @@
 name: release
 # On a tag v*: build every target, publish a GitHub Release with archives and SHA256SUMS,
-# and push the Docker image to ghcr.io.
-# Run by hand (workflow_dispatch) for a dry run: same builds, artifacts uploaded, no release, no push.
+# and push the Docker image to ghcr.io. The release notes are the tag's `## [X.Y.Z]` section of
+# CHANGELOG.md (scripts/release-notes.sh); a missing or still "unreleased" section fails the release
+# before anything is built or pushed.
+# Run by hand (workflow_dispatch) for a dry run: same builds, artifacts uploaded, no release, no push; the
+# notes of the workspace version are extracted and printed.
 on:
   push:
     tags: ["v*"]
@@ -14,8 +17,36 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  notes:
+    name: release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract the CHANGELOG section
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            # dry run: the workspace version
+            version=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          fi
+          scripts/release-notes.sh "$version" > release-notes.md
+          echo "Release notes for $version:"
+          cat release-notes.md
+          {
+            echo "## Release notes for $version"
+            echo
+            cat release-notes.md
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: error
+
   build:
     name: build ${{ matrix.target }}
+    needs: notes
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -107,7 +138,7 @@ jobs:
 
   release:
     name: checksums and release
-    needs: build
+    needs: [notes, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -117,6 +148,11 @@ jobs:
           pattern: benchlens-*
           path: dist
           merge-multiple: true
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: notes
 
       - name: SHA256SUMS
         working-directory: dist
@@ -136,10 +172,11 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
-            --generate-notes dist/*
+            --notes-file notes/release-notes.md dist/*
 
   docker:
     name: docker image
+    needs: notes
     runs-on: ubuntu-latest
     permissions:
       contents: read

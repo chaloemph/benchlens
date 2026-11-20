@@ -8,13 +8,16 @@
 //!   Open writes from a web page of another origin are refused too (403): a browser sends a multipart POST
 //!   cross-site without asking first, so any page the local user visits could otherwise upload.
 //!
-//! - Host check (DNS rebinding): without a token, a request is served only when its `Host` names this machine
-//!   in a way a web page cannot rebind: `localhost`, an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...)
-//!   or one of the configured `allowed_hosts`, with any port. A page on `http://evil.example:8080` whose name
-//!   the attacker re-points at 127.0.0.1 sends `Host: evil.example:8080` and is refused (403), for the API
-//!   and the static files alike. With a token any `Host` is served (a rebinding page cannot read the token),
-//!   unless `allowed_hosts` is set, which then applies in the same way. A request without `Host` (HTTP/1.0
-//!   tools) is served: browsers always send one.
+//! - Host check (DNS rebinding): without a token, or on a loopback listener (with or without a token), a
+//!   request is served only when its `Host` names this machine in a way a web page cannot rebind:
+//!   `localhost`, an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or one of the configured
+//!   `allowed_hosts`, with any port. A page on `http://evil.example:8080` whose name the attacker re-points at
+//!   127.0.0.1 sends `Host: evil.example:8080` and is refused (403), for the API and the static files alike;
+//!   with a token it could not write, but it could read what `read_public` makes public (F19). On a
+//!   non-loopback listener with a token any `Host` is served, unless `allowed_hosts` is set, which then
+//!   applies in the same way. A reverse proxy on the same machine that passes its own public name as `Host`
+//!   needs that name in `allowed_hosts`. A request without `Host` (HTTP/1.0 tools) is served: browsers
+//!   always send one.
 //! - Reverse proxy: open writes (loopback, no token) are refused when the request carries `Forwarded`,
 //!   `X-Forwarded-For` or `X-Forwarded-Host`: a proxy on the same machine would otherwise turn "local" into
 //!   "anyone who reaches the proxy". Serve behind a proxy with a token.
@@ -40,6 +43,8 @@ pub struct Access {
     read_public: bool,
     /// Without a token, may anyone write? True when listening on loopback only.
     open_writes: bool,
+    /// Listening on a loopback address: the Host check applies also with a token.
+    loopback: bool,
     /// Extra `Host` names served besides `localhost` and IP addresses (lower case, no port).
     allowed_hosts: Vec<String>,
 }
@@ -58,6 +63,7 @@ impl Access {
             token: None,
             read_public: true,
             open_writes: true,
+            loopback: true,
             allowed_hosts: Vec::new(),
         }
     }
@@ -68,18 +74,28 @@ impl Access {
             token: None,
             read_public: true,
             open_writes: false,
+            loopback: false,
             allowed_hosts: Vec::new(),
         }
     }
 
-    /// Writes need `token`; reads too unless `read_public`.
+    /// Writes need `token`; reads too unless `read_public`. These are the rules of a non-loopback listener
+    /// (any `Host` served unless `allowed_hosts` is set); see [`on_loopback`](Access::on_loopback).
     pub fn with_token(token: Token, read_public: bool) -> Access {
         Access {
             token: Some(token),
             read_public,
             open_writes: false,
+            loopback: false,
             allowed_hosts: Vec::new(),
         }
+    }
+
+    /// The server listens on a loopback address: the Host check applies also with a token, so a DNS
+    /// rebinding page cannot read public data from 127.0.0.1.
+    pub fn on_loopback(mut self) -> Access {
+        self.loopback = true;
+        self
     }
 
     /// Also serve these `Host` names (see [`check_host`](Access::check_host)); names are matched without
@@ -97,6 +113,9 @@ impl Access {
         listen: std::net::SocketAddr,
     ) -> Access {
         match token {
+            Some(t) if listen.ip().is_loopback() => {
+                Access::with_token(t, read_public).on_loopback()
+            }
             Some(t) => Access::with_token(t, read_public),
             None if listen.ip().is_loopback() => Access::local(),
             None => Access::public_read_only(),
@@ -105,6 +124,22 @@ impl Access {
 
     pub fn has_token(&self) -> bool {
         self.token.is_some()
+    }
+
+    /// Is the `Host` of a request checked at all? Not only with a token on a non-loopback listener and no
+    /// `allowed_hosts`.
+    fn checks_host(&self) -> bool {
+        self.token.is_none() || self.loopback || !self.allowed_hosts.is_empty()
+    }
+
+    /// The `Host` names served, for the start-up message: `any`, or `localhost, IP addresses, <allowed_hosts>`.
+    pub fn hosts_served(&self) -> String {
+        if !self.checks_host() {
+            return "any".to_string();
+        }
+        let mut names = vec!["localhost".to_string(), "IP addresses".to_string()];
+        names.extend(self.allowed_hosts.iter().cloned());
+        names.join(", ")
     }
 
     /// May this request write?
@@ -122,7 +157,7 @@ impl Access {
 
     /// May this request be served at all, given its `Host` (or HTTP/2 `:authority`)? See the module docs.
     pub fn check_host(&self, headers: &HeaderMap, uri: &Uri) -> Result<(), Denied> {
-        if self.token.is_some() && self.allowed_hosts.is_empty() {
+        if !self.checks_host() {
             return Ok(());
         }
         // Every name the request gives must pass: each `Host` header and the authority of the request target
@@ -148,20 +183,38 @@ impl Access {
 
     fn host_refused(&self, given: &str) -> Denied {
         let shown: String = given.chars().take(100).collect();
-        let why = if self.token.is_some() {
+        let why = if self.loopback {
+            "on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)"
+        } else if self.token.is_some() {
             "it is not in allowed_hosts"
         } else {
             "without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)"
+        };
+        // Name exactly what to set when the name could go into allowed_hosts; a token helps only on a
+        // non-loopback listener.
+        let name = host_name(given);
+        let what = if is_plain_name(&name) {
+            // the configured names are not shown: this answer goes to whoever sent the request
+            format!(
+                "to serve this name (for example behind a reverse proxy on this machine that passes its public \
+                 name as Host), set allowed_hosts = [\"{name}\"] in benchlens.toml or \
+                 BENCHLENS_ALLOWED_HOSTS={name} (keep any names already listed)"
+            )
+        } else {
+            "to serve a name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS (comma list)"
+                .to_string()
+        };
+        let detail = if self.token.is_none() && !self.loopback {
+            format!("{what}, or set a token")
+        } else {
+            what
         };
         Denied(
             ApiError::new(
                 StatusCode::FORBIDDEN,
                 format!("Host {shown:?} refused: {why}"),
             )
-            .with_detail(
-                "to serve this name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS \
-                 (comma list), or set a token",
-            ),
+            .with_detail(detail),
         )
     }
 
@@ -208,6 +261,15 @@ fn host_name(host: &str) -> String {
         host.rsplit_once(':').map_or(host, |(n, _)| n)
     };
     normalize_name(name)
+}
+
+/// Could this (normalized) name be put into `allowed_hosts` as it is? Letters, digits, `-`, `_` and dots.
+fn is_plain_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 253
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
 }
 
 fn normalize_name(name: &str) -> String {
@@ -495,6 +557,62 @@ mod tests {
         assert!(a.check_host(&host("127.0.0.1:8080"), &uri).is_ok());
         let e = a.check_host(&host("evil.example"), &uri).unwrap_err();
         assert!(e.0.error.contains("allowed_hosts"), "{}", e.0.error);
+    }
+
+    #[test]
+    fn host_check_with_token_on_loopback() {
+        let uri = Uri::from_static("/api/runs");
+        let lo: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let lo6: std::net::SocketAddr = "[::1]:8080".parse().unwrap();
+        for listen in [lo, lo6] {
+            let a = Access::for_listen(Some(Token::new(T)), true, listen);
+            for ok in [
+                "localhost:8080",
+                "127.0.0.1:8080",
+                "[::1]:8080",
+                "192.168.1.5",
+            ] {
+                assert!(a.check_host(&host(ok), &uri).is_ok(), "{ok}");
+            }
+            let e = a.check_host(&host("evil.example:8080"), &uri).unwrap_err();
+            assert_eq!(e.0.status, StatusCode::FORBIDDEN);
+            assert!(e.0.error.contains("loopback"), "{}", e.0.error);
+            // says exactly what to set, and no longer suggests a token (it has one)
+            let detail = e.0.detail.unwrap();
+            assert!(
+                detail.contains(r#"allowed_hosts = ["evil.example"]"#),
+                "{detail}"
+            );
+            assert!(
+                detail.contains("BENCHLENS_ALLOWED_HOSTS=evil.example"),
+                "{detail}"
+            );
+            assert!(!detail.contains("set a token"), "{detail}");
+            assert_eq!(a.hosts_served(), "localhost, IP addresses");
+            // allowed_hosts adds names
+            let a = a.with_allowed_hosts(["bench.example.com".to_string()]);
+            assert!(a.check_host(&host("bench.example.com"), &uri).is_ok());
+            assert!(a.check_host(&host("evil.example"), &uri).is_err());
+            // a private server too
+            let p = Access::for_listen(Some(Token::new(T)), false, listen);
+            assert!(p.check_host(&host("evil.example"), &uri).is_err());
+        }
+        // a name that cannot go into allowed_hosts is not echoed as a setting
+        let a = Access::for_listen(Some(Token::new(T)), true, lo);
+        let e = a.check_host(&host("user@evil.example"), &uri).unwrap_err();
+        assert!(!e.0.detail.unwrap().contains("user@"));
+        // non-loopback with a token: any Host, as before
+        let any: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
+        let a = Access::for_listen(Some(Token::new(T)), true, any);
+        assert!(a.check_host(&host("evil.example:8080"), &uri).is_ok());
+        assert_eq!(a.hosts_served(), "any");
+        let lan: std::net::SocketAddr = "192.168.1.5:8080".parse().unwrap();
+        let a = Access::for_listen(Some(Token::new(T)), true, lan);
+        assert!(a.check_host(&host("bench.lan"), &uri).is_ok());
+        // without a token, non-loopback: a token is still a way out
+        let a = Access::for_listen(None, true, any);
+        let e = a.check_host(&host("bench.lan"), &uri).unwrap_err();
+        assert!(e.0.detail.unwrap().contains("set a token"));
     }
 
     #[test]

@@ -60,15 +60,21 @@ names only, no scheme or port).
 | token, `read_public = false` | `Authorization: Bearer <token>`, else **401** | same |
 
 - **Host check** (DNS rebinding), before anything else and for every path, the web UI files included:
-  without a token, a request is served only when its `Host` (HTTP/2: `:authority`) is `localhost`, an IP
-  address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or a name in `allowed_hosts`, with any port; anything
-  else is **403** with a JSON error naming `allowed_hosts`. Names are compared without case and without a
+  on a loopback listener (`127.0.0.1`, `::1`), with or without a token, and on any listener without a token,
+  a request is served only when its `Host` (HTTP/2: `:authority`) is `localhost`, an IP address
+  (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or a name in `allowed_hosts`, with any port; anything else is
+  **403** with a JSON error whose `detail` names the exact setting for that name (`allowed_hosts =
+  ["name"]` / `BENCHLENS_ALLOWED_HOSTS=name`; the names already configured are not shown). Names are compared without case and without a
   trailing dot; when a request gives more than one name (two `Host` headers, or an absolute-form target such
   as `GET http://name/ HTTP/1.1`), every one must pass. A rebinding page (its domain re-pointed at
   127.0.0.1) sends its own domain as `Host`, so it is refused; an IP address cannot be rebound, and the port
-  is not checked so port mappings (`docker -p 9000:8080`) keep working. With a token every `Host` is served
-  (a rebinding page never sees the token), unless `allowed_hosts` is set: then the same rule applies. A
-  request without `Host` (HTTP/1.0 tools) is served; browsers always send one.
+  is not checked so port mappings (`docker -p 9000:8080`) keep working. On loopback the check stays with a
+  token: a rebinding page never sees the token, but it could read what `read_public = true` makes public.
+  On a non-loopback listener with a token every `Host` is served, unless `allowed_hosts` is set: then the
+  same rule applies. A reverse proxy on the same machine that passes its public name as `Host` (Caddy by
+  default, nginx with `proxy_set_header Host $host`) needs that name in `allowed_hosts`; nginx's default
+  (the upstream address) is an IP and is served. A request without `Host` (HTTP/1.0 tools) is served;
+  browsers always send one.
 - **Reverse proxy**: without a token, a write carrying `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host` is
   **403** ("set a token when serving behind a proxy"): a proxy on the same machine would otherwise make
   loopback's open writes reachable from outside. Reads through a proxy are not affected; with a token the
