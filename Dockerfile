@@ -14,8 +14,11 @@ FROM rust:${RUST_VERSION}-alpine AS build
 RUN apk add --no-cache musl-dev
 WORKDIR /src
 COPY . .
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
+# Multi-arch builds run the platforms in parallel: the registry cache is shared but locked (two cargo
+# processes unpacking into it at once fail with "File exists"), and each platform has its own target cache.
+ARG TARGETPLATFORM
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/src/target,id=benchlens-target-${TARGETPLATFORM} \
     cargo build --release --locked -p benchlens \
  && install -D -m 0755 target/release/benchlens /out/benchlens
 # The data folder, owned by the non-root user of the final image.
