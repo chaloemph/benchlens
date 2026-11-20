@@ -1,5 +1,5 @@
-//! `benchlens watch` as a process: it stops cleanly on SIGINT / SIGTERM, and a second watcher on the same
-//! inbox is refused while the first runs.
+//! `benchlens watch` and `benchlens serve --inbox` as processes: they stop cleanly on SIGINT / SIGTERM
+//! (releasing the inbox lock), and a second watcher on the same inbox is refused while the first runs.
 #![cfg(unix)]
 
 use std::io::{BufRead, BufReader};
@@ -28,9 +28,34 @@ fn benchlens(dir: &Path) -> Command {
 /// Start `watch` and wait until it says it is watching; returns the child and its stderr lines so far plus
 /// a receiver for the rest.
 fn start_watch(dir: &Path) -> (Child, Vec<String>, mpsc::Receiver<String>) {
-    let mut child = benchlens(dir)
-        .args(["watch", "--interval", "1", "--inbox"])
-        .arg(dir.join("inbox"))
+    let mut cmd = benchlens(dir);
+    cmd.args(["watch", "--interval", "1", "--inbox"])
+        .arg(dir.join("inbox"));
+    start(cmd, "watching ")
+}
+
+/// Start `serve --inbox` on a free loopback port and wait until the inbox watcher runs.
+fn start_serve(dir: &Path) -> (Child, Vec<String>, mpsc::Receiver<String>) {
+    let mut cmd = benchlens(dir);
+    cmd.current_dir(dir)
+        .env_remove("BENCHLENS_CONFIG")
+        .env_remove("BENCHLENS_LISTEN")
+        .env_remove("BENCHLENS_TOKEN")
+        .env_remove("BENCHLENS_READ_PUBLIC")
+        .args([
+            "serve",
+            "--listen",
+            "127.0.0.1:0",
+            "--inbox-interval",
+            "1",
+            "--inbox",
+        ])
+        .arg(dir.join("inbox"));
+    start(cmd, "watching inbox ")
+}
+
+fn start(mut cmd: Command, ready: &str) -> (Child, Vec<String>, mpsc::Receiver<String>) {
+    let mut child = cmd
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
@@ -49,11 +74,11 @@ fn start_watch(dir: &Path) -> (Child, Vec<String>, mpsc::Receiver<String>) {
         let Ok(line) = rx.recv_timeout(Duration::from_secs(20)) else {
             let _ = child.kill();
             let _ = child.wait();
-            panic!("no 'watching' line: {seen:?}");
+            panic!("no {ready:?} line: {seen:?}");
         };
-        let ready = line.starts_with("watching ");
+        let is_ready = line.starts_with(ready);
         seen.push(line);
-        if ready {
+        if is_ready {
             return (child, seen, rx);
         }
     }
@@ -127,4 +152,27 @@ fn second_watch_on_the_same_inbox_is_refused() {
         err.contains(&format!("already watched by pid {}", first.id())),
         "{err}"
     );
+}
+
+fn serve_stops_cleanly_on(sig: &str, name: &str) {
+    let dir = workdir(name);
+    let (mut child, _, rx) = start_serve(&dir);
+    std::thread::sleep(Duration::from_millis(300));
+    signal(&child, sig);
+    // well inside the 10 s `docker stop` waits before it kills
+    let status = wait(&mut child, Duration::from_secs(5));
+    let rest: Vec<String> = rx.try_iter().collect();
+    assert!(status.success(), "{status:?}: {rest:?}");
+    let lock = std::fs::read_to_string(dir.join("inbox/.benchlens.lock")).unwrap();
+    assert_eq!(lock, "", "the inbox thread released its lock");
+}
+
+#[test]
+fn serve_stops_cleanly_on_sigint() {
+    serve_stops_cleanly_on("-INT", "serve-sigint");
+}
+
+#[test]
+fn serve_stops_cleanly_on_sigterm() {
+    serve_stops_cleanly_on("-TERM", "serve-sigterm");
 }

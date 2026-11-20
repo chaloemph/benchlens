@@ -183,7 +183,7 @@ pub fn router(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// Open the database and serve until Ctrl-C. The token is never printed.
+/// Open the database and serve until Ctrl-C or SIGTERM. The token is never printed.
 pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
     let access = auth::Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen);
@@ -218,16 +218,39 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
         eprintln!("{w}");
     }
     let served = axum::serve(listener, router(state))
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(shutdown_signal())
         .await;
+    eprintln!("benchlens stopping");
     if let Some((stop, thread)) = inbox {
         stop.store(true, std::sync::atomic::Ordering::Relaxed);
         let _ = tokio::task::spawn_blocking(move || thread.join()).await;
     }
     served?;
     Ok(())
+}
+
+/// Resolves on Ctrl-C, or on SIGTERM on unix (what `docker stop` and systemd send), so the server stops
+/// gracefully either way; the inbox thread is stopped after it.
+pub async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        match signal(SignalKind::terminate()) {
+            Ok(mut term) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = term.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
 
 type InboxThread = (
