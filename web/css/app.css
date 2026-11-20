@@ -132,8 +132,15 @@ fieldset.picks legend { font-size: .82rem; color: var(--muted); padding: 0; marg
 .checks label { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; cursor: pointer; overflow-wrap: anywhere; }
 .checks .sub { color: var(--muted); font-size: .8rem; }
 .checks .flag { color: var(--bad); font-size: .8rem; }
-details.picks-runs summary { cursor: pointer; font-size: .9rem; }
-details.picks-runs[open] summary { margin-bottom: 6px; }
+details.picks-runs summary, details.picks-split summary { cursor: pointer; font-size: .9rem; }
+details.picks-runs[open] summary, details.picks-split[open] summary { margin-bottom: 6px; }
+/* split a group by tag (js/compare.js) */
+.picks-split fieldset.picks { display: flex; flex-direction: column; gap: 8px; }
+.picks-split .hint { margin: 0; font-size: .82rem; }
+.split-fields { display: flex; flex-wrap: wrap; gap: 8px 12px; }
+.split-fields select { max-width: 100%; }
+.split-actions { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.split-actions .inline { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; }
 
 /* tables */
 .scroll { overflow-x: auto; min-width: 0; max-width: 100%; border-radius: var(--radius); }
@@ -205,7 +212,6 @@ table.runs td.tags > .tagbox { width: 34ch; }
 .flag { display: inline-block; font-size: .76rem; padding: 0 6px; border-radius: 4px; background: var(--error-bg); color: var(--bad); margin: 1px 2px; }
 .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
 .actions .report-slot { align-self: center; font-size: .86rem; }
-.actions .pending-report { cursor: progress; opacity: .7; }
 .actions .no-report { cursor: help; }
 .tag-form { display: flex; flex-direction: column; gap: 4px; }
 .tag-form .row { display: flex; gap: 4px; }
@@ -227,6 +233,12 @@ dialog { border: 1px solid var(--line); border-radius: var(--radius); background
 dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 dialog form { display: flex; flex-direction: column; gap: 10px; }
 dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; }
+/* report.md as plain text (js/runs.js) */
+dialog.report { width: min(860px, calc(100vw - 32px)); max-width: min(860px, calc(100vw - 32px)); }
+dialog.report h2 { margin: 0; font-size: 1.05rem; overflow-wrap: anywhere; }
+dialog.report p { margin: 0; overflow-wrap: anywhere; }
+.report-text { margin: 0; max-height: min(65vh, 640px); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: .82rem; background: var(--panel); color: var(--fg); font-family: var(--mono); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
 
 /* upload (js/upload.js) */
 .upload-open { margin-left: auto; }

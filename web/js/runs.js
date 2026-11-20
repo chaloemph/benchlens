@@ -2,23 +2,17 @@
 //
 // The table is rebuilt on every render (checkbox, filter, reload after a write). Open tag forms keep their
 // draft in `drafts` (run id -> rows typed so far) and the focused control is put back after the rebuild, so
-// nothing typed is lost. The report.md link needs the run's file list, which only RunDetail has: it is fetched
-// (shared cache with the hardware view) when the row first scrolls into view; until then the link is disabled.
+// nothing typed is lost. The report.md link comes from the run's kept_files (GET /api/runs) and opens in a dialog.
 
 import { api } from './api.js';
 import { store, sortedGroups } from './data.js';
 import { setState, readState } from './state.js';
 import { h, clear, stateBlock, errorBlock, confirmDialog } from './ui.js';
 import { archName, shortDate } from './format.js';
-import { getDetail } from './hardware.js';
 
 const selected = new Set();
 /** run id -> { rows: [{k, v}], msg: string, saving: bool } for every open tag form */
 const drafts = new Map();
-/** run id -> true / false once its file list is known (reset when the runs are reloaded) */
-const hasReport = new Map();
-let reportFor = null;
-let observer = null;
 let onChanged = async () => {};
 
 /** `fn` reloads runs and groups after a write. */
@@ -66,7 +60,6 @@ export function renderRuns(s) {
 
   for (const id of [...selected]) if (!store.runById.has(id)) selected.delete(id);
   for (const id of [...drafts.keys()]) if (!store.runById.has(id)) drafts.delete(id);
-  if (reportFor !== store.runs) { hasReport.clear(); reportFor = store.runs; }
   const runs = store.runs.filter((r) => matches(r, s));
   document.getElementById('runs-count').textContent = `${runs.length} of ${store.runs.length} runs` + (selected.size ? ` · ${selected.size} selected` : '');
   const hw = document.getElementById('runs-hw');
@@ -82,7 +75,6 @@ export function renderRuns(s) {
   const focus = saveFocus(table);
   clear(table, h('thead', {}, head), body);
   restoreFocus(table, focus);
-  watchRows(body);
 }
 
 const rerender = () => renderRuns(readState());
@@ -108,46 +100,56 @@ function restoreFocus(table, f) {
   if (f.start != null && el.setSelectionRange) el.setSelectionRange(f.start, f.end);
 }
 
-// report.md: look up the file list when a row is first seen.
-function watchRows(body) {
-  if (observer) observer.disconnect();
-  const pending = [...body.querySelectorAll('tr[data-run]')].filter((tr) => !hasReport.has(tr.dataset.run));
-  if (!pending.length) return;
-  if (!('IntersectionObserver' in window)) { pending.forEach((tr) => lookUpReport(tr.dataset.run)); return; }
-  observer = new IntersectionObserver((entries) => {
-    for (const e of entries) {
-      if (!e.isIntersecting) continue;
-      observer.unobserve(e.target);
-      lookUpReport(e.target.dataset.run);
-    }
-  }, { rootMargin: '200px 0px' });
-  pending.forEach((tr) => observer.observe(tr));
+// report.md: linked when the run's kept_files has it. The link's href is the file itself (open in a new tab,
+// copy the address); a plain click fetches it through the API client, which sends the token on a private
+// server, and shows it as plain text in a dialog.
+function reportLink(r) {
+  if (!(r.kept_files || []).includes('report.md')) {
+    return h('span', { class: 'muted no-report', title: 'This run did not keep a report.md', text: 'no report.md' });
+  }
+  return h('a', { href: api.fileUrl(r.run_id, 'report.md'), class: 'report-link', 'aria-haspopup': 'dialog',
+    'aria-label': 'report.md of ' + r.label, text: 'report.md',
+    onclick: (e) => {
+      if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      showReport(r, e.currentTarget);
+    } });
 }
 
-function lookUpReport(id) {
-  const runs = store.runs;
-  getDetail(id).then((d) => {
-    if (runs !== store.runs) return;
-    hasReport.set(id, (d.files || []).some((f) => f.name === 'report.md'));
-    fillReport(id);
-  }, (err) => {
-    if (runs !== store.runs) return;
-    fillReport(id, err);
-  });
+let reportSeq = 0;
+function reportDialog() {
+  let dlg = document.getElementById('report-dialog');
+  if (dlg) return dlg;
+  dlg = h('dialog', { id: 'report-dialog', class: 'report', 'aria-labelledby': 'report-title' },
+    h('form', { method: 'dialog' },
+      h('h2', { id: 'report-title' }),
+      h('p', { class: 'muted', id: 'report-sub' }),
+      h('div', { id: 'report-body', 'aria-live': 'polite' }),
+      h('div', { class: 'buttons' }, h('button', { type: 'submit', value: 'close', text: 'Close' }))));
+  document.body.append(dlg);
+  return dlg;
 }
 
-function fillReport(id, err) {
-  const slot = document.querySelector(`#runs-table tr[data-run="${CSS.escape(id)}"] .report-slot`);
-  if (slot) clear(slot, reportLink(id, err));
-}
-
-function reportLink(id, err) {
-  const known = hasReport.get(id);
-  if (known === true) return h('a', { href: api.fileUrl(id, 'report.md'), target: '_blank', rel: 'noopener', text: 'report.md' });
-  if (known === false) return h('span', { class: 'muted no-report', title: 'This run did not keep a report.md', text: 'no report.md' });
-  return h('span', { class: 'muted pending-report', 'aria-disabled': 'true',
-    title: err ? 'Cannot tell whether this run kept a report.md: ' + err.message : 'Checking whether this run kept a report.md…',
-    text: 'report.md' });
+async function showReport(r, from) {
+  const seq = ++reportSeq;
+  const dlg = reportDialog();
+  document.getElementById('report-title').textContent = 'report.md · ' + r.label;
+  document.getElementById('report-sub').textContent = r.folder + ' · ' + r.run_id;
+  const body = clear(document.getElementById('report-body'), stateBlock('loading', 'Loading report.md…'));
+  if (!dlg.open) {
+    dlg.addEventListener('close', () => { if (from && from.isConnected) from.focus(); }, { once: true });
+    dlg.showModal();
+    dlg.querySelector('button[value="close"]').focus();
+  }
+  try {
+    const text = await api.file(r.run_id, 'report.md');
+    if (seq !== reportSeq) return;
+    // plain text: the markdown is never parsed or put in as HTML
+    clear(body, h('pre', { class: 'report-text', tabindex: '0', 'aria-label': 'report.md text', text: String(text) }));
+  } catch (err) {
+    if (seq !== reportSeq) return;
+    clear(body, errorBlock(err, 'Cannot load report.md'));
+  }
 }
 
 function runRow(r) {
@@ -158,7 +160,7 @@ function runRow(r) {
   if (!r.catalog_known) flags.push(h('span', { class: 'flag', title: 'No metric table for this vmbench version: values are stored but not judged', text: 'no metric table' }));
   if (r.tags.exclude) flags.push(h('span', { class: 'flag', title: 'Stages left out by the exclude tag', text: 'excluded: ' + r.tags.exclude }));
   const actions = h('div', { class: 'actions' },
-    h('span', { class: 'report-slot' }, reportLink(r.run_id)),
+    h('span', { class: 'report-slot' }, reportLink(r)),
     h('button', { type: 'button', class: 'small edit-tags', text: 'Edit tags', 'aria-label': 'Edit tags of ' + r.label,
       onclick: () => { openForm(r); rerender(); focusTagForm(r.run_id); } }),
     h('button', { type: 'button', class: 'small', text: 'Delete', 'aria-label': 'Delete ' + r.label, onclick: () => deleteRun(r) }));

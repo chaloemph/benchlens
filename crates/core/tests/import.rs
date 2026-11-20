@@ -153,6 +153,11 @@ fn archive_round_trip_matches_folder() {
         .query_row("SELECT COUNT(*) FROM files", [], |r| r.get(0))
         .unwrap();
     assert_eq!(files, 4, "run.log is not kept");
+    assert_eq!(
+        store.list_runs().unwrap()[0].kept_files,
+        ["hardware.json", "meta.json", "results.tsv", "status.tsv"],
+        "kept file names, sorted"
+    );
 }
 
 #[test]

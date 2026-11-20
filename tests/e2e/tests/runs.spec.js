@@ -1,5 +1,5 @@
 // Runs view behaviour beyond tag saving (tags.spec.js): an open tag form keeps its draft and the caret across
-// re-renders, report.md is linked exactly for the runs that kept one, and the delete dialog says what deleting
+// re-renders, report.md is linked exactly for the runs that kept one (kept_files) and opens in a dialog, and the delete dialog says what deleting
 // does and changes nothing on Cancel. scripts/e2e.sh writes a placeholder report.md into every fixture copy but
 // BENCHLENS_NO_REPORT.
 
@@ -44,19 +44,19 @@ test('runs: a tag draft survives re-renders, a ticked checkbox and a filter chan
   expect((await api(request, 'api/runs')).find((r) => r.run_id === a.run_id).tags).toEqual(a.tags);
 });
 
-test('runs: report.md is linked only for runs that kept it', async ({ page, request }) => {
+test('runs: report.md is linked exactly for the runs that kept it, from /api/runs alone', async ({ page, request }) => {
   const runs = await api(request, 'api/runs');
+  const details = [];
+  page.on('request', (req) => { if (/\/api\/runs\/[^/?]+$/.test(new URL(req.url()).pathname)) details.push(req.url()); });
   await openView(page, '?view=runs');
   let kept = 0, missing = 0;
   for (const r of runs) {
     const d = await api(request, 'api/runs/' + r.run_id);
     const has = d.files.some((f) => f.name === 'report.md');
+    expect(r.kept_files, `${r.folder}: kept_files are RunDetail's file names`).toEqual(d.files.map((f) => f.name));
     if (has) kept++; else missing++;
     if (r.folder === NO_REPORT) expect(has, `${NO_REPORT} keeps no report.md`).toBe(false);
     const tr = row(page, r.run_id);
-    await tr.scrollIntoViewIfNeeded();
-    // the link appears once the row's file list is known (fetched when the row scrolls into view)
-    await expect(tr.locator('.pending-report')).toHaveCount(0);
     await expect(tr.locator('.report-slot a[href]', { hasText: 'report.md' })).toHaveCount(has ? 1 : 0);
     if (has) {
       const href = await tr.locator('.report-slot a').getAttribute('href');
@@ -68,6 +68,26 @@ test('runs: report.md is linked only for runs that kept it', async ({ page, requ
   }
   expect(kept, 'runs with report.md').toBeGreaterThan(0);
   expect(missing, 'runs without report.md').toBeGreaterThan(0);
+  expect(details, 'no RunDetail request per row').toEqual([]);
+});
+
+test('runs: report.md opens as plain text in a dialog; Escape closes it and focus returns', async ({ page, request }) => {
+  const runs = await api(request, 'api/runs');
+  const r = runs.find((x) => x.kept_files.includes('report.md'));
+  const text = await (await request.get('api/runs/' + r.run_id + '/files/report.md')).text();
+  await openView(page, '?view=runs');
+  const link = row(page, r.run_id).locator('.report-slot a');
+  await link.focus();
+  await page.keyboard.press('Enter');
+  const dlg = page.locator('#report-dialog');
+  await expect(dlg).toBeVisible();
+  await expect(dlg.locator('#report-title')).toHaveText('report.md · ' + r.label);
+  await expect(dlg.locator('pre.report-text')).toHaveText(text.replace(/\n$/, ''));
+  // the markdown is text, never markup: the heading line stays "# ..."
+  expect(await dlg.locator('pre.report-text h1, pre.report-text *').count()).toBe(0);
+  await page.keyboard.press('Escape');
+  await expect(dlg).toBeHidden();
+  await expect(link).toBeFocused();
 });
 
 test('runs: the delete dialog says tags are not restored; Cancel keeps the run', async ({ page, request }) => {

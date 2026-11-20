@@ -2,7 +2,7 @@
 // Every number comes from GET /api/compare as it is; nothing is recomputed here.
 
 import { api } from './api.js';
-import { store, sideInfo, sortedGroups, sortedRuns, groupRef, quickPicks } from './data.js';
+import { store, sideInfo, sortedGroups, sortedRuns, groupRef, quickPicks, splitKeys, splitValues, splitRef } from './data.js';
 import { setState } from './state.js';
 import { h, clear, stateBlock, errorBlock, showTip, hideTip } from './ui.js';
 import { archName, fmt, pct, pct1, sectionName, sortSections, VERDICT_TEXT } from './format.js';
@@ -61,11 +61,8 @@ function buildPicker() {
       const cb = h('input', { type: 'checkbox', value: ref });
       cb.addEventListener('change', () => {
         const s = currentState();
-        const order = allRefs();
         const cur = s.other.filter((o) => o !== ref);
-        const next = cb.checked ? [...cur, ref] : cur;
-        next.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-        setState({ other: next });
+        setState({ other: inPickerOrder(cb.checked ? [...cur, ref] : cur) });
       });
       checks.append(h('label', {}, cb, ...sideLabel(info)));
     }
@@ -82,10 +79,128 @@ function buildPicker() {
     presets.append(b);
   }
   if (presets.children.length === 1) presets.hidden = true;
+  buildSplit();
   pickerBuiltFor = store.runs;
 }
 
 const allRefs = () => [...sortedGroups().map(groupRef), ...sortedRuns().map((r) => r.run_id)];
+
+/** Listed sides in picker order, then the others (tag splits, sides from a link) in the order they were added. */
+function inPickerOrder(refs) {
+  const order = allRefs();
+  const at = (r) => { const i = order.indexOf(r); return i < 0 ? Infinity : i; };
+  return [...refs].sort((a, b) => at(a) - at(b));
+}
+
+// ---- split a group by tag: one side group:NAME@KEY=VALUE per chosen value ----
+const split = { group: '', key: '', values: new Set() };
+
+/** The split control, made once below the single runs (index.html stays as it is). */
+function splitBox() {
+  let box = document.getElementById('pick-split');
+  if (box) return box;
+  box = h('details', { class: 'picks-split', id: 'pick-split' },
+    h('summary', {}, 'Compare with: a group split by tag ', h('span', { class: 'muted', id: 'split-picked' })),
+    h('fieldset', { class: 'picks' },
+      h('legend', { class: 'sr-only', text: 'Split a group by tag' }),
+      h('p', { class: 'muted hint', text: 'One side per tag value: the runs of the group with that value, pooled (for example every run of round 1 against round 2).' }),
+      h('div', { class: 'split-fields' },
+        h('div', { class: 'field' }, h('label', { for: 'split-group', text: 'Group' }), h('select', { id: 'split-group' })),
+        h('div', { class: 'field' }, h('label', { for: 'split-key', text: 'Tag' }), h('select', { id: 'split-key' }))),
+      h('div', { class: 'checks', id: 'split-values', role: 'group', 'aria-label': 'Tag values' }),
+      h('div', { class: 'split-actions' },
+        h('label', { class: 'inline' }, h('input', { type: 'checkbox', id: 'split-as-base' }), 'First value as the baseline'),
+        h('button', { type: 'button', id: 'split-add', text: 'Add sides' }),
+        h('span', { class: 'muted', id: 'split-msg', role: 'status' })),
+      h('div', { id: 'split-current' })));
+  document.querySelector('#view-compare details.picks-runs').after(box);
+  document.getElementById('split-group').addEventListener('change', (e) => { split.group = e.target.value; split.key = ''; split.values.clear(); fillSplit(); });
+  document.getElementById('split-key').addEventListener('change', (e) => { split.key = e.target.value; split.values.clear(); fillSplit(); });
+  document.getElementById('split-add').addEventListener('click', addSplitSides);
+  return box;
+}
+
+function buildSplit() {
+  splitBox();
+  fillSplit();
+}
+
+/** Group, tag and value controls from the runs' tags; keeps what was chosen while it still exists. */
+function fillSplit() {
+  const groups = sortedGroups().map((g) => g.group).filter((g) => splitKeys(g).length);
+  const gsel = document.getElementById('split-group');
+  if (!groups.includes(split.group)) { split.group = groups[0] || ''; split.key = ''; split.values.clear(); }
+  clear(gsel, ...groups.map((g) => h('option', { value: g, text: g })));
+  gsel.value = split.group;
+  gsel.disabled = !groups.length;
+
+  const keys = split.group ? splitKeys(split.group) : [];
+  const ksel = document.getElementById('split-key');
+  if (!keys.includes(split.key)) { split.key = keys.includes('round') ? 'round' : keys[0] || ''; split.values.clear(); }
+  clear(ksel, ...keys.map((k) => h('option', { value: k, text: k })));
+  ksel.value = split.key;
+  ksel.disabled = !keys.length;
+
+  const vals = split.group && split.key ? splitValues(split.group, split.key) : [];
+  for (const v of [...split.values]) if (!vals.some((x) => x.value === v)) split.values.delete(v);
+  const box = clear(document.getElementById('split-values'));
+  if (!vals.length) box.append(h('span', { class: 'muted', text: groups.length ? 'No value to split by.' : 'No group has tags to split by.' }));
+  for (const { value, runs } of vals) {
+    const cb = h('input', { type: 'checkbox', value, checked: split.values.has(value) });
+    cb.addEventListener('change', () => { if (cb.checked) split.values.add(value); else split.values.delete(value); syncSplitButton(); });
+    box.append(h('label', {}, cb, h('span', { text: split.key + '=' + value }), ' ',
+      h('span', { class: 'sub', text: runs + (runs === 1 ? ' run' : ' runs') })));
+  }
+  syncSplitButton();
+}
+
+function chosenSplitRefs() {
+  const order = splitValues(split.group, split.key).map((x) => x.value);
+  return order.filter((v) => split.values.has(v)).map((v) => splitRef(split.group, split.key, v));
+}
+
+function syncSplitButton() {
+  const n = chosenSplitRefs().length;
+  const btn = document.getElementById('split-add');
+  btn.disabled = !n;
+  btn.textContent = n ? `Add ${n} side${n === 1 ? '' : 's'}` : 'Add sides';
+}
+
+function addSplitSides() {
+  const refs = chosenSplitRefs();
+  if (!refs.length) return;
+  const s = currentState();
+  const asBase = document.getElementById('split-as-base').checked;
+  const base = asBase ? refs[0] : s.base;
+  const add = asBase ? refs.slice(1) : refs;
+  const other = [...s.other.filter((o) => !add.includes(o)), ...add].filter((o) => o !== base);
+  const added = add.filter((r) => !s.other.includes(r) && r !== base).length;
+  document.getElementById('split-msg').textContent = asBase
+    ? `Baseline ${sideInfo(base).label}` + (added ? `, ${added} side${added === 1 ? '' : 's'} added.` : '.')
+    : added ? `${added} side${added === 1 ? '' : 's'} added.` : 'Already picked.';
+  split.values.clear();
+  fillSplit();
+  setState({ base, other });
+}
+
+/** Compared sides the lists above do not show (tag splits, sides from a link): ticked, untick to drop. */
+function syncSplitCurrent(s) {
+  const listed = new Set(allRefs());
+  const extra = s.other.filter((o) => !listed.has(o));
+  const box = clear(document.getElementById('split-current'));
+  document.getElementById('split-picked').textContent = extra.length ? `(${extra.length} picked)` : '';
+  if (!extra.length) { shownExtra = 0; return; }
+  const checks = h('div', { class: 'checks' });
+  for (const ref of extra) {
+    const cb = h('input', { type: 'checkbox', value: ref, checked: true });
+    cb.addEventListener('change', () => { if (!cb.checked) setState({ other: currentState().other.filter((o) => o !== ref) }); });
+    checks.append(h('label', {}, cb, ...sideLabel(sideInfo(ref))));
+  }
+  box.append(h('fieldset', { class: 'picks' }, h('legend', { text: 'Picked sides not listed above' }), checks));
+  if (extra.length > shownExtra) document.getElementById('pick-split').open = true;
+  shownExtra = extra.length;
+}
+let shownExtra = 0;
 let currentState = () => ({ base: '', other: [] });
 
 function syncPicker(s) {
@@ -105,9 +220,11 @@ function syncPicker(s) {
     cb.disabled = cb.value === s.base;
     cb.parentElement.title = cb.disabled ? 'This is the baseline' : '';
   }
-  const nRuns = s.other.filter((o) => !o.startsWith('group:')).length;
+  const runIds = new Set(store.runById.keys());
+  const nRuns = s.other.filter((o) => runIds.has(o)).length;
   document.getElementById('runs-picked').textContent = nRuns ? `(${nRuns} picked)` : '';
   if (nRuns) document.querySelector('#view-compare details.picks-runs').open = true;
+  syncSplitCurrent(s);
   const key = JSON.stringify(s.other);
   for (const b of document.querySelectorAll('#presets button')) {
     b.setAttribute('aria-pressed', String(b.dataset.base === s.base && b.dataset.others === key));

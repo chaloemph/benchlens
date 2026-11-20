@@ -70,8 +70,8 @@ default `true`).
   the local user visits could otherwise post to a loopback server. Requests without `Origin` (curl, scripts)
   are not affected.
 - `/api/export.html` is a read like the others: with `read_public = false` it needs the token.
-- Kept files (`/api/runs/{id}/files/{name}`) are reads too; on a private server the UI's plain report.md link
-  opens in a new tab without the token and gets 401 (known gap, docs/plan.md).
+- Kept files (`/api/runs/{id}/files/{name}`) are reads too; the UI fetches report.md with the token and shows
+  it as plain text in a dialog, so it opens on a private server as well.
 - A reverse proxy in front of a loopback listener makes it reachable from outside while writes stay open:
   set a token whenever anything but the local machine can reach the server.
 
@@ -94,6 +94,7 @@ Every run, oldest first: `RunSummary[]` ([runs.json](api-examples/runs.json)).
 | `failed_stages` | stages whose values are left out |
 | `tags` | `{key: value}` |
 | `values` | number of raw values stored |
+| `kept_files` | names of the files the run kept, sorted (`["hardware.json", "meta.json", "report.md", ...]`); `RunDetail.files` has their sizes |
 
 Optional filters (all must match): `tag=KEY:VALUE` (repeatable), `arch=`, `group=`, `q=` (substring of
 label, folder, group or any tag value, case-insensitive).

@@ -6,6 +6,12 @@
     "failed_stages": [],
     "folder": "arm64-high-20261118-203447",
     "group": "arm64-high",
+    "kept_files": [
+      "hardware.json",
+      "meta.json",
+      "results.tsv",
+      "status.tsv"
+    ],
     "label": "arm64-high",
     "nproc": 16,
     "ram_gb": 31.0,
@@ -31,6 +37,12 @@
     "failed_stages": [],
     "folder": "x86-high-20261119-033546",
     "group": "x86-high",
+    "kept_files": [
+      "hardware.json",
+      "meta.json",
+      "results.tsv",
+      "status.tsv"
+    ],
     "label": "x86-high",
     "nproc": 16,
     "ram_gb": 31.0,
