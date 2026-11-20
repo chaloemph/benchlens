@@ -93,7 +93,8 @@ docker run --rm -v benchlens-data:/data -v "$PWD/results:/results:ro" ghcr.io/ch
 ```
 
 The container listens on `0.0.0.0`, which is not loopback: **without `BENCHLENS_TOKEN` it is read-only**
-(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work).
+(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work),
+and it answers only `localhost` and IP addresses as host names unless `BENCHLENS_ALLOWED_HOSTS` lists more.
 With a token, the web UI asks for it once per tab. See [Running on a server](#running-on-a-server).
 `docker stop` stops it cleanly (SIGTERM).
 

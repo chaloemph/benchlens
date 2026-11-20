@@ -690,6 +690,7 @@ $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLE
 $ docker logs benchlens
 benchlens 0.1.0 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
+Host names served: any
 $ curl -s http://localhost:8080/api/health
 {"benchlens":"0.1.0","db_layout":2,"runs":7}
 $ docker stop benchlens               # SIGTERM: the server stops cleanly
@@ -703,8 +704,13 @@ Keep the token somewhere: the web UI and `curl` need it for upload, tag editing 
 ```text
 benchlens 0.1.0 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes refused (no token); uploads up to 256 MiB
+Host names served: localhost, IP addresses
 warning: listening on 0.0.0.0:8080 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
 ```
+
+Without a token the container also answers only `localhost` and IP addresses as `Host` (DNS rebinding
+guard): to open a read-only container by a name such as `http://bench.lan:8080`, add
+`-e BENCHLENS_ALLOWED_HOSTS=bench.lan`.
 
 Compose, from a checkout ([docker-compose.yml](../docker-compose.yml)):
 
