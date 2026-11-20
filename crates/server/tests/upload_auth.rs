@@ -382,6 +382,8 @@ async fn private_reads_need_the_token_except_health_and_ui() {
         "/api/groups",
         "/api/metrics?version=0.2.3",
         "/api/compare?base=a&other=b",
+        "/api/values?ref=a&id=b",
+        "/api/export.html?base=group:x86-high&other=group:arm64-high",
     ] {
         let r = call(&st, Method::GET, path, None, None, vec![]).await;
         r.assert_error(StatusCode::UNAUTHORIZED);
@@ -415,6 +417,18 @@ async fn private_reads_need_the_token_except_health_and_ui() {
     )
     .await;
     assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    // the export carries every value of its sides: same guard as the other reads
+    let r = call(
+        &st,
+        Method::GET,
+        "/api/export.html?base=group:x86-high&other=group:arm64-high",
+        Some(&ok),
+        None,
+        vec![],
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.body.contains("id=\"benchlens-data\""));
     let r = call(
         &st,
         Method::GET,
