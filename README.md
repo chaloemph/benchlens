@@ -66,7 +66,7 @@ docker compose build                 # build the image locally instead of pullin
 
 ### Grafana
 
-The compose profile `grafana` adds Grafana (port 3000, anonymous viewers) with the benchlens database mounted
+The compose profile `grafana` adds Grafana (port 3000 on 127.0.0.1, anonymous viewers) with the benchlens database mounted
 read-only and three dashboards: a metric over time per group, group vs group (mean, min, max, n), and the runs
 with tags, vmbench version and failed stages.
 
@@ -75,8 +75,10 @@ BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker 
 ```
 
 Grafana shows means and ranges (SQLite has no median); verdicts (better / worse / within noise) are decided
-by benchlens only. Grafana reads the live database while `benchlens serve` runs (SQLite WAL on a read-only
-mount). Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
+by benchlens only. Grafana reads the live database (SQLite WAL on a read-only mount), also while benchlens is
+stopped. The defaults (admin password `admin`, anonymous viewers, port on 127.0.0.1) are for a local machine;
+on a server set `GRAFANA_ADMIN_PASSWORD`, consider `GRAFANA_ANONYMOUS=false`, then publish the port with
+`GRAFANA_BIND=0.0.0.0`. Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
 
 ## Use
 

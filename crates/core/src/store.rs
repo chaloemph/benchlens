@@ -182,6 +182,24 @@ pub struct Store {
     conn: Connection,
 }
 
+/// Keep `-wal` and `-shm` when the last connection closes (`SQLITE_FCNTL_PERSIST_WAL`; the WAL is still
+/// checkpointed). A read-only reader, such as Grafana on a `:ro` mount, cannot create those two files, so
+/// without this it fails with "unable to open database file" whenever no benchlens process has the database
+/// open (sqlite.org/wal.html, "Read-Only Databases"). Ignored where there is no file (in memory).
+fn persist_wal(conn: &Connection) {
+    let mut on: std::os::raw::c_int = 1;
+    // SAFETY: the handle is valid while `conn` lives; PERSIST_WAL reads (and may write) the int it points to,
+    // which outlives the call. The result code is ignored on purpose (SQLITE_NOTFOUND in memory).
+    unsafe {
+        rusqlite::ffi::sqlite3_file_control(
+            conn.handle(),
+            c"main".as_ptr(),
+            rusqlite::ffi::SQLITE_FCNTL_PERSIST_WAL,
+            (&mut on as *mut std::os::raw::c_int).cast(),
+        );
+    }
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Store> {
         Store::init(Connection::open(path)?)
@@ -194,6 +212,7 @@ impl Store {
     fn init(conn: Connection) -> Result<Store> {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.pragma_update(None, "journal_mode", "WAL").ok(); // not available in memory; harmless
+        persist_wal(&conn);
         let v: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
         if v > DB_VERSION {
             return Err(Error::contract(format!(

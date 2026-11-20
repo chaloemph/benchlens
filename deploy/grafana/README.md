@@ -15,8 +15,20 @@ docker compose run --rm -v "$PWD/results:/results:ro" \
 ```
 
 Open http://localhost:3000: anonymous visitors are Viewers (set `GRAFANA_ANONYMOUS=false` to require a login);
-`admin` / `$GRAFANA_ADMIN_PASSWORD` (default `admin`, set your own) can edit. Port 3000 has no TLS: on a
-server, put it behind a reverse proxy like benchlens itself.
+`admin` / `$GRAFANA_ADMIN_PASSWORD` can edit.
+
+**Defaults are for a local machine.** The admin password defaults to `admin` and anyone who reaches port
+3000 can view, so compose publishes the port on **127.0.0.1 only**. On a server:
+
+- set `GRAFANA_ADMIN_PASSWORD` to a real password (Grafana keeps the password it was first started with in
+  the `grafana-data` volume; change it later in the UI or with `docker compose exec grafana grafana cli admin
+  reset-admin-password ...`);
+- set `GRAFANA_ANONYMOUS=false` unless the results are meant for everyone who can reach the port;
+- set `GRAFANA_BIND=0.0.0.0` (or a LAN address) to publish the port, preferably behind a reverse proxy with
+  TLS, like benchlens itself.
+
+The compose file does not refuse to start without `GRAFANA_ADMIN_PASSWORD` on purpose: compose checks
+variables of every service, so a required variable would also break `docker compose up` without the profile.
 
 ## Versions
 
@@ -71,23 +83,25 @@ gets the benchlens volume mounted **`:ro`** and opens the file with `mode=ro`, s
 
 A WAL reader normally writes to the `-shm` file (shared-memory index). On a read-only mount it cannot, and
 SQLite (3.22 and later) then falls back to reading the WAL itself on every transaction, with the `-shm` file
-opened read-only. That works **as long as `-wal` and `-shm` exist**, which they do while `benchlens serve`
-has the database open: in compose, the `benchlens` service (`restart: unless-stopped`, and Grafana
-`depends_on` it).
+opened read-only. That works **as long as `-wal` and `-shm` exist**: they do while `benchlens serve` has the
+database open (in compose, the `benchlens` service, `restart: unless-stopped`, and Grafana `depends_on` it),
+and benchlens keeps them when it closes the database (below).
 
 Tested with this setup (Grafana 13.3.1, plugin 4.0.6, 7 fixture runs): 320 Grafana queries
 (`/api/ds/query`) while runs were deleted and imported 13 times by `docker compose run benchlens ...`
 (separate writer processes, including WAL checkpoints): no errors, every result a consistent snapshot
 (before or after a write, never in between), and new data visible on the next query without restarting Grafana.
 
-**When benchlens is stopped**, its last connection checkpoints and deletes `-wal` and `-shm`; a read-only
-reader cannot create them, and panels show `unable to open database file (14)` until benchlens runs again
-(no Grafana restart needed). Options if Grafana must work without a running benchlens:
+**When benchlens is stopped**, the files stay: benchlens sets `SQLITE_FCNTL_PERSIST_WAL` on its connections,
+so its last connection checkpoints the WAL into `benchlens.db` but keeps `-wal` and `-shm` instead of deleting
+them, and Grafana keeps reading the database (the last state benchlens wrote). Without that, a read-only
+reader cannot create the two files and panels show `unable to open database file (14)`. That is still what
+happens with a database file that was copied without its `-wal` and `-shm`, or last closed by a benchlens
+build older than v0.1.0: start benchlens once (`docker compose up -d benchlens`) to create them.
 
-- keep `benchlens serve` running (the compose default);
-- a frozen database that nothing writes to (an archived copy): set the datasource's `pathOptions` to
-  `mode=ro&immutable=1`. Never use `immutable=1` on a database benchlens is writing: SQLite then skips all
-  locking and change detection and can return wrong results.
+For a frozen database that nothing writes to (an archived copy), the datasource's `pathOptions` can also be
+`mode=ro&immutable=1`. Never use `immutable=1` on a database benchlens is writing: SQLite then skips all
+locking and change detection and can return wrong results.
 
 (A read-write mount alone would not help: the volume belongs to the benchlens user, uid 65532, and Grafana runs
 as uid 472, so it could not create `-shm` there either.)

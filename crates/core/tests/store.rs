@@ -318,3 +318,56 @@ fn newer_layout_is_refused() {
         Ok(_) => panic!("opened a newer layout"),
     }
 }
+
+/// A read-only reader (Grafana on a `:ro` mount) can open the database after benchlens closed it: `-wal` and
+/// `-shm` stay (SQLITE_FCNTL_PERSIST_WAL), so the reader need not create them.
+#[test]
+fn read_only_reader_works_after_benchlens_closed_the_database() {
+    use rusqlite::{Connection, OpenFlags};
+    let dir = tempfile::tempdir().unwrap();
+    let db = dir.path().join("benchlens.db");
+    let runs = {
+        let store = Store::open(&db).unwrap();
+        import_fixtures(&store, &ImportOptions::default());
+        store.list_runs().unwrap().len()
+    };
+    assert!(runs > 0);
+    for ext in ["db-wal", "db-shm"] {
+        assert!(
+            dir.path().join(format!("benchlens.{ext}")).exists(),
+            "{ext} kept"
+        );
+    }
+    // the WAL was checkpointed on close: the database file alone has every run
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let ro = |p: &std::path::Path, mode| {
+            std::fs::set_permissions(p, std::fs::Permissions::from_mode(mode)).unwrap()
+        };
+        for f in ["benchlens.db", "benchlens.db-wal", "benchlens.db-shm"] {
+            ro(&dir.path().join(f), 0o444);
+        }
+        ro(dir.path(), 0o555);
+    }
+    let uri = format!("file:{}?mode=ro", db.display());
+    let conn = Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_URI,
+    )
+    .unwrap();
+    let n: usize = conn
+        .query_row("SELECT COUNT(*) FROM v_runs", [], |r| r.get(0))
+        .unwrap();
+    let values: i64 = conn
+        .query_row("SELECT COUNT(*) FROM v_stats", [], |r| r.get(0))
+        .unwrap();
+    drop(conn);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    assert_eq!(n, runs);
+    assert!(values > 0);
+}

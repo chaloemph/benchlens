@@ -25,7 +25,7 @@ services:
       # - ./inbox:/data/inbox
 
   # Grafana on the benchlens database, read-only (deploy/grafana/README.md). Only with the profile:
-  #   docker compose --profile grafana up -d        then open http://localhost:3000 (anonymous viewer)
+  #   docker compose --profile grafana up -d        then open http://localhost:3000 (anonymous viewer, local only)
   # Graphs and tables only: verdicts (better / worse / within noise) are computed by benchlens, not in SQL.
   grafana:
     image: grafana/grafana:13.3.1
@@ -33,7 +33,10 @@ services:
     restart: unless-stopped
     depends_on: [benchlens]
     ports:
-      - "3000:3000"
+      # Local only by default: with the default admin password and anonymous viewers, Grafana should not be
+      # reachable from other machines. On a server: set GRAFANA_ADMIN_PASSWORD (and GRAFANA_ANONYMOUS=false if
+      # the data is not for everyone), then GRAFANA_BIND=0.0.0.0, ideally behind a TLS proxy.
+      - "${GRAFANA_BIND:-127.0.0.1}:3000:3000"
     environment:
       # the SQLite datasource plugin, installed at start (needs network on first start), version pinned
       GF_PLUGINS_PREINSTALL_SYNC: frser-sqlite-datasource@4.0.6
@@ -41,6 +44,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS:-true}
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_SECURITY_ADMIN_USER: admin
+      # default `admin` so that `docker compose up` works without the profile's variables; change it on a server
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/benchlens/metric-over-time.json
       GF_ANALYTICS_REPORTING_ENABLED: "false"
