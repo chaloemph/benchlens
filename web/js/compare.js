@@ -91,10 +91,13 @@ let currentState = () => ({ base: '', other: [] });
 function syncPicker(s) {
   if (pickerBuiltFor !== store.runs) buildPicker();
   const base = document.getElementById('base');
-  // a reference from a link that is not in the list (id prefix, folder, label): keep it selectable
+  // a reference that is not in the list (group:NAME@KEY=VALUE from a quick pick, id prefix, folder, label from
+  // a link): keep it selectable, named like the listed sides when the data knows it
   base.querySelectorAll('option.from-link').forEach((o) => o.remove());
   if (s.base && ![...base.options].some((o) => o.value === s.base)) {
-    base.prepend(h('option', { class: 'from-link', value: s.base, text: s.base + ' (from the link)' }));
+    const info = sideInfo(s.base);
+    const text = info.known ? info.label + ' (' + info.sub + ')' : s.base + ' (from the link)';
+    base.prepend(h('option', { class: 'from-link', value: s.base, text }));
   }
   base.value = s.base;
   for (const cb of document.querySelectorAll('#pick-groups input, #pick-runs input')) {

@@ -108,3 +108,21 @@ for (const i of [0, 1]) {
     });
   });
 }
+
+// F1 (K): a group whose runs carry two `round` tags gets a quick pick that pools each round
+// (group:NAME@round=VALUE); its tally is the API's and the picker names the subset sides.
+test('round quick pick compares pooled rounds (group:NAME@round=VALUE)', async ({ page, request }) => {
+  await openView(page, '?view=compare');
+  const pick = page.locator('#presets button', { hasText: /^Round / }).first();
+  await expect(pick, 'the POC registry gives x86-high two rounds').toHaveCount(1);
+  const base = await pick.getAttribute('data-base');
+  const others = JSON.parse(await pick.getAttribute('data-others'));
+  expect(base).toMatch(/^group:[^@]+@round=.+$/);
+  await pick.click();
+  await expect(page.locator('#heat tbody tr').first()).toBeVisible();
+  const c = await api(request, 'api/compare?' + sidesQuery({ base, others }));
+  expect(c.base.label).toMatch(/ · round=/);
+  const row = await page.$$eval('#tally tbody tr', (trs) => [...trs[0].children].slice(0, 4).map((td) => td.textContent));
+  expect(row).toEqual([c.others[0].label, String(c.tallies[0].better), String(c.tallies[0].worse), String(c.tallies[0].not_clear)]);
+  await expect(page.locator('#base option:checked')).toContainText(c.base.label);
+});
