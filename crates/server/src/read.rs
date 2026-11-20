@@ -71,9 +71,9 @@ impl RunFilter {
         self.tags
             .iter()
             .all(|(k, v)| r.tags.get(k).is_some_and(|x| x == v))
-            && self.arch.as_ref().map_or(true, |a| &r.arch == a)
-            && self.group.as_ref().map_or(true, |g| &r.group == g)
-            && self.q.as_ref().map_or(true, |q| {
+            && self.arch.as_ref().is_none_or(|a| &r.arch == a)
+            && self.group.as_ref().is_none_or(|g| &r.group == g)
+            && self.q.as_ref().is_none_or(|q| {
                 [&r.label, &r.folder, &r.group]
                     .into_iter()
                     .chain(r.tags.values())
@@ -186,8 +186,11 @@ pub async fn values(State(st): State<AppState>, q: Pairs) -> Result<Json<Values>
     check_ref("ref", &reference)?;
     let id = required(&p, "id")?.to_string();
     check_word("id", &id)?;
-    let (side, values) = db(&st, move |s| Ok(compare::load(s, &reference)?)).await?;
-    let values = values.into_iter().filter(|v| v.id == id).collect();
+    let metric = id.clone();
+    let (side, values) = db(&st, move |s| {
+        Ok(compare::load_metric(s, &reference, &metric)?)
+    })
+    .await?;
     Ok(Json(Values { side, id, values }))
 }
 

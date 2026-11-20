@@ -43,6 +43,18 @@ function groupSize(g) {
 
 /** Picker entry for a side reference (`group:NAME` or a run id). */
 export function sideInfo(ref) {
+  if (ref.startsWith('group:') && ref.includes('@')) {
+    // group:NAME@KEY=VALUE: the runs of a group with one tag value, pooled
+    const at = ref.indexOf('@');
+    const name = ref.slice(6, at);
+    const sel = ref.slice(at + 1);
+    const eq = sel.indexOf('=');
+    const runs = eq > 0 ? runsOf(name).filter((r) => r.tags[sel.slice(0, eq)] === sel.slice(eq + 1)) : [];
+    const label = name + ' · ' + sel;
+    if (!runs.length) return { ref, label, sub: 'no runs', known: false };
+    const sub = [runs.length + (runs.length === 1 ? ' run' : ' runs'), [...new Set(runs.map((r) => archName(r.arch)))].join('+')].filter(Boolean).join(' · ');
+    return { ref, label, sub, known: true, kind: 'group' };
+  }
   if (ref.startsWith('group:')) {
     const name = ref.slice(6);
     const g = store.groups.find((x) => x.group === name);
@@ -105,11 +117,10 @@ export function quickPicks() {
     const runs = runsOf(g.group);
     if (runs.length < 2) continue;
     const rounds = [...new Set(runs.map((r) => r.tags.round).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    if (rounds.length >= 2) {
-      // one run per round: the one with the most values (the full run, not a partial rerun), earliest on a tie
-      const pick = rounds.map((rd) => runs.filter((r) => r.tags.round === rd)
-        .sort((a, b) => b.values - a.values || a.start_utc.localeCompare(b.start_utc))[0]);
-      picks.push({ label: `Round ${rounds.join(' vs ')} · ${g.group}`, base: pick[0].run_id, others: pick.slice(1).map((r) => r.run_id) });
+    if (rounds.length >= 2 && !g.group.includes('@') && rounds.every((rd) => !rd.includes('@'))) {
+      // every run of a round pooled (a round with a partial rerun counts both runs): group:NAME@round=VALUE
+      const roundRef = (rd) => `${groupRef(g)}@round=${rd}`;
+      picks.push({ label: `Round ${rounds.join(' vs ')} · ${g.group}`, base: roundRef(rounds[0]), others: rounds.slice(1).map(roundRef) });
     } else if (runs.length <= 8) {
       picks.push({ label: `Runs of ${g.group}`, base: runs[0].run_id, others: runs.slice(1).map((r) => r.run_id) });
     }

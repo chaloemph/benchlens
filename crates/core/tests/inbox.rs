@@ -1,8 +1,11 @@
-//! The inbox: stability between scans, moves to done/ and failed/, archives, duplicates, names, links.
+//! The inbox: stability between scans, moves to done/ and failed/, archives, duplicates, names, links,
+//! registry tags and the one-watcher lock.
 
 mod common;
 use benchlens_core::import::Outcome;
-use benchlens_core::inbox::{Inbox, InboxEvent, InboxOptions};
+use benchlens_core::inbox::{
+    Inbox, InboxEvent, InboxLock, InboxOptions, LockError, LockHolder, LOCK_FILE,
+};
 use benchlens_core::store::Store;
 use std::fs;
 use std::io::Write;
@@ -299,4 +302,226 @@ fn symlinks_dotfiles_and_partials_are_ignored() {
         .file_type()
         .is_symlink());
     assert!(names(&opts.dir.join("done")).is_empty());
+}
+
+const STD_FOLDER: &str = "x86-std-r2-20261119-103253";
+const HIGH_FOLDER: &str = "x86-high-r2-20261119-145026";
+
+/// Write a registry and give it an mtime of `secs` after the epoch, so a rewrite is always seen as a change.
+fn write_registry(path: &Path, text: &str, secs: u64) {
+    fs::write(path, text).unwrap();
+    let t = std::time::UNIX_EPOCH + std::time::Duration::from_secs(secs);
+    fs::File::options()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(t)
+        .unwrap();
+}
+
+fn import_folder(inbox: &mut Inbox, store: &Store, opts: &InboxOptions, rel: &str, folder: &str) {
+    copy_dir(&common::fixture(rel), &opts.dir.join(folder));
+    inbox.scan_once(store, opts);
+    let evs = inbox.scan_once(store, opts);
+    assert_eq!(done(&evs).len(), 1, "{evs:?}");
+}
+
+fn run_of(store: &Store, folder: &str) -> benchlens_core::store::RunSummary {
+    store
+        .list_runs()
+        .unwrap()
+        .into_iter()
+        .find(|r| r.folder == folder)
+        .unwrap_or_else(|| panic!("{folder} not imported"))
+}
+
+#[test]
+fn registry_and_tags_are_applied_to_inbox_imports() {
+    let (tmp, mut opts, store) = setup();
+    let reg = tmp.path().join("registry.tsv");
+    write_registry(
+        &reg,
+        &format!("run\tgroup\tround\n{STD_FOLDER}\tpoc-x86-std\t1\n"),
+        1_000,
+    );
+    opts.registry = Some(reg.clone());
+    opts.tags.insert("round".into(), "2".into());
+    opts.tags.insert("set".into(), "poc".into());
+    let mut inbox = Inbox::new();
+    copy_dir(&common::fixture(STD), &opts.dir.join(STD_FOLDER));
+    let first = inbox.scan_once(&store, &opts);
+    assert!(
+        first
+            .iter()
+            .any(|e| matches!(e, InboxEvent::Registry { runs: 1, .. })),
+        "{first:?}"
+    );
+    let evs = inbox.scan_once(&store, &opts);
+    assert_eq!(done(&evs).len(), 1, "{evs:?}");
+    let run = run_of(&store, STD_FOLDER);
+    assert_eq!(run.group, "poc-x86-std");
+    assert_eq!(run.tags.get("set").map(String::as_str), Some("poc"));
+    // --tag wins over the registry
+    assert_eq!(run.tags.get("round").map(String::as_str), Some("2"));
+}
+
+#[test]
+fn registry_is_read_again_when_it_changes() {
+    let (tmp, mut opts, store) = setup();
+    let reg = tmp.path().join("registry.tsv");
+    write_registry(&reg, &format!("run\tgroup\n{STD_FOLDER}\tfirst\n"), 1_000);
+    opts.registry = Some(reg.clone());
+    let mut inbox = Inbox::new();
+    import_folder(&mut inbox, &store, &opts, STD, STD_FOLDER);
+    assert_eq!(run_of(&store, STD_FOLDER).group, "first");
+
+    // unchanged: not read again
+    assert!(inbox.scan_once(&store, &opts).is_empty());
+
+    // a row added while the watcher runs
+    write_registry(
+        &reg,
+        &format!("run\tgroup\n{STD_FOLDER}\tfirst\n{HIGH_FOLDER}\tsecond\n"),
+        2_000,
+    );
+    copy_dir(&common::fixture(HIGH), &opts.dir.join(HIGH_FOLDER));
+    let evs = inbox.scan_once(&store, &opts);
+    assert!(
+        evs.iter()
+            .any(|e| matches!(e, InboxEvent::Registry { runs: 2, .. })),
+        "{evs:?}"
+    );
+    let evs = inbox.scan_once(&store, &opts);
+    assert_eq!(done(&evs).len(), 1, "{evs:?}");
+    assert_eq!(run_of(&store, HIGH_FOLDER).group, "second");
+}
+
+#[test]
+fn broken_registry_keeps_the_previous_one() {
+    let (tmp, mut opts, store) = setup();
+    let reg = tmp.path().join("registry.tsv");
+    write_registry(
+        &reg,
+        &format!("run\tgroup\n{STD_FOLDER}\tkept\n{HIGH_FOLDER}\tkept\n"),
+        1_000,
+    );
+    opts.registry = Some(reg.clone());
+    let mut inbox = Inbox::new();
+    import_folder(&mut inbox, &store, &opts, STD, STD_FOLDER);
+
+    // no `run` column any more
+    write_registry(&reg, "folder\tgroup\nwhatever\tlost\n", 2_000);
+    copy_dir(&common::fixture(HIGH), &opts.dir.join(HIGH_FOLDER));
+    let evs = inbox.scan_once(&store, &opts);
+    let errors: Vec<String> = evs
+        .iter()
+        .filter_map(|e| match e {
+            InboxEvent::Error { message, .. } => Some(message.clone()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(errors.len(), 1, "{evs:?}");
+    assert!(errors[0].contains("keeping"), "{}", errors[0]);
+    // reported once, not on every scan
+    let evs = inbox.scan_once(&store, &opts);
+    assert!(
+        !evs.iter().any(|e| matches!(e, InboxEvent::Error { .. })),
+        "{evs:?}"
+    );
+    assert_eq!(done(&evs).len(), 1, "{evs:?}");
+    assert_eq!(run_of(&store, HIGH_FOLDER).group, "kept");
+
+    // a removed file is reported once too, and the registry read before stays
+    fs::remove_file(&reg).unwrap();
+    let evs = inbox.scan_once(&store, &opts);
+    assert_eq!(
+        evs.iter()
+            .filter(|e| matches!(e, InboxEvent::Error { .. }))
+            .count(),
+        1,
+        "{evs:?}"
+    );
+    assert!(inbox.scan_once(&store, &opts).is_empty());
+}
+
+#[test]
+fn second_watcher_is_refused() {
+    let (_tmp, opts, store) = setup();
+    let first = InboxLock::acquire(&opts.dir).unwrap();
+    assert!(first.taken_over().is_none());
+    let text = fs::read_to_string(opts.dir.join(LOCK_FILE)).unwrap();
+    assert!(
+        text.contains(&format!("pid={}", std::process::id())),
+        "{text}"
+    );
+
+    let err = InboxLock::acquire(&opts.dir).unwrap_err();
+    let LockError::Held { holder, .. } = &err else {
+        panic!("{err}")
+    };
+    assert_eq!(holder.as_ref().unwrap().pid, std::process::id());
+    let msg = err.to_string();
+    assert!(msg.contains("already watched by pid"), "{msg}");
+    assert!(msg.contains(LOCK_FILE), "{msg}");
+
+    // released on drop, with the record emptied: the next watcher starts without a warning
+    drop(first);
+    assert_eq!(fs::read_to_string(opts.dir.join(LOCK_FILE)).unwrap(), "");
+    let again = InboxLock::acquire(&opts.dir).unwrap();
+    assert!(again.taken_over().is_none());
+
+    // the lock file is a dotfile: scans leave it alone
+    let mut inbox = Inbox::new();
+    assert!(inbox.scan_once(&store, &opts).is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn stale_lock_is_taken_over() {
+    let (_tmp, opts, _store) = setup();
+    // a watcher that was killed: its pid is gone, the OS lock went with it, the record stayed
+    let mut child = std::process::Command::new("true").spawn().unwrap();
+    let dead = child.id();
+    child.wait().unwrap();
+    let host = LockHolder::current().host;
+    fs::write(
+        opts.dir.join(LOCK_FILE),
+        format!("pid={dead}\nhost={host}\nstarted=20261119-103253\n"),
+    )
+    .unwrap();
+
+    let lock = InboxLock::acquire(&opts.dir).unwrap();
+    let old = lock.taken_over().expect("a stale holder");
+    assert_eq!(old.pid, dead);
+    assert_eq!(old.host, host);
+    let text = fs::read_to_string(opts.dir.join(LOCK_FILE)).unwrap();
+    assert!(
+        text.contains(&format!("pid={}", std::process::id())),
+        "{text}"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn record_of_a_live_process_on_this_host_is_refused() {
+    // a file system without advisory locks: the record alone must keep a second watcher out
+    let (_tmp, opts, _store) = setup();
+    let mut child = std::process::Command::new("sleep")
+        .arg("30")
+        .spawn()
+        .unwrap();
+    let host = LockHolder::current().host;
+    fs::write(
+        opts.dir.join(LOCK_FILE),
+        format!("pid={}\nhost={host}\nstarted=20261119-103253\n", child.id()),
+    )
+    .unwrap();
+    let res = InboxLock::acquire(&opts.dir);
+    child.kill().unwrap();
+    child.wait().unwrap();
+    let err = res.unwrap_err();
+    assert!(
+        matches!(&err, LockError::Held { holder: Some(h), .. } if h.pid == child.id()),
+        "{err}"
+    );
 }

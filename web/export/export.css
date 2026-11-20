@@ -1,0 +1,5 @@
+/* Only in the static HTML export (inlined after css/app.css by crates/server/src/export.rs). */
+.export-meta { margin-bottom: 16px; }
+.export-meta p { margin: 0 0 .3rem; }
+.export-meta p:last-child { margin-bottom: 0; }
+.export-meta { overflow-wrap: anywhere; }

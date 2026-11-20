@@ -9,9 +9,15 @@ pub enum Error {
     /// An archive entry that could write outside the import folder, or is too big.
     #[error("unsafe archive entry {path}: {why}")]
     UnsafeArchive { path: String, why: String },
-    /// A lookup (run, group, catalog) that found nothing or more than one thing.
+    /// A lookup (run, group, catalog) that found nothing.
     #[error("{0}")]
     NotFound(String),
+    /// A reference that matches more than one run.
+    #[error("{0}")]
+    Ambiguous(String),
+    /// A reference that is not written the way a REF is (docs/api.md), such as `group:NAME@KEY` with no value.
+    #[error("{0}")]
+    BadReference(String),
     #[error(transparent)]
     Io(#[from] std::io::Error),
     #[error(transparent)]

@@ -8,7 +8,6 @@ use benchlens_core::testing::{fixture_store, repo_root};
 use benchlens_server::{router, AppState};
 use http_body_util::BodyExt;
 use serde_json::{json, Value};
-use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 
 struct App {
@@ -38,9 +37,7 @@ impl Res {
 impl App {
     fn new() -> App {
         App {
-            state: AppState {
-                store: Arc::new(Mutex::new(fixture_store(true))),
-            },
+            state: AppState::new(fixture_store(true)),
         }
     }
 
@@ -421,9 +418,77 @@ async fn ambiguous_reference_is_refused() {
     let msg = app
         .get("/api/compare?base=twin&other=x86-std-r2")
         .await
-        .assert_error(StatusCode::NOT_FOUND);
+        .assert_error(StatusCode::BAD_REQUEST);
     assert!(msg.contains("matches 2 runs"), "{msg}");
     app.get("/api/runs/twin")
+        .await
+        .assert_error(StatusCode::BAD_REQUEST);
+    app.get("/api/values?ref=twin&id=cpu.7z.rating.max")
+        .await
+        .assert_error(StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn group_subset_reference() {
+    let app = App::new();
+    // round 1 of x86-high is x86-high plus its web rerun x86-high-web (examples/poc-2026-11/registry.tsv)
+    let c = app
+        .get_json("/api/compare?base=group:x86-high%40round%3D1&other=group:x86-high@round=2")
+        .await;
+    assert_eq!(c["base"]["reference"], "group:x86-high@round=1");
+    assert_eq!(c["base"]["label"], "x86-high · round=1");
+    let mut base_ids: Vec<String> = c["base"]["run_ids"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    base_ids.sort();
+    let mut expected = vec![app.id_of("x86-high").await, app.id_of("x86-high-web").await];
+    expected.sort();
+    assert_eq!(base_ids, expected);
+    assert_eq!(
+        c["others"][0]["run_ids"],
+        json!([app.id_of("x86-high-r2").await])
+    );
+    let direct = app.with_store(|s| {
+        as_sent(
+            &compare::compare(
+                s,
+                "group:x86-high@round=1",
+                &["group:x86-high@round=2".to_string()],
+            )
+            .unwrap(),
+        )
+    });
+    assert_eq!(c, direct);
+
+    let v = app
+        .get_json("/api/values?ref=group:x86-high@round=1&id=cpu.7z.rating.max")
+        .await;
+    assert_eq!(v["side"]["run_ids"].as_array().unwrap().len(), 2);
+
+    // badly written: 400 before any lookup; nothing selected: 404
+    for r in [
+        "group:x86-high@",
+        "group:x86-high@round",
+        "group:x86-high@round=",
+        "group:x86-high@bad%20key=1",
+        "group:x86-high@round=1@set=x",
+        "group:@round=1",
+    ] {
+        let msg = app
+            .get(&format!("/api/compare?base={r}&other=x86-std-r2"))
+            .await
+            .assert_error(StatusCode::BAD_REQUEST);
+        assert!(msg.starts_with("base:"), "{r}: {msg}");
+    }
+    let msg = app
+        .get("/api/compare?base=group:x86-high@round=9&other=x86-std-r2")
+        .await
+        .assert_error(StatusCode::NOT_FOUND);
+    assert!(msg.contains("round=\"9\""), "{msg}");
+    app.get("/api/compare?base=group:x86-high@round=%25&other=x86-std-r2")
         .await
         .assert_error(StatusCode::NOT_FOUND);
 }
@@ -599,8 +664,9 @@ async fn delete_run() {
 }
 
 #[tokio::test]
-async fn upload_is_left_to_c2() {
+async fn upload_without_multipart_is_400() {
     let app = App::new();
-    let r = app.call(Method::POST, "/api/runs", None).await;
-    assert_eq!(r.status, StatusCode::NOT_IMPLEMENTED);
+    app.call(Method::POST, "/api/runs", None)
+        .await
+        .assert_error(StatusCode::BAD_REQUEST);
 }

@@ -1,5 +1,7 @@
 # benchlens with its database in a named volume.
-#   docker compose up -d        then open http://localhost:8080
+#   BENCHLENS_TOKEN=$(openssl rand -hex 32) docker compose up -d        then open http://localhost:8080
+# The server listens on 0.0.0.0 inside the container (not loopback), so without BENCHLENS_TOKEN it is read-only:
+# upload, tag editing and delete answer 403. With it, they need the token (the web UI asks once per tab).
 #   docker compose run --rm -v "$PWD/results:/results:ro" benchlens import /results
 services:
   benchlens:
@@ -11,9 +13,13 @@ services:
     environment:
       BENCHLENS_DB: /data/benchlens.db
       BENCHLENS_LISTEN: 0.0.0.0:8080
+      # Write token, at least 16 characters; taken from the shell or an .env file next to this file.
+      BENCHLENS_TOKEN: ${BENCHLENS_TOKEN:-}
+      # BENCHLENS_READ_PUBLIC: "false"   # reads need the token too
       # Inbox: result folders and .tar/.tar.gz archives dropped into ./inbox are imported, then moved to
       # ./inbox/done or ./inbox/failed. Uncomment this and the mount below; ./inbox must be writable by uid 65532.
       # BENCHLENS_INBOX: /data/inbox
+      # BENCHLENS_INBOX_REGISTRY: /data/inbox-registry.tsv   # tags for inbox imports (a mounted file)
     volumes:
       - benchlens-data:/data
       # - ./inbox:/data/inbox

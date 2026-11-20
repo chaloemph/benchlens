@@ -1,8 +1,10 @@
 # benchlens plan: M2 onwards, split for parallel agents
 
-Status 2026-11-19: **M1 done** (commit 298860c): core library, CLI, SQLite store, golden tests against vmbench.
+Status 2026-11-20: **M1 done** (commit 298860c): core library, CLI, SQLite store, golden tests against vmbench.
 **T0 done** (PR #1). **Wave 1 done** (A, B, C1, E, F reviewed and integrated in `integration/wave1`; V in a
-vmbench PR); reviews in `docs/reviews/wave1-*.md`, follow-ups in "Follow-ups from the Wave 1 review" below.
+vmbench PR); reviews in `docs/reviews/wave1-*.md`. **Wave 2 done** (K, I, C2, D, W, AB reviewed and integrated
+in `integration/wave2`); reviews in `docs/reviews/wave2-*.md`. With it **M2, M3 and M4 are complete**; what
+remains for `v0.1.0` is F4, the release dry run (see its row), then tagging. Follow-ups below.
 Background and decisions: `PLAN-dashboard.md` in the performance-benchmark workspace (Thai). This file is
 the working plan for whoever builds the rest, person or agent.
 
@@ -92,27 +94,42 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 
 | ID | Follow-up | Where | From |
 |---|---|---|---|
-| F1 | Group-subset reference such as `group:NAME@tag=value` (pooled runs of a group with one tag value), so "round 1 vs 2" compares pooled rounds; then switch B's quick picks to it. Contract change: api.md, core `resolve`, UI. | core, server, web | B |
-| F2 | Distinguish ambiguous references in core (`Error::Ambiguous`, 400 or 409 instead of 404 with a message). | core, server, api.md | A |
-| F3 | `benchlens watch`: stop cleanly on Ctrl-C between scans (the `stop` flag exists). | cli | C1 |
+| F1 (done, K) | Group-subset reference such as `group:NAME@tag=value` (pooled runs of a group with one tag value), so "round 1 vs 2" compares pooled rounds; then switch B's quick picks to it. Contract change: api.md, core `resolve`, UI. | core, server, web | B |
+| F2 (done, K) | Distinguish ambiguous references in core (`Error::Ambiguous`, 400 or 409 instead of 404 with a message). | core, server, api.md | A |
+| F3 (done, I) | `benchlens watch`: stop cleanly on Ctrl-C between scans (the `stop` flag exists). | cli | C1 |
 | F4 | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F |
 | F5 | The real part number of the POC's HiSilicon CPU: rerun the `info` stage of vmbench (with `hw/cpu-id.txt`) on one ARM VM, add the part to `ARM_PARTS` if it is certain. | vmbench | V |
-| F6 | Inbox imports with tags: `--registry` for `watch` / `serve --inbox` (a re-imported run now loses its registry group). | core inbox, cli | L (E2E) |
-| F7 | `v_values` excludes stages with `LIKE` on a section read from results.tsv; use `instr()` (needs a DB layout bump, the view is `IF NOT EXISTS`). | core store | L |
-| F8 | Web UI items for B: keep tag-form drafts across re-renders; link report.md only when kept; delete dialog says tags are not restored. | web | B (review) |
-| F9 | Remove `web/dev/server` once C2 gives the real server tokens (it duplicates the API). | web/dev | L |
-| F10 | `/api/values`: load one metric's values in SQL instead of the whole side. | core, server | A (review) |
-| F11 | One watcher per inbox: document it or take a lock file. | core inbox | C1 |
+| F6 (done, I) | Inbox imports with tags: `--registry` for `watch` / `serve --inbox` (a re-imported run now loses its registry group). | core inbox, cli | L (E2E) |
+| F7 (done, K) | `v_values` excludes stages with `LIKE` on a section read from results.tsv; use `instr()` (needs a DB layout bump, the view is `IF NOT EXISTS`). | core store | L |
+| F8 (done, W) | Web UI items for B: keep tag-form drafts across re-renders; link report.md only when kept; delete dialog says tags are not restored. | web | B (review) |
+| F9 (done, C2) | Remove `web/dev/server` once C2 gives the real server tokens (it duplicates the API). | web/dev | L |
+| F10 (done, K) | `/api/values`: load one metric's values in SQL instead of the whole side. | core, server | A (review) |
+| F11 (done, I) | One watcher per inbox: document it or take a lock file. | core inbox | C1 |
 
-## Wave 2
+## Follow-ups from the Wave 2 review
+
+| ID | Follow-up | Where | From |
+|---|---|---|---|
+| F12 | `has_report` (or the `files` list) in `RunSummary`, so the Runs view needs no RunDetail request per row for the report.md link. API change: api.md, core, UI. | core, server, web | W |
+| F13 | On a private server (`read_public = false`) the report.md link opens in a new tab without the token and gets 401: fetch it with the token into a blob, or offer a short-lived signed link. | web | L (C2 review) |
+| F14 | DNS rebinding against a loopback server without a token: any `Host` is accepted, so a rebinding page is same-origin and can read and write. Accept only localhost / 127.0.0.1 / [::1] as `Host` in no-token mode, or always require a token. | server auth | L (C2 review) |
+| F15 | Reverse proxy on the same host: loopback without a token means "writes open". Documented in the README; consider refusing open writes when `Forwarded` / `X-Forwarded-For` is present. | server auth | L (C2 review) |
+| F16 | Uploads get no registry: an uploaded run without a `group` tag lands in its automatic group. Apply the server's `inbox_registry` to uploads too (and say so in the dialog). | server upload | L (E2E) |
+| F17 | The compare picker has no control for `group:NAME@KEY=VALUE` sides (only quick picks and links make them); a "split this group by tag" control. | web | L (K review) |
+| F18 | `benchlens compare ... \| head` panics with "failed printing to stdout: Broken pipe"; exit quietly on EPIPE. | cli | L (E2E) |
+
+## Wave 2: done, integrated by L in `integration/wave2`
+
+K (F1, F2, F7, F10), I (F3, F6, F11) and W (F8) took the Wave 1 follow-ups; C2, D and AB are the rows below.
 
 | ID | Task | Owns | Builds on | Done when |
 |---|---|---|---|---|
-| **C2** | Upload and auth: `POST /api/runs` (multipart, size limit, same import path as the CLI), token auth for every write endpoint (`BENCHLENS_TOKEN` or `benchlens.toml`), read access open or token-protected by config; upload form in the web UI (coordinate with B). Config file `benchlens.toml` (db, listen, inbox, token, max upload, read_public). | `crates/server/src/upload.rs`, `auth.rs`, `config.rs`; upload form in `web/` with B | A | curl upload works with a token and is refused without; oversized and unsafe archives return 413 / 400 |
-| **D** | Export: `benchlens export html --base REF --other REF... -o report.html` writing one self-contained HTML (web assets + WASM + the needed values inlined) that still lets the reader change baseline; `export csv` / `export json` of values and stats; an "Export" button in the UI. | `crates/cli/src/export.rs`, export template under `web/export/` | B, E | the HTML opens from disk with no server and matches `benchlens compare` |
-| **AB** | Integration pass: B against the real A, fix contract drift, end-to-end test (start server on fixtures, fetch every page's data). | small fixes in both | A, B | E2E test in CI |
+| **C2** (done) | Upload and auth: `POST /api/runs` (multipart, size limit, same import path as the CLI), token auth for every write endpoint (`BENCHLENS_TOKEN` or `benchlens.toml`), read access open or token-protected by config; upload form in the web UI (coordinate with B). Config file `benchlens.toml` (db, listen, inbox, token, max upload, read_public). | `crates/server/src/upload.rs`, `auth.rs`, `config.rs`; upload form in `web/` with B | A | curl upload works with a token and is refused without; oversized and unsafe archives return 413 / 400 |
+| **D** (done) | Export: `benchlens export html --base REF --other REF... -o report.html` writing one self-contained HTML (web assets + WASM + the needed values inlined) that still lets the reader change baseline; `export csv` / `export json` of values and stats; an "Export" button in the UI. | `crates/cli/src/export.rs`, export template under `web/export/` | B, E | the HTML opens from disk with no server and matches `benchlens compare` |
+| **AB** (done) | Integration pass: B against the real A, fix contract drift, end-to-end test (start server on fixtures, fetch every page's data). | small fixes in both | A, B | E2E test in CI |
 
-**M2** = T0 + A + B + AB. **M3** = C1 + C2. **M4** = E + D. Release `v0.1.0` after M4 with F.
+**M2** = T0 + A + B + AB. **M3** = C1 + C2. **M4** = E + D. Release `v0.1.0` after M4 with F. All three are
+complete with Wave 2; F4 (release dry run) is the last step before tagging `v0.1.0`.
 
 ## L: lead review, refactor and integration (after every wave)
 

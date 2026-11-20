@@ -52,3 +52,40 @@ jobs:
           tags: benchlens:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  e2e:
+    # scripts/e2e.sh: release build, fixtures imported into a temporary database, `benchlens serve`,
+    # Playwright suite in tests/e2e (API shapes and errors, every view, numbers on screen = API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: e2e-release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tests/e2e/package-lock.json
+      - name: npm ci (Playwright, pinned in tests/e2e/package-lock.json)
+        working-directory: tests/e2e
+        run: npm ci --no-audit --no-fund
+      - name: cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('tests/e2e/package-lock.json') }}
+      - name: install Chromium and its system libraries
+        working-directory: tests/e2e
+        run: npx playwright install --with-deps chromium
+      - name: end-to-end test
+        run: scripts/e2e.sh
+      - name: upload screenshots and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: tests/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore

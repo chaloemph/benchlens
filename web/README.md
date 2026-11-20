@@ -19,21 +19,25 @@ All state is in the query string, so any page can be shared as a link:
 |---|---|---|
 | Compare | `/api/groups`, `/api/runs`, `/api/compare` | baseline picker, compare-with checkboxes (groups and single runs), quick picks derived from the data, takeaway sentence, API warnings, tally table, heatmap (section filter incl. key metrics; sysbench across architectures hatched and not counted) |
 | Metric | `/api/compare`, `/api/values` | dot plot of every raw value per side, coloured by the run's `round` tag (or by run), median tick from the comparison, axis not from zero; statistics table |
-| Runs | `/api/runs`, `PATCH /api/runs/{id}/tags`, `DELETE /api/runs/{id}` | search and filters, tags with inline editing, delete with confirmation, report.md link, flags for failed stages / excluded stages / no metric table |
+| Runs | `/api/runs`, `/api/runs/{id}`, `PATCH /api/runs/{id}/tags`, `DELETE /api/runs/{id}` | search and filters, tags with inline editing (drafts survive re-renders), delete with confirmation, report.md link when the run kept one (`/api/runs/{id}` file list, fetched when the row scrolls into view), flags for failed stages / excluded stages / no metric table |
 | Hardware | `/api/runs/{id}` | run facts and hardware.json of the selected runs side by side, rows that differ highlighted |
 
 The UI never computes medians, CV, differences or verdicts: every number is shown as `/api/compare` returns
 it, so it equals `benchlens compare --json` for the same sides.
 
-Writes: when the server answers 401, a dialog asks for a token; it is kept in `sessionStorage` for the tab
-and sent as `Authorization: Bearer <token>` on every request after that.
+Upload: the header's Upload button opens a dialog (archive, optional tag rows) that posts to `POST /api/runs`
+and lists the import report of every folder; the runs reload after it.
+
+Token: when the server answers 401 (a write, or any read on a server with `read_public = false`), a dialog
+asks for the token; it is kept in `sessionStorage` for the tab and sent as `Authorization: Bearer <token>` on
+every request after that. Requests refused at the same time share one dialog.
 
 ## Files
 
 ```
 index.html          page skeleton (every view, dialogs)
 css/app.css         styles; light and dark themes via prefers-color-scheme and custom properties
-js/app.js           entry point: loading, routing between views
+js/app.js           entry point of the served UI (main.js + upload dialog)
 js/api.js           fetch wrapper, API errors, 401 token prompt
 js/state.js         URL query string state
 js/data.js          runs/groups store, picker entries, quick picks
@@ -41,10 +45,12 @@ js/compare.js       compare view
 js/detail.js        metric view (dot plot)
 js/runs.js          runs view
 js/hardware.js      hardware view
+js/upload.js        upload dialog
 js/format.js        number and label formatting
 js/ui.js            DOM helpers (textContent only), tooltip, dialogs
 vendor/             d3 v7.9.0 (dist/d3.min.js, licence header kept; LICENSE-d3.txt)
-dev/                development tools only (below); not used by the UI
+js/main.js          UI shell shared with the static export: loading, routing between views
+export/             static HTML export entry (offline.js: API answered from inlined data, WASM compare)
 ```
 
 Rules: values go into the page with `textContent` (the `h()` helper), never `innerHTML`; SVG charts carry
@@ -61,24 +67,16 @@ cargo run -p benchlens -- --db /tmp/poc.db import --registry examples/poc-2026-1
 cargo run -p benchlens -- --db /tmp/poc.db serve          # http://127.0.0.1:8080
 ```
 
-`web/dev/server` is the stand-in for API v1 used before the real server existed (its own Cargo project on
-`benchlens-core`, outside the workspace). It is still useful for two things the real server cannot do yet:
-`BENCHLENS_DEV_TOKEN=secret` makes writes need a token (the 401 prompt; real tokens come with task C2) and
-`BENCHLENS_DEV_DELAY_MS=800` slows every answer (loading states). Neither `web/dev/` nor the READMEs are built
-into the binary.
+To try the token prompt, start the server with a token (`BENCHLENS_TOKEN=some-long-dev-token cargo run -p
+benchlens -- --db /tmp/poc.db serve`), and add `--read-public false` for a private server. The READMEs are not
+built into the binary.
 
-```bash
-cargo run --manifest-path web/dev/server/Cargo.toml -- --db /tmp/poc.db --listen 127.0.0.1:8090
-```
+Browser tests: `scripts/e2e.sh` (Playwright, `tests/e2e/`; see tests/e2e/README.md) starts the server on the
+fixtures (open, with a token, and private) and checks every view at 1280 and 400 px in light and dark, the
+numbers on screen against the API, URL state, tag editing and drafts, report.md links, the delete dialog,
+upload with the token prompt, private reads and the Export button. It replaced the old `web/dev/smoke.mjs`.
 
-Smoke test in a headless browser (needs the `playwright` npm package and its chromium; it is not a project
-dependency):
-
-```bash
-benchlens --db /tmp/poc.db compare group:x86-high group:arm64-high group:x86-med --json > /tmp/cmp.json
-NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tmp/shots /tmp/cmp.json
-```
-
-It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways
-page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. Other sides:
-`SIDES='base=...&other=...'`.
+The static HTML export (`web/export/offline.js`, built by `crates/server/src/export.rs`) reuses `js/main.js`
+and the views; keep `web/js/` in the plain module style the export bundler accepts (one-line imports,
+`export function|const|class`). `tests/export/run.sh` (run by `scripts/e2e.sh`) opens an export from disk with the
+network off and checks it against `benchlens compare --json`.

@@ -12,8 +12,16 @@
 //!
 //! [`watch`] scans by polling every few seconds; there is no filesystem-event watcher, since a scan is
 //! cheap and the stability rule needs a second look after a delay anyway.
+//!
+//! Imports carry the tags of [`InboxOptions::tags`] and of a registry file ([`InboxOptions::registry`]),
+//! the same way as `benchlens import --tag --registry`. The registry file is read again whenever its
+//! modification time or size changes, so rows can be added while the watcher runs; a file that no longer
+//! parses is reported and the previous registry is kept.
+//!
+//! One watcher per inbox: [`InboxLock::acquire`] takes an advisory lock on `<inbox>/.benchlens.lock` (see
+//! [`LOCK_FILE`]) and holds it for the watcher's lifetime.
 
-use crate::import::{import_path, ImportOptions, ImportReport, Outcome};
+use crate::import::{import_path, ImportOptions, ImportReport, Outcome, Registry};
 use crate::store::Store;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -30,14 +38,21 @@ pub const DONE_DIR: &str = "done";
 /// Where entries that could not be imported go, with a `.reason.txt`.
 pub const FAILED_DIR: &str = "failed";
 
+/// The lock file a watcher holds inside the inbox (a dotfile, so scans skip it).
+pub const LOCK_FILE: &str = ".benchlens.lock";
+
 const PARTIAL_SUFFIXES: [&str; 3] = [".part", ".tmp", ".partial"];
 const ARCHIVE_SUFFIXES: [&str; 3] = [".tar", ".tar.gz", ".tgz"];
 
-/// Where the inbox is and how often to scan it.
+/// Where the inbox is, how often to scan it and how to tag what it imports.
 #[derive(Debug, Clone)]
 pub struct InboxOptions {
     pub dir: PathBuf,
     pub interval: Duration,
+    /// Tags for every imported run; they win over the registry and benchlens-tags.json.
+    pub tags: BTreeMap<String, String>,
+    /// Registry TSV (a `run` column and one column per tag), read again when it changes.
+    pub registry: Option<PathBuf>,
 }
 
 impl InboxOptions {
@@ -45,6 +60,8 @@ impl InboxOptions {
         InboxOptions {
             dir: dir.into(),
             interval: DEFAULT_INTERVAL,
+            tags: BTreeMap::new(),
+            registry: None,
         }
     }
 }
@@ -69,7 +86,10 @@ pub enum InboxEvent {
         reason: String,
         reports: Vec<ImportReport>,
     },
-    /// The inbox or an entry could not be read or moved; the entry stays where it is.
+    /// The registry file was read (at the first scan or after it changed).
+    Registry { path: PathBuf, runs: usize },
+    /// The inbox, an entry or the registry could not be read or moved; the entry stays where it is (a
+    /// registry that cannot be read leaves the previous one in use).
     Error { name: String, message: String },
 }
 
@@ -107,6 +127,9 @@ impl fmt::Display for InboxEvent {
                     .unwrap_or(first);
                 write!(f, "FAILED    {name}: {first} -> {}", moved_to.display())
             }
+            InboxEvent::Registry { path, runs } => {
+                write!(f, "registry  {}: {runs} runs", path.display())
+            }
             InboxEvent::Error { name, message } => write!(f, "error     {name}: {message}"),
         }
     }
@@ -127,10 +150,28 @@ struct Seen {
     stuck: bool,
 }
 
+/// What the registry file looked like when it was last read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RegistryStamp {
+    /// Could not be looked at (missing, unreadable); reported once.
+    Unreadable,
+    /// Modification time and size.
+    File(SystemTime, u64),
+}
+
+/// The registry in use and the state of the file it comes from.
+#[derive(Debug)]
+struct LoadedRegistry {
+    path: PathBuf,
+    stamp: Option<RegistryStamp>,
+    registry: Option<Registry>,
+}
+
 /// The inbox and what earlier scans saw.
 #[derive(Debug, Default)]
 pub struct Inbox {
     seen: BTreeMap<String, Seen>,
+    registry: Option<LoadedRegistry>,
 }
 
 impl Inbox {
@@ -141,7 +182,79 @@ impl Inbox {
     /// Look at the inbox once, import the entries that did not change since the previous scan, and move them
     /// to `done/` or `failed/`.
     pub fn scan_once(&mut self, store: &Store, opts: &InboxOptions) -> Vec<InboxEvent> {
+        self.scan(store, opts, None)
+    }
+
+    /// Read the registry file again when its modification time or size changed. A file that cannot be read
+    /// or parsed gives one error event and the previous registry stays in use.
+    fn refresh_registry(&mut self, opts: &InboxOptions, events: &mut Vec<InboxEvent>) {
+        let Some(path) = &opts.registry else {
+            self.registry = None;
+            return;
+        };
+        if self.registry.as_ref().is_some_and(|l| &l.path != path) {
+            self.registry = None;
+        }
+        let loaded = self.registry.get_or_insert_with(|| LoadedRegistry {
+            path: path.clone(),
+            stamp: None,
+            registry: None,
+        });
+        let fail = |loaded: &LoadedRegistry, e: String| InboxEvent::Error {
+            name: path.display().to_string(),
+            message: format!(
+                "cannot read the registry: {e}; {}",
+                if loaded.registry.is_some() {
+                    "keeping the one read before"
+                } else {
+                    "importing without a registry"
+                }
+            ),
+        };
+        let stamp = match fs::metadata(path).and_then(|m| Ok((m.modified()?, m.len()))) {
+            Ok((t, n)) => RegistryStamp::File(t, n),
+            Err(e) => {
+                if loaded.stamp != Some(RegistryStamp::Unreadable) {
+                    events.push(fail(loaded, e.to_string()));
+                    loaded.stamp = Some(RegistryStamp::Unreadable);
+                }
+                return;
+            }
+        };
+        if loaded.stamp == Some(stamp) {
+            return;
+        }
+        // remember the stamp either way: a broken file is reported once, not on every scan
+        loaded.stamp = Some(stamp);
+        let parsed = fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|t| Registry::parse(&t).map_err(|e| e.to_string()));
+        match parsed {
+            Ok(r) => {
+                events.push(InboxEvent::Registry {
+                    path: path.clone(),
+                    runs: r.by_folder.len(),
+                });
+                loaded.registry = Some(r);
+            }
+            Err(e) => events.push(fail(loaded, e)),
+        }
+    }
+
+    fn scan(
+        &mut self,
+        store: &Store,
+        opts: &InboxOptions,
+        stop: Option<&AtomicBool>,
+    ) -> Vec<InboxEvent> {
         let mut events = Vec::new();
+        self.refresh_registry(opts, &mut events);
+        let import_opts = ImportOptions {
+            source: "inbox".into(),
+            tags: opts.tags.clone(),
+            registry: self.registry.as_ref().and_then(|l| l.registry.clone()),
+            dry_run: false,
+        };
         let dir = &opts.dir;
         for sub in [DONE_DIR, FAILED_DIR] {
             if let Err(e) = fs::create_dir_all(dir.join(sub)) {
@@ -166,6 +279,9 @@ impl Inbox {
         self.seen
             .retain(|name, _| entries.iter().any(|(n, _)| n == name));
         for (name, path) in entries {
+            if stop.is_some_and(|s| s.load(Ordering::Relaxed)) {
+                break; // stopping: the rest waits for the next run
+            }
             let fp = match fingerprint(&path) {
                 Ok(Some(fp)) => fp,
                 Ok(None) => continue, // an empty folder: nothing copied in yet
@@ -188,7 +304,7 @@ impl Inbox {
                 }
                 Some(s) if s.stuck => {}
                 Some(_) => {
-                    let ev = process(store, dir, &name, &path);
+                    let ev = process(store, &import_opts, dir, &name, &path);
                     match &ev {
                         InboxEvent::Error { .. } => {
                             if let Some(s) = self.seen.get_mut(&name) {
@@ -218,7 +334,10 @@ pub fn run_once(store: &Store, opts: &InboxOptions) -> Vec<InboxEvent> {
     events
 }
 
-/// Scan every `opts.interval` until `stop` is set, handing each event to `on_event`.
+/// Scan every `opts.interval` until `stop` is set, handing each event to `on_event`. Setting `stop` during
+/// a scan lets the import in progress finish and leaves the other entries for the next run.
+///
+/// Take an [`InboxLock`] first so that no other watcher works on the same inbox.
 pub fn watch(
     store: &Store,
     opts: &InboxOptions,
@@ -228,7 +347,7 @@ pub fn watch(
     let mut inbox = Inbox::new();
     let step = Duration::from_millis(100);
     while !stop.load(Ordering::Relaxed) {
-        for ev in inbox.scan_once(store, opts) {
+        for ev in inbox.scan(store, opts, Some(stop)) {
             on_event(&ev);
         }
         let mut waited = Duration::ZERO;
@@ -238,6 +357,241 @@ pub fn watch(
             waited += nap;
         }
     }
+}
+
+/// Who holds (or last held) an inbox lock, as written in the lock file.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LockHolder {
+    pub pid: u32,
+    pub host: String,
+    /// `YYYYMMDD-HHMMSS` UTC.
+    pub started: String,
+}
+
+impl LockHolder {
+    /// This process, on this host, now.
+    pub fn current() -> Self {
+        LockHolder {
+            pid: std::process::id(),
+            host: hostname(),
+            started: timestamp(SystemTime::now()),
+        }
+    }
+
+    fn to_text(&self) -> String {
+        format!(
+            "pid={}\nhost={}\nstarted={}\n",
+            self.pid, self.host, self.started
+        )
+    }
+
+    fn parse(text: &str) -> Option<Self> {
+        let mut map = BTreeMap::new();
+        for line in text.lines() {
+            if let Some((k, v)) = line.split_once('=') {
+                map.insert(k.trim(), v.trim());
+            }
+        }
+        Some(LockHolder {
+            pid: map.get("pid")?.parse().ok()?,
+            host: map.get("host").unwrap_or(&"?").to_string(),
+            started: map.get("started").unwrap_or(&"?").to_string(),
+        })
+    }
+}
+
+impl fmt::Display for LockHolder {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "pid {} on {} (started {} UTC)",
+            self.pid, self.host, self.started
+        )
+    }
+}
+
+/// Why an inbox lock could not be taken.
+#[derive(Debug)]
+pub enum LockError {
+    /// Another watcher holds the lock.
+    Held {
+        path: PathBuf,
+        holder: Option<LockHolder>,
+    },
+    /// The lock file could not be opened, locked or written.
+    Io { path: PathBuf, source: io::Error },
+}
+
+impl fmt::Display for LockError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LockError::Held { path, holder } => {
+                let inbox = path.parent().unwrap_or(path);
+                match holder {
+                    Some(h) => write!(f, "{} is already watched by {h}", inbox.display())?,
+                    None => write!(
+                        f,
+                        "{} is already watched by another process",
+                        inbox.display()
+                    )?,
+                }
+                write!(
+                    f,
+                    "; stop that watcher first (lock file {}; remove it only if that process is gone)",
+                    path.display()
+                )
+            }
+            LockError::Io { path, source } => {
+                write!(f, "cannot lock {}: {source}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for LockError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            LockError::Io { source, .. } => Some(source),
+            LockError::Held { .. } => None,
+        }
+    }
+}
+
+/// The exclusive right to watch one inbox, held until dropped.
+///
+/// It is an OS advisory lock (`flock` on unix, `LockFileEx` on Windows, through [`fs::File::try_lock`]) on
+/// `<inbox>/.benchlens.lock`, so it goes away with the process however that ends. The file holds pid, host
+/// and start time of the holder, for the message a second watcher prints and to spot a stale record: when
+/// the OS lock is free but the file still names a holder (a watcher that was killed), the lock is taken
+/// over and [`InboxLock::taken_over`] says from whom. As a guard for file systems where advisory locks do
+/// nothing, a record naming another live process on this host is still refused. On drop the file is
+/// emptied, not removed, so that two processes never lock two different files under the same name.
+#[derive(Debug)]
+pub struct InboxLock {
+    file: fs::File,
+    path: PathBuf,
+    taken_over: Option<LockHolder>,
+}
+
+impl InboxLock {
+    /// Lock the inbox `dir` (which must exist) or say who holds it.
+    pub fn acquire(dir: &Path) -> Result<InboxLock, LockError> {
+        use io::{Read, Seek, Write};
+        let path = dir.join(LOCK_FILE);
+        let io_err = |source| LockError::Io {
+            path: path.clone(),
+            source,
+        };
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&path)
+            .map_err(io_err)?;
+        let read_holder = |file: &mut fs::File| {
+            let mut text = String::new();
+            file.seek(io::SeekFrom::Start(0)).ok()?;
+            file.read_to_string(&mut text).ok()?;
+            LockHolder::parse(&text)
+        };
+        let os_locked = match file.try_lock() {
+            Ok(()) => true,
+            Err(fs::TryLockError::WouldBlock) => {
+                return Err(LockError::Held {
+                    holder: read_holder(&mut file),
+                    path,
+                })
+            }
+            // no advisory locks here: rely on the record alone
+            Err(fs::TryLockError::Error(e)) if e.kind() == io::ErrorKind::Unsupported => false,
+            Err(fs::TryLockError::Error(e)) => return Err(io_err(e)),
+        };
+        let me = LockHolder::current();
+        let previous = read_holder(&mut file);
+        if let Some(prev) = &previous {
+            let same_host = prev.host == me.host;
+            let alive = same_host && prev.pid != me.pid && pid_alive(prev.pid) == Some(true);
+            if alive || (!os_locked && !same_host) {
+                return Err(LockError::Held {
+                    holder: previous,
+                    path,
+                });
+            }
+        }
+        file.set_len(0).map_err(io_err)?;
+        file.seek(io::SeekFrom::Start(0)).map_err(io_err)?;
+        file.write_all(me.to_text().as_bytes()).map_err(io_err)?;
+        file.flush().map_err(io_err)?;
+        Ok(InboxLock {
+            file,
+            path,
+            taken_over: previous,
+        })
+    }
+
+    /// The lock file.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// The holder named by a stale lock file this lock replaced (a watcher that did not stop cleanly).
+    pub fn taken_over(&self) -> Option<&LockHolder> {
+        self.taken_over.as_ref()
+    }
+}
+
+impl Drop for InboxLock {
+    fn drop(&mut self) {
+        // empty the record while still holding the lock; closing the file releases the lock
+        let _ = self.file.set_len(0);
+        let _ = self.file.unlock();
+    }
+}
+
+/// Whether a process with this pid runs on this host; `None` when that cannot be told.
+fn pid_alive(pid: u32) -> Option<bool> {
+    if Path::new("/proc/self").exists() {
+        return Some(Path::new("/proc").join(pid.to_string()).exists());
+    }
+    #[cfg(unix)]
+    {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .ok()
+            .map(|s| s.success())
+    }
+    #[cfg(not(unix))]
+    {
+        None
+    }
+}
+
+/// The name of this host, as well as std can tell without a system library.
+fn hostname() -> String {
+    let from_file = |p: &str| {
+        fs::read_to_string(p)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    };
+    std::env::var("COMPUTERNAME")
+        .ok()
+        .filter(|s| !s.is_empty() && cfg!(windows))
+        .or_else(|| from_file("/proc/sys/kernel/hostname"))
+        .or_else(|| from_file("/etc/hostname"))
+        .or_else(|| {
+            std::process::Command::new("hostname")
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8(o.stdout).ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        })
+        .unwrap_or_else(|| "unknown".into())
 }
 
 /// The top-level entries worth looking at, sorted by name.
@@ -298,12 +652,8 @@ fn fingerprint(path: &Path) -> io::Result<Option<Fingerprint>> {
 }
 
 /// Import one stable entry and move it out of the way.
-fn process(store: &Store, dir: &Path, name: &str, path: &Path) -> InboxEvent {
-    let opts = ImportOptions {
-        source: "inbox".into(),
-        ..ImportOptions::default()
-    };
-    let (reports, problems) = match import_path(store, path, &opts) {
+fn process(store: &Store, opts: &ImportOptions, dir: &Path, name: &str, path: &Path) -> InboxEvent {
+    let (reports, problems) = match import_path(store, path, opts) {
         Ok(reports) => {
             let problems: Vec<String> = reports
                 .iter()
