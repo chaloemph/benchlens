@@ -1,0 +1,408 @@
+{
+  "uid": "benchlens-group-vs-group",
+  "title": "Group vs group",
+  "description": "Per metric, the selected groups side by side: pooled mean, min and max of all counted rounds (no median, no verdict).",
+  "tags": [
+    "benchlens",
+    "vmbench"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "timezone": "utc",
+  "templating": {
+    "list": [
+      {
+        "name": "section",
+        "label": "Section",
+        "description": "Stage / metric prefix (cpu, disk, mem, net, pg, web, ...).",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT section FROM v_values ORDER BY section",
+        "definition": "SELECT DISTINCT section FROM v_values ORDER BY section",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "pg"
+          ],
+          "value": [
+            "pg"
+          ]
+        }
+      },
+      {
+        "name": "grp",
+        "label": "Group",
+        "description": "Effective group: the run's `group` tag, else the automatic group.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "definition": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "metric",
+        "label": "Metric",
+        "description": "Metric id from the vmbench catalog (name and unit from benchlens' metric table).",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT id AS __value, id || '  \u00b7  ' || name || ' [' || unit || ']' AS __text FROM v_values WHERE section IN (${section:sqlstring}) AND grp IN (${grp:sqlstring}) ORDER BY id",
+        "definition": "SELECT DISTINCT id AS __value, id || '  \u00b7  ' || name || ' [' || unit || ']' AS __text FROM v_values WHERE section IN (${section:sqlstring}) AND grp IN (${grp:sqlstring}) ORDER BY id",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "run",
+        "label": "Run",
+        "description": "Runs of the selected groups.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "definition": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "benchlens_url",
+        "label": "benchlens UI",
+        "type": "textbox",
+        "query": "http://localhost:8080",
+        "current": {
+          "text": "http://localhost:8080",
+          "value": "http://localhost:8080"
+        },
+        "description": "Where the benchlens web UI is reachable from your browser (for the links).",
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "benchlens compare",
+      "type": "link",
+      "url": "${benchlens_url}/?view=compare",
+      "targetBlank": true,
+      "icon": "external link"
+    },
+    {
+      "title": "benchlens dashboards",
+      "type": "dashboards",
+      "tags": [
+        "benchlens"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Verdicts live in benchlens, not here.** These panels show raw values, means and ranges straight from the benchlens database (SQLite has no median). Whether a difference is *better*, *worse* or *within noise* (medians, CV and vmbench's noise rule) is decided by benchlens only: [compare in benchlens](${benchlens_url}/?view=compare). Here, per group: **mean of all counted rounds of its runs** (pooled from `v_stats`), with min, max and n. benchlens compares **medians** and applies the noise rule; a gap between two means below is not a verdict."
+      },
+      "transparent": true,
+      "id": 1,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Pooled mean / min / max per metric and group",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "WITH g AS (\n  SELECT s.section, s.id, s.name, s.unit, s.direction, s.grp,\n         SUM(s.n) AS n, COUNT(*) AS runs,\n         SUM(s.mean * s.n) / SUM(s.n) AS mean, MIN(s.min) AS min, MAX(s.max) AS max\n  FROM v_stats s\n  WHERE s.grp IN (${grp:sqlstring})\n    AND s.run_id IN (${run:sqlstring})\n    AND s.section IN (${section:sqlstring})\n    AND s.id IN (${metric:sqlstring})\n  GROUP BY s.id, s.grp\n)\nSELECT id AS metric, name, unit, direction, grp AS \"group\", runs, n, mean, min, max\nFROM g ORDER BY id, grp",
+          "rawQueryText": "WITH g AS (\n  SELECT s.section, s.id, s.name, s.unit, s.direction, s.grp,\n         SUM(s.n) AS n, COUNT(*) AS runs,\n         SUM(s.mean * s.n) / SUM(s.n) AS mean, MIN(s.min) AS min, MAX(s.max) AS max\n  FROM v_stats s\n  WHERE s.grp IN (${grp:sqlstring})\n    AND s.run_id IN (${run:sqlstring})\n    AND s.section IN (${section:sqlstring})\n    AND s.id IN (${metric:sqlstring})\n  GROUP BY s.id, s.grp\n)\nSELECT id AS metric, name, unit, direction, grp AS \"group\", runs, n, mean, min, max\nFROM g ORDER BY id, grp",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(n|runs)$"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "metric"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 260
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unit"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "direction"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "runs"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 2,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "barchart",
+      "title": "${metric}",
+      "description": "min, pooled mean and max per group (not medians). Repeated for every selected metric.",
+      "repeat": "metric",
+      "repeatDirection": "h",
+      "maxPerRow": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "WITH g AS (\n  SELECT s.section, s.id, s.name, s.unit, s.direction, s.grp,\n         SUM(s.n) AS n, COUNT(*) AS runs,\n         SUM(s.mean * s.n) / SUM(s.n) AS mean, MIN(s.min) AS min, MAX(s.max) AS max\n  FROM v_stats s\n  WHERE s.grp IN (${grp:sqlstring})\n    AND s.run_id IN (${run:sqlstring})\n    AND s.section IN (${section:sqlstring})\n    AND s.id IN (${metric:sqlstring})\n  GROUP BY s.id, s.grp\n)\nSELECT grp AS \"group\", min, mean, max FROM g WHERE id = '${metric}' ORDER BY grp",
+          "rawQueryText": "WITH g AS (\n  SELECT s.section, s.id, s.name, s.unit, s.direction, s.grp,\n         SUM(s.n) AS n, COUNT(*) AS runs,\n         SUM(s.mean * s.n) / SUM(s.n) AS mean, MIN(s.min) AS min, MAX(s.max) AS max\n  FROM v_stats s\n  WHERE s.grp IN (${grp:sqlstring})\n    AND s.run_id IN (${run:sqlstring})\n    AND s.section IN (${section:sqlstring})\n    AND s.id IN (${metric:sqlstring})\n  GROUP BY s.id, s.grp\n)\nSELECT grp AS \"group\", min, mean, max FROM g WHERE id = '${metric}' ORDER BY grp",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "custom": {
+            "fillOpacity": 70
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "min"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9fb4d6"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mean"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#3b6fc4"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "max"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#1d3a6e"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "group",
+        "orientation": "auto",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "showValue": "never",
+        "stacking": "none",
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 3,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    }
+  ]
+}

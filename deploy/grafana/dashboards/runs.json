@@ -1,0 +1,389 @@
+{
+  "uid": "benchlens-runs",
+  "title": "Runs",
+  "description": "Runs in the benchlens database with tags, vmbench version and failed stages.",
+  "tags": [
+    "benchlens",
+    "vmbench"
+  ],
+  "editable": false,
+  "graphTooltip": 1,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true
+  },
+  "timezone": "utc",
+  "templating": {
+    "list": [
+      {
+        "name": "grp",
+        "label": "Group",
+        "description": "Effective group: the run's `group` tag, else the automatic group.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "definition": "SELECT DISTINCT grp FROM v_runs ORDER BY grp",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "run",
+        "label": "Run",
+        "description": "Runs of the selected groups.",
+        "type": "query",
+        "datasource": {
+          "type": "frser-sqlite-datasource",
+          "uid": "benchlens"
+        },
+        "query": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "definition": "SELECT run_id AS __value, label || '  ' || substr(start_utc, 1, 16) AS __text FROM v_runs WHERE grp IN (${grp:sqlstring}) ORDER BY start_utc",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "options": [],
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "name": "benchlens_url",
+        "label": "benchlens UI",
+        "type": "textbox",
+        "query": "http://localhost:8080",
+        "current": {
+          "text": "http://localhost:8080",
+          "value": "http://localhost:8080"
+        },
+        "description": "Where the benchlens web UI is reachable from your browser (for the links).",
+        "hide": 0
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "benchlens runs",
+      "type": "link",
+      "url": "${benchlens_url}/?view=runs",
+      "targetBlank": true,
+      "icon": "external link"
+    },
+    {
+      "title": "benchlens dashboards",
+      "type": "dashboards",
+      "tags": [
+        "benchlens"
+      ],
+      "asDropdown": true,
+      "includeVars": true,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Verdicts live in benchlens, not here.** These panels show raw values, means and ranges straight from the benchlens database (SQLite has no median). Whether a difference is *better*, *worse* or *within noise* (medians, CV and vmbench's noise rule) is decided by benchlens only: [runs in benchlens](${benchlens_url}/?view=runs) (tags are edited there, Grafana's access is read-only). Values of failed stages and of stages in a run's `exclude` tag are left out of every panel."
+      },
+      "transparent": true,
+      "id": 1,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "",
+      "gridPos": {
+        "x": 0,
+        "y": 3,
+        "w": 24,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "SELECT COUNT(*) AS runs,\n       COUNT(DISTINCT grp) AS \"groups\",\n       SUM(EXISTS (SELECT 1 FROM failed_stages f WHERE f.run_id = r.run_id)) AS \"with failed stages\"\nFROM v_runs r WHERE r.grp IN (${grp:sqlstring}) AND r.run_id IN (${run:sqlstring})",
+          "rawQueryText": "SELECT COUNT(*) AS runs,\n       COUNT(DISTINCT grp) AS \"groups\",\n       SUM(EXISTS (SELECT 1 FROM failed_stages f WHERE f.run_id = r.run_id)) AS \"with failed stages\"\nFROM v_runs r WHERE r.grp IN (${grp:sqlstring}) AND r.run_id IN (${run:sqlstring})",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "orientation": "vertical"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "id": 2,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    },
+    {
+      "type": "table",
+      "title": "Runs",
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "benchlens"
+          },
+          "queryText": "SELECT replace(substr(r.start_utc, 1, 16), 'T', ' ') AS start, r.label AS run, r.grp AS \"group\",\n       r.vmbench_version AS vmbench,\n       COALESCE((SELECT group_concat(f.stage, ', ') FROM failed_stages f WHERE f.run_id = r.run_id), '') AS failed_stages,\n       COALESCE((SELECT group_concat(t.key || '=' || t.value, '  ')\n                 FROM (SELECT key, value FROM tags WHERE run_id = r.run_id ORDER BY key) t), '') AS tags,\n       r.arch, r.nproc AS vcpu, r.ram_gb, r.cpu_model, r.pg_profile, r.stages, CASE WHEN r.catalog_known THEN 'yes' ELSE 'no' END AS catalog,\n       (SELECT COUNT(*) FROM results x WHERE x.run_id = r.run_id) AS \"values\",\n       r.end_utc AS \"end\", r.imported_at, r.source, r.run_id\nFROM v_runs r\nWHERE r.grp IN (${grp:sqlstring})\n  AND r.run_id IN (${run:sqlstring})\nORDER BY r.start_utc DESC",
+          "rawQueryText": "SELECT replace(substr(r.start_utc, 1, 16), 'T', ' ') AS start, r.label AS run, r.grp AS \"group\",\n       r.vmbench_version AS vmbench,\n       COALESCE((SELECT group_concat(f.stage, ', ') FROM failed_stages f WHERE f.run_id = r.run_id), '') AS failed_stages,\n       COALESCE((SELECT group_concat(t.key || '=' || t.value, '  ')\n                 FROM (SELECT key, value FROM tags WHERE run_id = r.run_id ORDER BY key) t), '') AS tags,\n       r.arch, r.nproc AS vcpu, r.ram_gb, r.cpu_model, r.pg_profile, r.stages, CASE WHEN r.catalog_known THEN 'yes' ELSE 'no' END AS catalog,\n       (SELECT COUNT(*) FROM results x WHERE x.run_id = r.run_id) AS \"values\",\n       r.end_utc AS \"end\", r.imported_at, r.source, r.run_id\nFROM v_runs r\nWHERE r.grp IN (${grp:sqlstring})\n  AND r.run_id IN (${run:sqlstring})\nORDER BY r.start_utc DESC",
+          "queryType": "table",
+          "timeColumns": []
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "minWidth": 90
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "start"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "group"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vmbench"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed_stages"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tags"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 520
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "arch"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 80
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "vcpu"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 60
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ram_gb"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Run facts and hardware in benchlens",
+                    "targetBlank": true,
+                    "url": "${benchlens_url}/?view=hardware&run=${__data.fields.run_id}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "group"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Compare this group in benchlens",
+                    "targetBlank": true,
+                    "url": "${benchlens_url}/?view=compare&base=group:${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failed_stages"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 3,
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "benchlens"
+      }
+    }
+  ]
+}
