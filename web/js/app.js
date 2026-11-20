@@ -7,6 +7,7 @@ import { renderCompare, dropComparisonCache } from './compare.js';
 import { renderMetric, dropValueCache } from './detail.js';
 import { initRuns, renderRuns } from './runs.js';
 import { initHardware, renderHardware, dropDetailCache } from './hardware.js';
+import { initUpload } from './upload.js';
 
 const VIEWS = ['compare', 'metric', 'runs', 'hardware'];
 const TITLES = { compare: 'Compare', metric: 'Metric', runs: 'Runs', hardware: 'Hardware' };
@@ -71,4 +72,5 @@ window.addEventListener('statechange', render);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); });
 initRuns(reload);
 initHardware();
+initUpload(async () => { clear(document.getElementById('status')); await reload(); });
 boot();

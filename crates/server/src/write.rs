@@ -1,8 +1,9 @@
-//! Write endpoints of API v1 built by task A: tag editing and delete. Upload (`POST /api/runs`) is C2's.
+//! Write endpoints of API v1: tag editing and delete (upload is in [`crate::upload`]).
 //!
 //! Every write handler takes a [`WriteAccess`] argument; that extractor is the one place where the token
-//! check goes.
+//! check happens.
 
+use crate::auth::Denied;
 use crate::params::{db, from_json_rejection, from_path_rejection};
 use crate::read::check_run_ref;
 use crate::{ApiError, AppState};
@@ -19,18 +20,19 @@ pub const MAX_TAGS_BODY: usize = 64 * 1024;
 /// Most tags changed by one request.
 pub const MAX_TAGS_PER_REQUEST: usize = 64;
 
-/// Proof that the request may write. Add it as an argument to every write handler.
+/// Proof that the request may write: the configured token was sent, or the server runs without a token on
+/// loopback (see [`crate::auth`]). Add it as an argument to every write handler; extractors that read only
+/// the head run before the body is read, so a refused upload is not received.
 pub struct WriteAccess;
 
 impl FromRequestParts<AppState> for WriteAccess {
-    type Rejection = ApiError;
+    type Rejection = Denied;
 
     async fn from_request_parts(
-        _parts: &mut Parts,
-        _state: &AppState,
+        parts: &mut Parts,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        // TODO(C2): check `Authorization: Bearer <token>` against the configured token here (auth.rs) and
-        // answer 401 when it is missing or wrong. Without a configured token, writes stay open (docs/api.md).
+        state.access.check_write(&parts.headers)?;
         Ok(WriteAccess)
     }
 }

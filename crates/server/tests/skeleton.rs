@@ -3,13 +3,10 @@ use axum::http::{Request, StatusCode};
 use benchlens_core::store::Store;
 use benchlens_server::{router, AppState};
 use http_body_util::BodyExt;
-use std::sync::{Arc, Mutex};
 use tower::ServiceExt;
 
 fn app() -> axum::Router {
-    router(AppState {
-        store: Arc::new(Mutex::new(Store::open_in_memory().unwrap())),
-    })
+    router(AppState::new(Store::open_in_memory().unwrap()))
 }
 
 async fn get(path: &str) -> (StatusCode, String) {

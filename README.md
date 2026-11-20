@@ -92,6 +92,36 @@ Any `key=value`. Give them with `--tag`, a registry, a `benchlens-tags.json` in 
 - `group`: the group, see above
 - `exclude`: stages whose values are not used, e.g. `web,net` (stages that failed are always left out)
 
+## Running on a server
+
+`benchlens serve` reads its settings from flags, then `BENCHLENS_*` variables, then an optional
+`benchlens.toml` (`--config FILE` / `BENCHLENS_CONFIG`, else `./benchlens.toml` when present):
+
+```toml
+db = "/data/benchlens.db"
+listen = "0.0.0.0:8080"
+token = "..."            # or BENCHLENS_TOKEN; at least 16 characters, e.g. `openssl rand -hex 32`
+read_public = true       # false: reading needs the token too (the page still loads and asks for it)
+max_upload_mb = 256      # largest archive accepted by upload
+# inbox = "/data/inbox"  # optional, with inbox_interval = 5
+```
+
+- **Token**: with a token, uploading, tag editing and delete need it (`Authorization: Bearer <token>`; the
+  web UI asks once per tab). Without a token, writes are open only on a loopback address; on `0.0.0.0` or
+  any other address they are refused and the server warns at start. The Docker image listens on
+  `0.0.0.0:8080`, so pass `-e BENCHLENS_TOKEN=...` to upload or edit through it. There is no `--token` flag
+  (command lines are visible to other users); the token is never printed.
+- **read_public = false** keeps the data private: every `/api` call except `/api/health` needs the token.
+  The server refuses to start like that without a token.
+- **Upload**: the Upload button in the web UI, or
+  `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
+- **Reverse proxy**: benchlens speaks plain HTTP; put TLS in front (Caddy, nginx) so the token is not sent in
+  the clear, and set a token even when benchlens itself listens on 127.0.0.1 behind the proxy: the proxy makes
+  it reachable from outside, and without a token loopback means "writes open". Allow request bodies of at
+  least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
+
+Details: [docs/api.md](docs/api.md#auth).
+
 ## For other tools
 
 The database has three views: `v_runs` (runs with their group), `v_values` (every value that counts, with its
