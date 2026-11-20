@@ -607,22 +607,42 @@ pub fn valid_tag_key(key: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'))
 }
 
+/// Longest tag value, in bytes.
+pub const MAX_TAG_VALUE: usize = 1024;
+
+/// Check one tag: the key follows [`valid_tag_key`], the value is one line of at most [`MAX_TAG_VALUE`] bytes
+/// (an empty value means "remove"). The one rule for every route that sets tags.
+pub fn check_tag(key: &str, value: &str) -> Result<()> {
+    if !valid_tag_key(key) {
+        return Err(Error::contract(format!(
+            "tag key {key:?}: use 1-64 letters, digits, _ - or ."
+        )));
+    }
+    if value.len() > MAX_TAG_VALUE || value.contains(['\n', '\r']) {
+        return Err(Error::contract(format!(
+            "tag {key}: the value must be one line of at most {MAX_TAG_VALUE} bytes"
+        )));
+    }
+    Ok(())
+}
+
+/// Read `KEY=VALUE` (key and value trimmed) and check it with [`check_tag`].
+pub fn parse_tag(text: &str) -> Result<(String, String)> {
+    let (k, v) = text
+        .split_once('=')
+        .ok_or_else(|| Error::contract(format!("tag {text:?}: write KEY=VALUE")))?;
+    let (k, v) = (k.trim(), v.trim());
+    check_tag(k, v)?;
+    Ok((k.to_string(), v.to_string()))
+}
+
 fn set_tags_in(
     tx: &rusqlite::Transaction,
     run_id: &str,
     tags: &BTreeMap<String, String>,
 ) -> Result<()> {
     for (k, v) in tags {
-        if !valid_tag_key(k) {
-            return Err(Error::contract(format!(
-                "tag key {k:?}: use 1-64 letters, digits, _ - or ."
-            )));
-        }
-        if v.len() > 1024 || v.contains(['\n', '\r']) {
-            return Err(Error::contract(format!(
-                "tag {k}: the value must be one line of at most 1024 bytes"
-            )));
-        }
+        check_tag(k, v)?;
         if v.is_empty() {
             tx.execute(
                 "DELETE FROM tags WHERE run_id = ?1 AND key = ?2",

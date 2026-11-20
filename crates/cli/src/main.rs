@@ -154,10 +154,8 @@ enum CatalogCmd {
 fn parse_tags(list: &[String]) -> Result<BTreeMap<String, String>> {
     let mut out = BTreeMap::new();
     for t in list {
-        let (k, v) = t
-            .split_once('=')
-            .with_context(|| format!("tag {t:?}: write KEY=VALUE"))?;
-        out.insert(k.trim().to_string(), v.trim().to_string());
+        let (k, v) = benchlens_core::store::parse_tag(t)?;
+        out.insert(k, v);
     }
     Ok(out)
 }

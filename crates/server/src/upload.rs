@@ -14,7 +14,7 @@ use axum::extract::{Multipart, State};
 use axum::http::StatusCode;
 use axum::Json;
 use benchlens_core::import::{import_path, ImportOptions, ImportReport};
-use benchlens_core::store::valid_tag_key;
+use benchlens_core::store::{self, MAX_TAG_VALUE};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
@@ -22,7 +22,7 @@ use tokio::io::AsyncWriteExt;
 /// Room for the multipart framing and the `tag` fields on top of the file itself.
 pub const MULTIPART_OVERHEAD: usize = 256 * 1024;
 /// Longest `tag` field accepted (key, `=`, value of at most 1024 bytes).
-const MAX_TAG_FIELD: usize = 64 + 1 + 1024;
+const MAX_TAG_FIELD: usize = 64 + 1 + MAX_TAG_VALUE;
 
 fn too_large(max: u64) -> ApiError {
     ApiError::new(
@@ -72,21 +72,7 @@ async fn small_text(field: &mut Field<'_>, max: usize, limit: u64) -> Result<Str
 
 /// `KEY=VALUE` with the store's rules for keys and values (an empty value removes the tag).
 fn parse_tag(t: &str) -> Result<(String, String), ApiError> {
-    let (k, v) = t
-        .split_once('=')
-        .ok_or_else(|| bad_request(format!("tag {t:?}: write KEY=VALUE")))?;
-    let (k, v) = (k.trim(), v.trim());
-    if !valid_tag_key(k) {
-        return Err(bad_request(format!(
-            "tag key {k:?}: use 1-64 letters, digits, _ - or ."
-        )));
-    }
-    if v.len() > 1024 || v.contains(['\n', '\r']) {
-        return Err(bad_request(format!(
-            "tag {k}: the value must be one line of at most 1024 bytes"
-        )));
-    }
-    Ok((k.to_string(), v.to_string()))
+    store::parse_tag(t).map_err(|e| bad_request(e.to_string()))
 }
 
 /// Stream the `file` field into `path`, at most `max` bytes. Returns the size.

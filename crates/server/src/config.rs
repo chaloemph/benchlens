@@ -198,12 +198,7 @@ impl Settings {
         let secs = pick!(inbox_interval).unwrap_or(DEFAULT_INBOX_INTERVAL_SECS);
         let inbox_tags = pick!(inbox_tags).unwrap_or_default();
         for (k, v) in &inbox_tags {
-            if !benchlens_core::store::valid_tag_key(k) {
-                bail!("inbox_tags: tag key {k:?}: use 1-64 letters, digits, _ - or .");
-            }
-            if v.len() > 1024 || v.contains(['\n', '\r']) {
-                bail!("inbox_tags: tag {k}: the value must be one line of at most 1024 bytes");
-            }
+            benchlens_core::store::check_tag(k, v).context("inbox_tags")?;
         }
         Ok(Settings {
             db: pick!(db).unwrap_or_else(|| PathBuf::from(DEFAULT_DB)),
