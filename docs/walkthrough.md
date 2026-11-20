@@ -140,9 +140,11 @@ by label, folder or id prefix: `benchlens compare x86-std-r2 x86-high-r2`.
 $ benchlens serve --listen 127.0.0.1:8091
 benchlens 0.1.0 on http://127.0.0.1:8091 (database benchlens.db)
 reads open; writes open (loopback, no token); uploads up to 256 MiB
+Host names served: localhost, IP addresses
 ```
 
-(Without `--listen` it uses `127.0.0.1:8080`.) Open the address in a browser. The Compare view starts with
+(Without `--listen` it uses `127.0.0.1:8080`. Without a token the server answers only `localhost` and IP
+addresses, a guard against DNS rebinding; see the [user guide](guide.md#who-may-read-and-write).) Open the address in a browser. The Compare view starts with
 the quick pick "x86 vs ARM64 · high", the same comparison as above: the takeaway sentence, the tally per
 section and a heatmap of the key metrics (choose "Show" for every metric or one section).
 

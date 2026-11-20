@@ -230,8 +230,9 @@ the background of the server.
   `serve`; 5 s by default), then moved to `done/`, or to `failed/` with a `.reason.txt`.
 - Copy under a name ending in `.part`, `.tmp` or `.partial` and rename when complete; dotfiles and links are
   ignored.
-- `--registry FILE` (`--inbox-registry` for `serve`, env `BENCHLENS_INBOX_REGISTRY`) and `--tag`
-  (`--inbox-tag`) tag inbox imports as `benchlens import` does. The registry is read again whenever it
+- `--registry FILE` (env `BENCHLENS_REGISTRY`; for `serve` also `registry` in benchlens.toml, where it
+  applies to uploads too; the old names `--inbox-registry`, `BENCHLENS_INBOX_REGISTRY` and `inbox_registry`
+  still work) and `--tag` (`--inbox-tag`) tag inbox imports as `benchlens import` does. The registry is read again whenever it
   changes, so rows can be added while the watcher runs; a registry that no longer parses is reported once
   and the previous one stays in use.
 
@@ -284,31 +285,47 @@ The Upload button in the header of the web UI opens a dialog: pick a `.tar` / `.
 rows, and it lists the import report of every folder in the archive. On a server with a token the UI asks
 for the token first (see [Running on a server](#running-on-a-server)).
 
-<!-- TODO(H, in flight): uploads applying the server's inbox registry (plan F16) are being added on another
-branch. On main today an uploaded run gets only its benchlens-tags.json and the tags typed in the dialog;
-update this paragraph when that lands. -->
+When the server has a registry (`--registry`, `BENCHLENS_REGISTRY` or `registry` in benchlens.toml), it
+tags uploaded runs as it tags inbox imports: rows are matched by result folder name, and the registry is
+read again at every upload. The usual precedence holds: tags typed in the dialog > the archive's
+`benchlens-tags.json` > the registry. A registry that cannot be read or parsed refuses the upload (500)
+rather than importing the run untagged.
 
 ### HTTP API
 
 `POST /api/runs` takes the same archive as multipart field `file`, plus repeated `tag` fields
-([api.md](api.md#post-apiruns-write)). On a server started with a token:
+([api.md](api.md#post-apiruns-write)). On a server started with a token and the example registry, with the
+archive made above (it carries a `benchlens-tags.json`):
 
 ```text
+$ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080 --registry registry.tsv
+benchlens 0.1.0 on http://127.0.0.1:18080 (database srv.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: any
+registry registry.tsv (inbox imports and uploads)
 $ curl -s -F file=@x86-std-r2.tar.gz http://127.0.0.1:18080/api/runs
 {"error":"a token is needed: send Authorization: Bearer <token>"}
 $ curl -s -H "Authorization: Bearer $TOKEN" -F file=@x86-std-r2.tar.gz -F tag=round=2 http://127.0.0.1:18080/api/runs
 [{"folder":"x86-std-r2-20261119-103253","run_id":"7969870900abc86d","outcome":"imported","message":"141 values, vmbench v0.2.3"}]
 $ curl -s -H "Authorization: Bearer $TOKEN" -F file=@evil.tar http://127.0.0.1:18080/api/runs
-{"error":"unsafe archive entry link: links, devices and other special entries are not allowed"}
+{"error":"unsafe archive entry lnk: links, devices and other special entries are not allowed"}
+$ benchlens --db srv.db runs
+RUN               LABEL                         ARCH      vCPU  VMBENCH  GROUP / TAGS
+7969870900abc86d  x86-std-r2                    x86_64       2  v0.2.3   poc-x86-std  host=proxmox owner=team-a round=2 set=poc-x86 size=std
 ```
 
 The first answer is 401, the second 200 (each folder's `outcome` is `imported`, `already_present` or
-`failed`), the third 400. Tags can be changed with `PATCH /api/runs/{id}/tags` (an empty value removes):
+`failed`), the third 400. The uploaded run got `host`, `set` and `size` from the registry, `group` and
+`owner` from its `benchlens-tags.json` and `round` from the form. Tags can be changed with
+`PATCH /api/runs/{id}/tags` (an empty value removes):
 
 ```text
 $ curl -s -X PATCH -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' -d '{"owner":""}' http://127.0.0.1:18080/api/runs/x86-std-r2/tags
-{"run_id":"7969870900abc86d","folder":"x86-std-r2-20261119-103253","label":"x86-std-r2","group":"poc-x86-std","arch":"x86_64","nproc":2,"ram_gb":4.0,"cpu_model":"INTEL(R) XEON(R) GOLD 6526Y","vmbench_version":"v0.2.3","start_utc":"2026-11-19T03:32:55Z","source":"upload","catalog_known":true,"failed_stages":[],"tags":{"group":"poc-x86-std","round":"2"},"values":141}
+{"run_id":"7969870900abc86d","folder":"x86-std-r2-20261119-103253","label":"x86-std-r2","group":"poc-x86-std","arch":"x86_64","nproc":2,"ram_gb":4.0,"cpu_model":"INTEL(R) XEON(R) GOLD 6526Y","vmbench_version":"v0.2.3","start_utc":"2026-11-19T03:32:55Z","source":"upload","catalog_known":true,"failed_stages":[],"tags":{"group":"poc-x86-std","host":"proxmox","round":"2","set":"poc-x86","size":"std"},"values":141,"kept_files":["benchlens-tags.json","hardware.json","meta.json","results.tsv","status.tsv"]}
 ```
+
+`kept_files` lists the files the run kept (a `report.md` when vmbench wrote one); `GET /api/runs` carries it
+for every run.
 
 Each run records how it arrived in `source`: `cli`, `inbox` or `upload`.
 
@@ -406,6 +423,16 @@ $ benchlens compare d642 group:arm64-high --json
 ...
 ```
 
+Piped into a reader that stops early, every command but `serve` ends quietly, killed by SIGPIPE like other
+Unix tools; the shell reports status 141 (with `set -o pipefail` that counts as a failure):
+
+```text
+$ benchlens --db fx.db export csv group:x86-high group:arm64-high | head -2; echo "status ${PIPESTATUS[0]}"
+side,run_id,label,id,name,section,unit,direction,round,value
+group:x86-high,180fba1956b130d0,x86-high,cpu.7z.rating.max,7z rating · all vCPU,cpu,MIPS,higher,1,81684
+status 141
+```
+
 ### Web UI
 
 `benchlens serve` and open <http://127.0.0.1:8080>. Four views, all state in the URL (any page can be shared
@@ -414,12 +441,17 @@ as a link):
 - **Compare**: baseline picker, "compare with" checkboxes for groups and single runs, quick picks derived from
   the data (such as "x86 vs ARM64 · high" or "Round 1 vs 2 · x86-high"), a takeaway sentence, the tally table
   per section, and a heatmap of every metric (key metrics or one section; sysbench across architectures
-  hatched and not counted). Choosing a metric name opens the Metric view.
+  hatched and not counted). Choosing a metric name opens the Metric view. **Compare with: a group split by
+  tag** picks a group, a tag key and some of its values, and adds one side `group:NAME@KEY=VALUE` per value
+  (the runs of the group with that value, pooled), optionally with the first value as the baseline; for
+  example `round=1` against `round=2` of `x86-high`. Sides added this way are listed under it and can be
+  unticked there.
 - **Metric**: a dot plot of every raw value of one metric per side, coloured by the run's `round` tag, with
   the median tick, and the statistics table.
 - **Runs**: search and filters (text, architecture, group, tag), inline tag editing, delete with
-  confirmation, a link to the run's `report.md` when it kept one, flags for failed stages, excluded stages and
-  missing metric tables.
+  confirmation, a link to the run's `report.md` when it kept one (a click shows it as plain text in a dialog,
+  fetched with the token, so it works on a private server too; open it in a new tab for the raw file),
+  flags for failed stages, excluded stages and missing metric tables.
 - **Hardware**: `hardware.json` of the selected runs side by side, differing rows highlighted.
 
 The URL keys are `view`, `base`, `other` (repeated), `section`, `metric`, `run`, and the runs filters `q`,
@@ -428,9 +460,8 @@ The URL keys are `view`, `base`, `other` (repeated), `section`, `metric`, `run`,
 everything comes from `/api/compare` and equals `benchlens compare --json`. Screenshots are in
 [walkthrough.md](walkthrough.md#5-the-web-ui).
 
-<!-- TODO(H, in flight): a picker control for group:NAME@KEY=VALUE sides (plan F17) is being added on another
-branch. On main today such sides come from the quick picks ("Round 1 vs 2 · ...") or a link with
-base=/other= in the URL; describe the control here when it lands. -->
+`group:NAME@KEY=VALUE` sides come from the split control above, the "Round 1 vs 2 · ..." quick picks, or a
+link with `base=` / `other=` in the URL.
 
 ## Exporting
 
@@ -505,8 +536,9 @@ when present), then the defaults. The [README](../README.md#running-on-a-server)
 | largest upload | `--max-upload-mb` | `BENCHLENS_MAX_UPLOAD_MB` | `max_upload_mb` | 256 |
 | inbox | `--inbox` | `BENCHLENS_INBOX` | `inbox` | off |
 | inbox scan interval | `--inbox-interval` | `BENCHLENS_INBOX_INTERVAL` | `inbox_interval` | 5 |
-| inbox registry | `--inbox-registry` | `BENCHLENS_INBOX_REGISTRY` | `inbox_registry` | none |
+| registry (inbox imports and uploads) | `--registry` (old: `--inbox-registry`) | `BENCHLENS_REGISTRY` (old: `BENCHLENS_INBOX_REGISTRY`) | `registry` (old: `inbox_registry`) | none |
 | inbox tags | `--inbox-tag K=V` | | `inbox_tags = { k = "v" }` | none |
+| extra Host names served | | `BENCHLENS_ALLOWED_HOSTS` (comma list) | `allowed_hosts = ["a", "b"]` | none |
 
 ### Who may read and write
 
@@ -521,18 +553,49 @@ Without a token, a write that a browser marks as coming from a page of another o
 so a web page you visit cannot upload to your local server. The web UI asks for the token once per tab when
 the server answers 401.
 
+**Host names (DNS rebinding).** Without a token, the server answers only requests addressed to `localhost`
+or an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port), and the names in `allowed_hosts`; any other
+`Host` gets 403, for the web UI files as well as the API. A web page whose domain is re-pointed at
+127.0.0.1 sends its own domain as `Host`, so it cannot read or write a local server; an IP address cannot be
+re-pointed, and the port is not checked so port mappings keep working. With a token every name is served,
+unless `allowed_hosts` is set, which then limits the names in the same way:
+
+```text
+$ benchlens --db local.db serve --listen 127.0.0.1:18084
+benchlens 0.1.0 on http://127.0.0.1:18084 (database local.db)
+reads open; writes open (loopback, no token); uploads up to 256 MiB
+Host names served: localhost, IP addresses
+$ curl -s http://localhost:18084/api/health
+{"benchlens":"0.1.0","db_layout":2,"runs":0}
+$ curl -s -H 'Host: evil.example:18084' http://127.0.0.1:18084/api/health
+{"error":"Host \"evil.example:18084\" refused: without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS (comma list), or set a token"}
+```
+
+To reach a token-less server by a name, list it:
+
+```text
+$ BENCHLENS_ALLOWED_HOSTS=bench.lan benchlens --db local.db serve --listen 127.0.0.1:18084
+benchlens 0.1.0 on http://127.0.0.1:18084 (database local.db)
+reads open; writes open (loopback, no token); uploads up to 256 MiB
+Host names served: localhost, IP addresses, bench.lan
+$ curl -s -H 'Host: bench.lan:18084' http://127.0.0.1:18084/api/health
+{"benchlens":"0.1.0","db_layout":2,"runs":0}
+```
+
 The start-up lines say which case applies:
 
 ```text
 $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
 benchlens 0.1.0 on http://127.0.0.1:18080 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
+Host names served: any
 ```
 
 ```text
 $ benchlens --db srv.db serve --listen 0.0.0.0:18081
 benchlens 0.1.0 on http://0.0.0.0:18081 (database srv.db)
 reads open; writes refused (no token); uploads up to 256 MiB
+Host names served: localhost, IP addresses
 warning: listening on 0.0.0.0:18081 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
 $ curl -s -X DELETE http://127.0.0.1:18081/api/runs/x86-std-r2
 {"error":"writes are turned off: this server listens on a non-loopback address without a token","detail":"start it with BENCHLENS_TOKEN (or `token` in benchlens.toml) to allow upload, tags and delete"}
@@ -556,7 +619,7 @@ listen = "127.0.0.1:18083"
 token = "<output of openssl rand -hex 32>"
 read_public = false
 inbox = "/srv/benchlens/inbox2"
-inbox_registry = "/srv/benchlens/registry.tsv"
+registry = "/srv/benchlens/registry.tsv"
 inbox_tags = { set = "poc" }
 ```
 
@@ -565,9 +628,11 @@ $ benchlens serve                      # in the folder holding benchlens.toml
 watching inbox /srv/benchlens/inbox2 every 5s
 benchlens 0.1.0 on http://127.0.0.1:18083 (database /srv/benchlens/srv.db)
 reads need the token; writes need the token; uploads up to 256 MiB
+Host names served: any
+registry /srv/benchlens/registry.tsv (inbox imports and uploads)
 inbox: registry  /srv/benchlens/registry.tsv: 18 runs
 inbox: waiting   arm64-high-r2-20261119-074530 (imported once it stops changing)
-inbox: done      arm64-high-r2-20261119-074530: 1 imported, 0 already present -> /srv/benchlens/inbox2/done/20261120-051128-arm64-high-r2-20261119-074530
+inbox: done      arm64-high-r2-20261119-074530: 1 imported, 0 already present -> /srv/benchlens/inbox2/done/20261120-054511-arm64-high-r2-20261119-074530
 $ curl -s http://127.0.0.1:18083/api/runs
 {"error":"a token is needed: send Authorization: Bearer <token>"}
 $ curl -s http://127.0.0.1:18083/api/health
@@ -590,9 +655,18 @@ bench.example.org {
 }
 ```
 
-<!-- TODO(H, in flight): Host-header checks in no-token mode (plan F14, DNS rebinding) and handling of
-proxy headers (F15, Forwarded / X-Forwarded-For) are being added to the server on another branch. Neither is
-on main today: describe the accepted Host names and the proxy behaviour here once they land. -->
+As a safety net, a server without a token refuses writes that carry `Forwarded`, `X-Forwarded-For` or
+`X-Forwarded-Host`, which proxies usually add (reads through the proxy still work):
+
+```text
+$ curl -s -X DELETE -H 'X-Forwarded-For: 203.0.113.7' http://127.0.0.1:18084/api/runs/x86-std-r2
+{"error":"write refused: it came through a reverse proxy and this server has no token","detail":"the request carries x-forwarded-for; set a token (BENCHLENS_TOKEN or `token` in benchlens.toml) when serving behind a proxy"}
+```
+
+A proxy that adds none of these headers is not detected (nginx's plain `proxy_pass` adds none), so the token
+is still what protects the server. With a token, every `Host` is served; if you set `allowed_hosts`, list
+the public name and make the proxy pass the original `Host` (Caddy does; nginx: `proxy_set_header Host
+$host`), or nginx's default (the upstream address, an IP) is served anyway.
 
 What the server does and does not protect against: [SECURITY.md](../SECURITY.md).
 
@@ -652,8 +726,27 @@ it.)
 The compose file has commented lines for an inbox (`BENCHLENS_INBOX=/data/inbox`, a mounted `./inbox`
 writable by uid 65532) and `BENCHLENS_READ_PUBLIC: "false"`.
 
-<!-- TODO(H, in flight): Grafana dashboards under deploy/grafana (compose profile `grafana`, plan task G) are
-being added on another branch; add a section here when they land. -->
+### Grafana
+
+The compose profile `grafana` adds Grafana 13 with the SQLite datasource on the benchlens volume, mounted
+read-only and opened with `mode=ro`, and three dashboards: **Metric over time** (one metric, a series per
+group, a point per run), **Group vs group** (mean, min, max and n per metric and group) and **Runs** (tags,
+vmbench version, failed stages). Grafana shows means and ranges, since SQLite has no median; whether a
+difference is better, worse or within noise is decided by benchlens only, and every dashboard links back to
+the benchlens UI.
+
+```bash
+BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker compose --profile grafana up -d
+# http://localhost:3000 (Grafana) and http://localhost:8080 (benchlens)
+```
+
+The defaults are meant for one machine: the admin password is `admin` unless `GRAFANA_ADMIN_PASSWORD` is
+set, anonymous visitors can view, and the port is published on 127.0.0.1 only. **On a server**, set
+`GRAFANA_ADMIN_PASSWORD` before the first start, set `GRAFANA_ANONYMOUS=false` unless the results are for
+everyone who can reach the port, then publish it with `GRAFANA_BIND=0.0.0.0`, preferably behind a TLS proxy.
+Grafana keeps reading while benchlens is stopped (benchlens keeps the SQLite `-wal` and `-shm` files that a
+read-only reader cannot create). Versions, the dashboards' queries and the WAL details:
+[deploy/grafana/README.md](../deploy/grafana/README.md).
 
 ## Upgrading
 

@@ -149,7 +149,7 @@ max_upload_mb = 256      # largest archive accepted by upload
   This stops a web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To
   reach a token-less server by a name (`http://bench.lan:8080`), list it in `allowed_hosts` /
   `BENCHLENS_ALLOWED_HOSTS`. With a token every name is served, unless `allowed_hosts` is set, which then
-  limits the names in the same way.
+  limits the names in the same way (set it if public reads of a local server must not reach web pages).
 - **Upload**: the Upload button in the web UI, or
   `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
   The server's `registry`, when set, tags uploaded runs too (tags of the upload win over it).
