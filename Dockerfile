@@ -6,6 +6,13 @@
 #
 # It listens on 0.0.0.0 (not loopback): without BENCHLENS_TOKEN the server is read-only and upload, tag
 # editing and delete answer 403. `docker stop` sends SIGTERM, which stops the server gracefully.
+#
+# Host check (DNS rebinding guard): only `localhost` and IP addresses are served by default, also with a token
+# (BENCHLENS_ALLOWED_HOSTS=localhost below). To open it by a DNS name (LAN name, reverse proxy), give the names
+# with `-e BENCHLENS_ALLOWED_HOSTS=bench.lan,bench.example.org`: that replaces the default (localhost and IP
+# addresses stay served). It also wins over `allowed_hosts` in a mounted benchlens.toml (environment beats
+# file; the server warns at start-up); to use the file's list, start with `-e BENCHLENS_ALLOWED_HOSTS=` (empty
+# counts as not set). Empty and no list in a file turns the guard off with a token: not recommended.
 
 ARG RUST_VERSION=1
 FROM rust:${RUST_VERSION}-alpine AS build
@@ -30,7 +37,8 @@ COPY --from=build --chown=65532:65532 /out/data /data
 USER 65532:65532
 WORKDIR /data
 ENV BENCHLENS_DB=/data/benchlens.db \
-    BENCHLENS_LISTEN=0.0.0.0:8080
+    BENCHLENS_LISTEN=0.0.0.0:8080 \
+    BENCHLENS_ALLOWED_HOSTS=localhost
 VOLUME /data
 EXPOSE 8080
 ENTRYPOINT ["benchlens"]

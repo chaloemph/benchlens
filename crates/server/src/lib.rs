@@ -222,7 +222,7 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     };
     let writes = if cfg.token.is_some() {
         "writes need the token"
-    } else if cfg.listen.ip().is_loopback() {
+    } else if config::is_loopback(cfg.listen.ip()) {
         "writes open (loopback, no token)"
     } else {
         "writes refused (no token)"
@@ -235,7 +235,7 @@ pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     if let Some(r) = &cfg.registry {
         eprintln!("registry {} (inbox imports and uploads)", r.display());
     }
-    if let Some(w) = cfg.warning() {
+    for w in cfg.warnings() {
         eprintln!("{w}");
     }
     let served = axum::serve(listener, router(state))

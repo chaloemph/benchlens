@@ -54,7 +54,7 @@ names only, no scheme or port).
 
 | Configuration | Reads (`/api/...`) | Writes (`PATCH .../tags`, `DELETE /api/runs/{id}`, `POST /api/runs`) |
 |---|---|---|
-| no token, listening on loopback (`127.0.0.1`, `::1`) | open | open |
+| no token, listening on loopback (`127.0.0.1`, `::1`, `::ffff:127.0.0.1`) | open | open |
 | no token, any other address | open | **403** (the server prints a warning at start) |
 | token, `read_public = true` (default) | open | `Authorization: Bearer <token>`, else **401** |
 | token, `read_public = false` | `Authorization: Bearer <token>`, else **401** | same |
@@ -71,9 +71,12 @@ names only, no scheme or port).
   is not checked so port mappings (`docker -p 9000:8080`) keep working. On loopback the check stays with a
   token: a rebinding page never sees the token, but it could read what `read_public = true` makes public.
   On a non-loopback listener with a token every `Host` is served, unless `allowed_hosts` is set: then the
-  same rule applies. A reverse proxy on the same machine that passes its public name as `Host` (Caddy by
+  same rule applies. The Docker image sets `BENCHLENS_ALLOWED_HOSTS=localhost`, so a container (which
+  listens on `0.0.0.0`) checks the `Host` with a token too. Loopback includes the IPv4-mapped form of a
+  loopback address (`[::ffff:127.0.0.1]`). A reverse proxy on the same machine that passes its public name as `Host` (Caddy by
   default, nginx with `proxy_set_header Host $host`) needs that name in `allowed_hosts`; nginx's default
-  (the upstream address) is an IP and is served. A request without `Host` (HTTP/1.0 tools) is served;
+  (the upstream address) is served when it is an IP, but a container name (`proxy_pass http://benchlens:8080`)
+  is a name and must be listed. A request without `Host` (HTTP/1.0 tools) is served;
   browsers always send one.
 - **Reverse proxy**: without a token, a write carrying `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host` is
   **403** ("set a token when serving behind a proxy"): a proxy on the same machine would otherwise make

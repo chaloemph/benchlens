@@ -44,7 +44,7 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
 - **Writes** (upload, tag editing, delete):
   - with a token configured, they need `Authorization: Bearer <token>`, else 401;
   - without a token, they are open only when the server listens on a loopback address (`127.0.0.1`,
-    `::1`); on any other address they are refused (403) and the server warns at start;
+    `::1`, or the IPv4-mapped `::ffff:127.0.0.1`); on any other address they are refused (403) and the server warns at start;
   - without a token, a write that a browser marks as coming from a page of another site
     (`Sec-Fetch-Site: cross-site`, or an `Origin` that does not name the `Host`) is refused (403), so a web
     page the local user visits cannot upload to a local server;
@@ -58,6 +58,13 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   re-pointed. A reverse proxy on the same host that passes its public name as `Host` needs that name in
   `allowed_hosts` (the 403 names the setting). On a non-loopback listener with a token, any `Host` is served
   unless `allowed_hosts` is set.
+- **Docker**: the container listens on 0.0.0.0, which is not loopback, so the image sets
+  `BENCHLENS_ALLOWED_HOSTS=localhost` (since 0.1.2): with or without a token, a container answers only
+  `localhost` and IP addresses as `Host`, also when its port is published as `127.0.0.1:8080:8080`. To open
+  it by a DNS name (a LAN name, a reverse proxy's public name), set `BENCHLENS_ALLOWED_HOSTS` to those names
+  (`docker run -e`, or the compose `environment`); that replaces the image default, and `localhost` and IP
+  addresses stay served. The variable, the image default included, wins over `allowed_hosts` in a mounted
+  `benchlens.toml`; the server warns at start-up when it hides the file's list.
 - **Reads**: open by default. With `read_public = false`, every `/api` call except `/api/health` needs the
   token, including the export endpoint and kept files (the web UI fetches `report.md` with the token). The
   server refuses to start with `read_public = false` and no token.
@@ -86,9 +93,11 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   the browser of a user on the same network can read what `read_public = true` makes public. Set
   `allowed_hosts` (or `read_public = false`) if that matters. Loopback listeners check the `Host` also with
   a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
-  **Docker counts as non-loopback**: the container listens on 0.0.0.0, so a token-protected container whose
-  port is published (also as `127.0.0.1:8080:8080`) serves any `Host`. Set `BENCHLENS_ALLOWED_HOSTS=localhost`
-  (or the names you use) to turn the check on there; `localhost` and IP addresses are always served.
+  The Docker image checks the `Host` by default (since 0.1.2; in 0.1.0 and 0.1.1 a token-protected
+  container served any `Host`, also on a port published as `127.0.0.1:8080:8080`). Setting
+  `BENCHLENS_ALLOWED_HOSTS` to an empty value in the container (`-e BENCHLENS_ALLOWED_HOSTS=`) and having no
+  `allowed_hosts` in a config file turns the check off again with a token; do not do that for a container
+  reachable from a browser.
 - **Anyone with the token can do everything**: upload, retag, delete. There is no audit log beyond each
   run's `source` (`cli`, `inbox`, `upload`) and import time.
 - **Reads are public by default.** Benchmark results and `hardware.json` (CPU model, memory, disks; vmbench
