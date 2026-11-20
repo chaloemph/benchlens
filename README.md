@@ -93,9 +93,13 @@ docker run --rm -v benchlens-data:/data -v "$PWD/results:/results:ro" ghcr.io/ch
 ```
 
 The container listens on `0.0.0.0`, which is not loopback: **without `BENCHLENS_TOKEN` it is read-only**
-(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work),
-and it answers only `localhost` and IP addresses as host names unless `BENCHLENS_ALLOWED_HOSTS` lists more.
-With a token, the web UI asks for it once per tab. See [Running on a server](#running-on-a-server).
+(upload, tag editing and delete answer 403; reading, the web UI and `import` through `docker run` still work).
+With a token, the web UI asks for it once per tab. With or without a token the container answers only
+`localhost` and IP addresses as host names (DNS rebinding guard; the image sets
+`BENCHLENS_ALLOWED_HOSTS=localhost`): `http://localhost:8080` and `http://192.168.1.5:8080` work, a name such as
+`http://bench.lan:8080` gets 403 until you list it with `-e BENCHLENS_ALLOWED_HOSTS=bench.lan` (this replaces
+the default; `localhost` and IP addresses stay served). **Since 0.1.2**: before, a container with a token
+answered any name, so if you open yours by a name, add that name when you upgrade. See [Running on a server](#running-on-a-server).
 `docker stop` stops it cleanly (SIGTERM).
 
 Or with Compose, from a checkout ([docker-compose.yml](docker-compose.yml)):
@@ -154,7 +158,9 @@ max_upload_mb = 256      # largest archive accepted by upload
   web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To reach the
   server by a name (`http://bench.lan:8080`, or a proxy's public name), list it in `allowed_hosts` /
   `BENCHLENS_ALLOWED_HOSTS`. On a non-loopback address with a token every name is served, unless
-  `allowed_hosts` is set, which then limits the names in the same way.
+  `allowed_hosts` is set, which then limits the names in the same way; the Docker image sets
+  `BENCHLENS_ALLOWED_HOSTS=localhost` for this. An IPv4-mapped loopback address (`[::ffff:127.0.0.1]`) counts
+  as loopback.
 - **Upload**: the Upload button in the web UI, or
   `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
   The server's `registry`, when set, tags uploaded runs too (tags of the upload win over it).

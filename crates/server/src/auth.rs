@@ -15,8 +15,9 @@
 //!   127.0.0.1 sends `Host: evil.example:8080` and is refused (403), for the API and the static files alike;
 //!   with a token it could not write, but it could read what `read_public` makes public (F19). On a
 //!   non-loopback listener with a token any `Host` is served, unless `allowed_hosts` is set, which then
-//!   applies in the same way. A reverse proxy on the same machine that passes its own public name as `Host`
-//!   needs that name in `allowed_hosts`. A request without `Host` (HTTP/1.0 tools) is served: browsers
+//!   applies in the same way; the Docker image sets `BENCHLENS_ALLOWED_HOSTS=localhost` for this (F23). A
+//!   reverse proxy on the same machine that passes its own public name as `Host` needs that name in
+//!   `allowed_hosts`. "Loopback" includes the IPv4-mapped form `::ffff:127.x.y.z` (F24). A request without `Host` (HTTP/1.0 tools) is served: browsers
 //!   always send one.
 //! - Reverse proxy: open writes (loopback, no token) are refused when the request carries `Forwarded`,
 //!   `X-Forwarded-For` or `X-Forwarded-Host`: a proxy on the same machine would otherwise turn "local" into
@@ -112,12 +113,11 @@ impl Access {
         read_public: bool,
         listen: std::net::SocketAddr,
     ) -> Access {
+        let loopback = crate::config::is_loopback(listen.ip());
         match token {
-            Some(t) if listen.ip().is_loopback() => {
-                Access::with_token(t, read_public).on_loopback()
-            }
+            Some(t) if loopback => Access::with_token(t, read_public).on_loopback(),
             Some(t) => Access::with_token(t, read_public),
-            None if listen.ip().is_loopback() => Access::local(),
+            None if loopback => Access::local(),
             None => Access::public_read_only(),
         }
     }
@@ -626,6 +626,42 @@ mod tests {
         let a = Access::for_listen(None, true, any);
         let e = a.check_host(&host("bench.lan"), &uri).unwrap_err();
         assert!(e.0.detail.unwrap().contains("set a token"));
+    }
+
+    /// F24: an IPv4-mapped loopback listen address is loopback, for the Host check and for open writes.
+    #[test]
+    fn mapped_loopback_listen_is_loopback() {
+        let uri = Uri::from_static("/api/runs");
+        for listen in ["[::ffff:127.0.0.1]:8080", "[::ffff:127.1.2.3]:8080"] {
+            let listen: std::net::SocketAddr = listen.parse().unwrap();
+            // no token: writes open, Host checked
+            let a = Access::for_listen(None, true, listen);
+            assert!(a.check_write(&HeaderMap::new()).is_ok(), "{listen}");
+            assert!(a.check_host(&host("evil.example"), &uri).is_err());
+            // with a token: the Host check of a loopback listener
+            let a = Access::for_listen(Some(Token::new(T)), true, listen);
+            let e = a.check_host(&host("evil.example:8080"), &uri).unwrap_err();
+            assert!(e.0.error.contains("loopback"), "{}", e.0.error);
+            assert_eq!(a.hosts_served(), "localhost, IP addresses");
+            for ok in [
+                "localhost:8080",
+                "[::ffff:127.0.0.1]:8080",
+                "[::ffff:127.0.0.1]",
+                "[::ffff:7f00:1]:8080",
+            ] {
+                assert!(a.check_host(&host(ok), &uri).is_ok(), "{ok}");
+            }
+        }
+        // a mapped address that is not loopback stays non-loopback
+        let lan: std::net::SocketAddr = "[::ffff:192.168.1.5]:8080".parse().unwrap();
+        let e = Access::for_listen(None, true, lan)
+            .check_write(&HeaderMap::new())
+            .unwrap_err();
+        assert_eq!(e.0.status, StatusCode::FORBIDDEN);
+        assert_eq!(
+            Access::for_listen(Some(Token::new(T)), true, lan).hosts_served(),
+            "any"
+        );
     }
 
     #[test]

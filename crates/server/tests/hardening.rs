@@ -244,6 +244,31 @@ async fn loopback_with_token_checks_host() {
     }
 }
 
+/// F24: a listener on the IPv4-mapped form of a loopback address is loopback: the Host check applies with a
+/// token, and without one writes are open (and the Host is still checked).
+#[tokio::test]
+async fn mapped_loopback_listener_is_loopback() {
+    let lo = "[::ffff:127.0.0.1]:8080".parse().unwrap();
+    let st = with_access(Access::for_listen(Some(Token::new(TOKEN)), true, lo));
+    let r = get(&st, "/api/runs", "evil.example:8080").await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+    for h in [
+        "localhost:8080",
+        "[::ffff:127.0.0.1]:8080",
+        "127.0.0.1:8080",
+    ] {
+        assert_eq!(get(&st, "/api/runs", h).await.status, StatusCode::OK, "{h}");
+    }
+    let st = with_access(Access::for_listen(None, true, lo));
+    assert_eq!(
+        get(&st, "/", "evil.example").await.status,
+        StatusCode::FORBIDDEN
+    );
+    // writes are open without a token, as on 127.0.0.1
+    let r = send(&st, upload_req(&[("host", "[::ffff:127.0.0.1]:8080")], &[])).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+}
+
 #[tokio::test]
 async fn open_writes_through_a_proxy_are_refused() {
     let st = local();

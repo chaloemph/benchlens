@@ -553,15 +553,17 @@ Without a token, a write that a browser marks as coming from a page of another o
 so a web page you visit cannot upload to your local server. The web UI asks for the token once per tab when
 the server answers 401.
 
-**Host names (DNS rebinding).** On a loopback address (`127.0.0.1`, `::1`), with or without a token, and on
+**Host names (DNS rebinding).** On a loopback address (`127.0.0.1`, `::1`, also in the IPv4-mapped form
+`[::ffff:127.0.0.1]`), with or without a token, and on
 any address without a token, the server answers only requests addressed to `localhost` or an IP address
 (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port), and the names in `allowed_hosts`; any other `Host` gets 403,
 for the web UI files as well as the API. A web page whose domain is re-pointed at 127.0.0.1 sends its own
 domain as `Host`, so it cannot read or write a local server, not even the data that `read_public = true`
 makes public on a server with a token; an IP address cannot be re-pointed, and the port is not checked so
 port mappings keep working. On a non-loopback address with a token every name is served, unless
-`allowed_hosts` is set, which then limits the names in the same way. The 403 names the exact setting that
-would serve the refused name:
+`allowed_hosts` is set, which then limits the names in the same way (the Docker image sets
+`BENCHLENS_ALLOWED_HOSTS=localhost` for this, see [Host names in a container](#host-names-in-a-container)).
+The 403 names the exact setting that would serve the refused name:
 
 ```text
 $ benchlens --db local.db serve --listen 127.0.0.1:18084
@@ -707,7 +709,9 @@ What the server does and does not protect against: [SECURITY.md](../SECURITY.md)
 
 The image `ghcr.io/chaloemph/benchlens` (linux/amd64 and linux/arm64) is a static binary on distroless,
 running `benchlens serve` as uid 65532 on `0.0.0.0:8080` with the database at `/data/benchlens.db` (a
-volume). Because `0.0.0.0` is not loopback, **without `BENCHLENS_TOKEN` the container is read-only**.
+volume). Because `0.0.0.0` is not loopback, **without `BENCHLENS_TOKEN` the container is read-only**. The
+image also sets `BENCHLENS_ALLOWED_HOSTS=localhost`, so the container answers only `localhost` and IP
+addresses as `Host`, with or without a token (see [Host names in a container](#host-names-in-a-container)).
 
 The commands below ran against an image built from this checkout (`docker build -t benchlens:h-docs .`);
 with the published image, use `ghcr.io/chaloemph/benchlens` instead of `benchlens:h-docs`.
@@ -723,7 +727,7 @@ $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLE
 $ docker logs benchlens
 benchlens 0.1.1 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
-Host names served: any
+Host names served: localhost, IP addresses
 $ curl -s http://localhost:8080/api/health
 {"benchlens":"0.1.1","db_layout":2,"runs":7}
 $ docker stop benchlens               # SIGTERM: the server stops cleanly
@@ -741,9 +745,48 @@ Host names served: localhost, IP addresses
 warning: listening on 0.0.0.0:8080 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
 ```
 
-Without a token the container also answers only `localhost` and IP addresses as `Host` (DNS rebinding
-guard): to open a read-only container by a name such as `http://bench.lan:8080`, add
-`-e BENCHLENS_ALLOWED_HOSTS=bench.lan`.
+### Host names in a container
+
+The container listens on `0.0.0.0`, so the loopback Host check (see
+[Who may read and write](#who-may-read-and-write)) would not apply to it, and with a token it would answer any
+`Host`: a DNS rebinding page could then read what `read_public = true` makes public through the published
+port, even one published only as `127.0.0.1:8080:8080`. The image therefore sets
+`BENCHLENS_ALLOWED_HOSTS=localhost` (since 0.1.2): `http://localhost:8080` and the container by IP address
+(`http://192.168.1.5:8080`, `http://127.0.0.1:8080`) work, any other name gets 403 and the error says what to
+set. With the container above (token set; `192.168.1.5` stands for the Docker host's address):
+
+```text
+$ curl -s http://192.168.1.5:8080/api/health
+{"benchlens":"0.1.1","db_layout":2,"runs":7}
+$ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
+{"error":"Host \"bench.lan:8080\" refused: it is not in allowed_hosts","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"bench.lan\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=bench.lan (keep any names already listed)"}
+```
+
+To open the container by a DNS name (a LAN name, or a reverse proxy that passes its public name as `Host`),
+give the names in `BENCHLENS_ALLOWED_HOSTS`. Your value **replaces** the image default rather than adding to
+it; nothing is lost, because `localhost` and IP addresses are always served once the check is on:
+
+```text
+$ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS=bench.lan benchlens:h-docs
+$ docker logs benchlens
+benchlens 0.1.1 on http://0.0.0.0:8080 (database /data/benchlens.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: localhost, IP addresses, bench.lan
+$ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
+{"benchlens":"0.1.1","db_layout":2,"runs":7}
+$ curl -s http://localhost:8080/api/health
+{"benchlens":"0.1.1","db_layout":2,"runs":7}
+```
+
+In compose, set `BENCHLENS_ALLOWED_HOSTS: localhost,bench.example.org` under `environment` (there is a
+commented line for it). The variable also wins over `allowed_hosts` in a mounted `benchlens.toml` (the
+environment beats the file), the image default included: put the names in the variable, or start with
+`-e BENCHLENS_ALLOWED_HOSTS=` (an empty value counts as not set) to use the file's list. Without any list
+and with a token the container serves every `Host` again (`Host names served: any`), as before 0.1.2; do not
+do that for a container that a browser can reach.
+
+**Behaviour change in 0.1.2**: before, a container with a token answered any name. If you open yours by a
+name, add that name when you upgrade. Without a token the check was already on, as it still is.
 
 Compose, from a checkout ([docker-compose.yml](../docker-compose.yml)):
 

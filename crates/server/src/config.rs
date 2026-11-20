@@ -21,7 +21,7 @@ use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -167,6 +167,12 @@ fn check_hosts(list: Vec<String>) -> Result<Vec<String>> {
     Ok(out)
 }
 
+/// Is this a loopback address? `127.0.0.0/8`, `::1`, and the IPv4-mapped form of a loopback address
+/// (`::ffff:127.0.0.1`), which `Ipv6Addr::is_loopback` does not count (F24).
+pub fn is_loopback(ip: IpAddr) -> bool {
+    ip.to_canonical().is_loopback()
+}
+
 /// Where the config file is: the `--config` / `BENCHLENS_CONFIG` value if any (must exist), else
 /// `./benchlens.toml` when present.
 pub fn config_path(flag_or_env: Option<PathBuf>) -> (PathBuf, bool) {
@@ -252,7 +258,7 @@ impl Settings {
 
     /// A warning to print at start-up, if any: serving other machines without a token.
     pub fn warning(&self) -> Option<String> {
-        if self.token.is_none() && !self.listen.ip().is_loopback() {
+        if self.token.is_none() && !is_loopback(self.listen.ip()) {
             Some(format!(
                 "warning: listening on {} without a token: anyone who can reach it can read, and writes \
                  (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them",
@@ -476,6 +482,43 @@ mod tests {
         )
         .unwrap();
         assert_eq!(s.registry, Some(PathBuf::from("env.tsv")));
+    }
+
+    #[test]
+    fn mapped_loopback_counts_as_loopback() {
+        for ip in [
+            "127.0.0.1",
+            "127.9.8.7",
+            "::1",
+            "::ffff:127.0.0.1",
+            "::ffff:127.1.2.3",
+        ] {
+            assert!(is_loopback(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in [
+            "0.0.0.0",
+            "::",
+            "192.168.1.5",
+            "::ffff:192.168.1.5",
+            "::ffff:0.0.0.0",
+        ] {
+            assert!(!is_loopback(ip.parse().unwrap()), "{ip}");
+        }
+        // no "listening without a token" warning on a mapped loopback address
+        let s = Settings::resolve(
+            &Layer::default(),
+            &env(&[("BENCHLENS_LISTEN", "[::ffff:127.0.0.1]:8080")]),
+            &Layer::default(),
+        )
+        .unwrap();
+        assert!(s.warning().is_none());
+        let s = Settings::resolve(
+            &Layer::default(),
+            &env(&[("BENCHLENS_LISTEN", "[::ffff:192.168.1.5]:8080")]),
+            &Layer::default(),
+        )
+        .unwrap();
+        assert!(s.warning().is_some());
     }
 
     #[test]

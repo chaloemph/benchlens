@@ -6,7 +6,30 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Security
+
+- Docker: the image sets `BENCHLENS_ALLOWED_HOSTS=localhost`, so a container checks the `Host` header also
+  with a token: only `localhost`, IP addresses and the listed names are served, anything else is 403. The
+  container listens on 0.0.0.0, which is not loopback, so the loopback Host check of 0.1.1 did not apply:
+  with a token any `Host` was served, and a DNS rebinding page could read the data that `read_public = true`
+  makes public through a published port, also one published as `127.0.0.1:8080:8080` (it could not write).
+- A listen address in IPv4-mapped form (`[::ffff:127.0.0.1]`, any `::ffff:127.x.y.z`) now counts as loopback,
+  the same as `127.0.0.1`: the Host check applies with a token, and without a token writes are open and no
+  warning is printed. Before, such a listener served any `Host` with a token (writes without a token were
+  refused, fail-safe).
+
+### Changed
+
+- **Behaviour change** (Docker, from the default above): opening a container by a DNS name (a LAN name such
+  as `http://bench.lan:8080`, or a reverse proxy that passes its public name as `Host`) now gets 403 until
+  that name is listed: `-e BENCHLENS_ALLOWED_HOSTS=bench.lan` or, in compose, `BENCHLENS_ALLOWED_HOSTS:
+  localhost,bench.lan`; the 403 names the exact setting. A value you set replaces the image default
+  (`localhost` and IP addresses are always served, so nothing is lost). `http://localhost:8080` and opening the
+  container by IP address work as before. An explicit `BENCHLENS_ALLOWED_HOSTS` in the container also wins
+  over `allowed_hosts` in a mounted `benchlens.toml` (the environment beats the file); the image default does
+  too, so put the names in the variable, or start with `-e BENCHLENS_ALLOWED_HOSTS=` to use the file's list.
+- `docker-compose.yml` has a commented `BENCHLENS_ALLOWED_HOSTS: localhost,bench.example.org` example; the
+  container's start-up line reads `Host names served: localhost, IP addresses` with a token (0.1.1: `any`).
 
 ## [0.1.1] - 2026-11-20
 
