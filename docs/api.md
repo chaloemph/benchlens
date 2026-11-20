@@ -75,7 +75,8 @@ names only, no scheme or port).
   listens on `0.0.0.0`) checks the `Host` with a token too. Loopback includes the IPv4-mapped form of a
   loopback address (`[::ffff:127.0.0.1]`). A reverse proxy on the same machine that passes its public name as `Host` (Caddy by
   default, nginx with `proxy_set_header Host $host`) needs that name in `allowed_hosts`; nginx's default
-  (the upstream address) is an IP and is served. A request without `Host` (HTTP/1.0 tools) is served;
+  (the upstream address) is served when it is an IP, but a container name (`proxy_pass http://benchlens:8080`)
+  is a name and must be listed. A request without `Host` (HTTP/1.0 tools) is served;
   browsers always send one.
 - **Reverse proxy**: without a token, a write carrying `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host` is
   **403** ("set a token when serving behind a proxy"): a proxy on the same machine would otherwise make

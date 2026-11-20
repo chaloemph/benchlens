@@ -28,6 +28,11 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
   container by IP address work as before. An explicit `BENCHLENS_ALLOWED_HOSTS` in the container also wins
   over `allowed_hosts` in a mounted `benchlens.toml` (the environment beats the file); the image default does
   too, so put the names in the variable, or start with `-e BENCHLENS_ALLOWED_HOSTS=` to use the file's list.
+  A reverse proxy in another container that reaches benchlens by its service name (nginx
+  `proxy_pass http://benchlens:8080;`) sends that name as `Host`: list it too.
+- `benchlens serve` warns at start-up when `BENCHLENS_ALLOWED_HOSTS` hides a different `allowed_hosts` from
+  the config file (`warning: allowed_hosts in the config file (...) is ignored: ...`), so a mounted
+  `benchlens.toml` is not ignored silently in the container.
 - `docker-compose.yml` has a commented `BENCHLENS_ALLOWED_HOSTS: localhost,bench.example.org` example; the
   container's start-up line reads `Host names served: localhost, IP addresses` with a token (0.1.1: `any`).
 

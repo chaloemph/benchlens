@@ -779,14 +779,33 @@ $ curl -s http://localhost:8080/api/health
 ```
 
 In compose, set `BENCHLENS_ALLOWED_HOSTS: localhost,bench.example.org` under `environment` (there is a
-commented line for it). The variable also wins over `allowed_hosts` in a mounted `benchlens.toml` (the
-environment beats the file), the image default included: put the names in the variable, or start with
-`-e BENCHLENS_ALLOWED_HOSTS=` (an empty value counts as not set) to use the file's list. Without any list
-and with a token the container serves every `Host` again (`Host names served: any`), as before 0.1.2; do not
-do that for a container that a browser can reach.
+commented line for it). A reverse proxy in another container that reaches benchlens by its service or
+container name (nginx `proxy_pass http://benchlens:8080;` passes `benchlens:8080` as `Host` unless told
+otherwise) needs that name listed too, or `proxy_set_header Host $host;` and the public name listed.
+
+The variable also wins over `allowed_hosts` in a mounted `benchlens.toml` (the environment beats the file),
+the image default included, and the server says so at start-up (the file's `allowed_hosts = ["bench.lan"]`
+here):
+
+```text
+$ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -v "$PWD/benchlens.toml:/data/benchlens.toml:ro" -e BENCHLENS_TOKEN="$TOKEN" benchlens:h-docs
+$ docker logs benchlens
+benchlens 0.1.1 on http://0.0.0.0:8080 (database /data/benchlens.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: localhost, IP addresses
+warning: allowed_hosts in the config file (bench.lan) is ignored: BENCHLENS_ALLOWED_HOSTS (localhost) wins over the file (the Docker image sets it to localhost); put the names in BENCHLENS_ALLOWED_HOSTS, or set it to an empty value to use the file's list
+```
+
+Put the names in the variable, or start with `-e BENCHLENS_ALLOWED_HOSTS=` (an empty value counts as not
+set) to use the file's list (`Host names served: localhost, IP addresses, bench.lan`). Without any list and
+with a token the container serves every `Host` again (`Host names served: any`), as before 0.1.2: an empty
+`BENCHLENS_ALLOWED_HOSTS` and no `allowed_hosts` in a file is an opt-out of the guard, not recommended for a
+container that a browser can reach.
 
 **Behaviour change in 0.1.2**: before, a container with a token answered any name. If you open yours by a
-name, add that name when you upgrade. Without a token the check was already on, as it still is.
+name (a LAN name, a reverse proxy's public name, a proxy container's upstream name), it now answers 403
+`Host "..." refused: it is not in allowed_hosts`: add that name with `-e BENCHLENS_ALLOWED_HOSTS=name` (or in
+compose) when you upgrade. Without a token the check was already on, as it still is.
 
 Compose, from a checkout ([docker-compose.yml](../docker-compose.yml)):
 

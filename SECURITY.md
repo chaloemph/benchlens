@@ -63,7 +63,8 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   `localhost` and IP addresses as `Host`, also when its port is published as `127.0.0.1:8080:8080`. To open
   it by a DNS name (a LAN name, a reverse proxy's public name), set `BENCHLENS_ALLOWED_HOSTS` to those names
   (`docker run -e`, or the compose `environment`); that replaces the image default, and `localhost` and IP
-  addresses stay served.
+  addresses stay served. The variable, the image default included, wins over `allowed_hosts` in a mounted
+  `benchlens.toml`; the server warns at start-up when it hides the file's list.
 - **Reads**: open by default. With `read_public = false`, every `/api` call except `/api/health` needs the
   token, including the export endpoint and kept files (the web UI fetches `report.md` with the token). The
   server refuses to start with `read_public = false` and no token.
