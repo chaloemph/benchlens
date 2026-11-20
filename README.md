@@ -98,6 +98,8 @@ JSON holds per side `side`, `stats` (`id`, `name`, `section`, `unit`, `direction
 
 The database is `benchlens.db` in the current folder unless `--db` or `BENCHLENS_DB` says otherwise.
 Importing the same run again, by any route, does not add it twice.
+Output piped into a reader that stops early (`benchlens compare ... | head`) ends the command quietly, killed
+by SIGPIPE like other Unix tools (the shell reports status 141; with `set -o pipefail` that counts as a failure).
 
 ### Groups
 
@@ -120,14 +122,15 @@ the background of the server.
 
 ```bash
 benchlens watch --inbox inbox/ --registry registry.tsv --tag set=poc     # Ctrl-C to stop
-benchlens serve --inbox inbox/ --inbox-registry registry.tsv --inbox-tag set=poc
+benchlens serve --inbox inbox/ --registry registry.tsv --inbox-tag set=poc
 ```
 
 - Drop result folders, directories of them, or `.tar` / `.tar.gz` / `.tgz` archives at the top of the inbox.
   An entry is imported once it stayed unchanged for one scan interval (`--interval` / `--inbox-interval`,
   5 s), then moved to `done/`, or to `failed/` with a `.reason.txt`. Upload under a name ending in `.part`,
   `.tmp` or `.partial` and rename when complete; dotfiles and links are ignored.
-- `--registry FILE` (`--inbox-registry` for `serve`, env `BENCHLENS_INBOX_REGISTRY` for both) and `--tag`
+- `--registry FILE` (env `BENCHLENS_REGISTRY`; for `serve` also `registry` in benchlens.toml; the old names
+  `--inbox-registry`, `BENCHLENS_INBOX_REGISTRY` and `inbox_registry` are still accepted) and `--tag`
   (`--inbox-tag`) tag inbox imports as `benchlens import` does, so a run dropped in again keeps its registry
   group. The registry is read again whenever it changes, so rows can be added while the watcher runs; a file
   that no longer parses is reported once and the previous registry stays in use.
@@ -150,7 +153,9 @@ listen = "0.0.0.0:8080"
 token = "..."            # or BENCHLENS_TOKEN; at least 16 characters, e.g. `openssl rand -hex 32`
 read_public = true       # false: reading needs the token too (the page still loads and asks for it)
 max_upload_mb = 256      # largest archive accepted by upload
-# inbox = "/data/inbox"  # optional, with inbox_interval = 5, inbox_registry = "/data/registry.tsv"
+# allowed_hosts = ["bench.example.com"]   # or BENCHLENS_ALLOWED_HOSTS=a,b: Host names served (see below)
+# registry = "/data/registry.tsv"   # tags for inbox imports and uploads (old name: inbox_registry)
+# inbox = "/data/inbox"  # optional, with inbox_interval = 5
 # inbox_tags = { set = "poc" }
 ```
 
@@ -161,12 +166,22 @@ max_upload_mb = 256      # largest archive accepted by upload
   (command lines are visible to other users); the token is never printed.
 - **read_public = false** keeps the data private: every `/api` call except `/api/health` needs the token.
   The server refuses to start like that without a token.
+- **Host names** (DNS rebinding guard): without a token, the server answers only requests addressed to
+  `localhost` or an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port); any other `Host` gets 403.
+  This stops a web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To
+  reach a token-less server by a name (`http://bench.lan:8080`), list it in `allowed_hosts` /
+  `BENCHLENS_ALLOWED_HOSTS`. With a token every name is served, unless `allowed_hosts` is set, which then
+  limits the names in the same way.
 - **Upload**: the Upload button in the web UI, or
   `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
+  The server's `registry`, when set, tags uploaded runs too (tags of the upload win over it).
 - **Reverse proxy**: benchlens speaks plain HTTP; put TLS in front (Caddy, nginx) so the token is not sent in
   the clear, and set a token even when benchlens itself listens on 127.0.0.1 behind the proxy: the proxy makes
-  it reachable from outside, and without a token loopback means "writes open". Allow request bodies of at
-  least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
+  it reachable from outside, and without a token loopback means "writes open". As a safety net, a token-less
+  server refuses writes (403) that carry `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host`, which proxies
+  add; a proxy that sends none of them is not detected, so the token is still needed. With a token, pass the
+  proxy's public name in `allowed_hosts` if you like, or keep the original `Host` (nginx: `proxy_set_header
+  Host $host`). Allow request bodies of at least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
 
 Details: [docs/api.md](docs/api.md#auth).
 

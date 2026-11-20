@@ -48,8 +48,9 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 ## Auth
 
 Settings of `benchlens serve` (flag > `BENCHLENS_*` variable > `benchlens.toml` > default): `token`
-(`BENCHLENS_TOKEN`; no command-line flag) and `read_public` (`--read-public`, `BENCHLENS_READ_PUBLIC`,
-default `true`).
+(`BENCHLENS_TOKEN`; no command-line flag), `read_public` (`--read-public`, `BENCHLENS_READ_PUBLIC`,
+default `true`) and `allowed_hosts` (`BENCHLENS_ALLOWED_HOSTS` as a comma list, a TOML array in the file;
+names only, no scheme or port).
 
 | Configuration | Reads (`/api/...`) | Writes (`PATCH .../tags`, `DELETE /api/runs/{id}`, `POST /api/runs`) |
 |---|---|---|
@@ -58,7 +59,21 @@ default `true`).
 | token, `read_public = true` (default) | open | `Authorization: Bearer <token>`, else **401** |
 | token, `read_public = false` | `Authorization: Bearer <token>`, else **401** | same |
 
-- Always open: `GET /api/health` and the web UI files (everything outside `/api`), so the page and its token
+- **Host check** (DNS rebinding), before anything else and for every path, the web UI files included:
+  without a token, a request is served only when its `Host` (HTTP/2: `:authority`) is `localhost`, an IP
+  address (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or a name in `allowed_hosts`, with any port; anything
+  else is **403** with a JSON error naming `allowed_hosts`. Names are compared without case and without a
+  trailing dot; when a request gives more than one name (two `Host` headers, or an absolute-form target such
+  as `GET http://name/ HTTP/1.1`), every one must pass. A rebinding page (its domain re-pointed at
+  127.0.0.1) sends its own domain as `Host`, so it is refused; an IP address cannot be rebound, and the port
+  is not checked so port mappings (`docker -p 9000:8080`) keep working. With a token every `Host` is served
+  (a rebinding page never sees the token), unless `allowed_hosts` is set: then the same rule applies. A
+  request without `Host` (HTTP/1.0 tools) is served; browsers always send one.
+- **Reverse proxy**: without a token, a write carrying `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host` is
+  **403** ("set a token when serving behind a proxy"): a proxy on the same machine would otherwise make
+  loopback's open writes reachable from outside. Reads through a proxy are not affected; with a token the
+  headers are ignored.
+- Always open (once past the Host check): `GET /api/health` and the web UI files (everything outside `/api`), so the page and its token
   dialog load on a private server. An unknown `/api/...` path is 404 without a token check.
 - 401 bodies are the usual JSON error and carry `WWW-Authenticate: Bearer realm="benchlens"`. The scheme
   `Bearer` is case-insensitive. The token is compared in constant time (SHA-256 of both sides).
@@ -72,8 +87,9 @@ default `true`).
 - `/api/export.html` is a read like the others: with `read_public = false` it needs the token.
 - Kept files (`/api/runs/{id}/files/{name}`) are reads too; on a private server the UI's plain report.md link
   opens in a new tab without the token and gets 401 (known gap, docs/plan.md).
-- A reverse proxy in front of a loopback listener makes it reachable from outside while writes stay open:
-  set a token whenever anything but the local machine can reach the server.
+- A reverse proxy in front of a loopback listener makes it reachable from outside; the forwarded-header check
+  above catches the usual proxies, not all: set a token whenever anything but the local machine can reach the
+  server.
 
 ## Endpoints
 
@@ -132,7 +148,11 @@ curl -H "Authorization: Bearer $BENCHLENS_TOKEN" -F file=@x86-std-r2.tar.gz -F t
 
 The file is streamed to a fresh folder under the system temp dir, counted as it arrives (one byte over
 `max_upload_mb`, default 256 MiB, ends the request with 413; the whole request body may be at most the
-limit plus 256 KiB), then imported with the same code as `benchlens import`, source `upload`. A folder at
+limit plus 256 KiB), then imported with the same code as `benchlens import`, source `upload`. When the
+server has a registry (`registry` in benchlens.toml, `BENCHLENS_REGISTRY`, `--registry`; old name
+`inbox_registry` / `BENCHLENS_INBOX_REGISTRY` / `--inbox-registry` still accepted), it applies to uploads as
+it does to inbox imports: read at every upload, rows matched by result folder name; the upload's `tag` fields
+win over it. A registry that cannot be read or parsed refuses the upload with 500 (nothing imported). A folder at
 the root of the archive is named after the uploaded file name, as with `benchlens import name.tar.gz`. The
 temp folder is removed on every path.
 

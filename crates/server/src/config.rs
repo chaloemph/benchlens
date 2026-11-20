@@ -6,10 +6,11 @@
 //! listen = "0.0.0.0:8080"
 //! inbox = "/data/inbox"        # off when not set
 //! inbox_interval = 5           # seconds
-//! inbox_registry = "/data/registry.tsv"   # tags for inbox imports, read again when it changes
+//! registry = "/data/registry.tsv"   # tags for inbox imports and uploads (old name: inbox_registry)
 //! inbox_tags = { set = "poc" } # tags for every inbox import (win over the registry)
 //! token = "at least 16 characters"
 //! read_public = true           # false: reads need the token too
+//! allowed_hosts = ["bench.example.com"]   # Host names served besides localhost and IP addresses
 //! max_upload_mb = 256
 //! ```
 //!
@@ -63,11 +64,16 @@ pub struct Layer {
     pub listen: Option<String>,
     pub inbox: Option<PathBuf>,
     pub inbox_interval: Option<u64>,
+    /// Registry TSV for inbox imports and uploads.
+    pub registry: Option<PathBuf>,
+    /// The former name of `registry`, still accepted.
     pub inbox_registry: Option<PathBuf>,
     pub inbox_tags: Option<BTreeMap<String, String>>,
     pub token: Option<Token>,
     pub read_public: Option<bool>,
     pub max_upload_mb: Option<u64>,
+    /// `Host` names served besides `localhost` and IP addresses (DNS rebinding guard).
+    pub allowed_hosts: Option<Vec<String>>,
 }
 
 impl<'de> Deserialize<'de> for Token {
@@ -78,8 +84,8 @@ impl<'de> Deserialize<'de> for Token {
 
 impl Layer {
     /// The `BENCHLENS_*` variables, read through `var` (so tests need not touch the process environment):
-    /// `BENCHLENS_DB`, `_LISTEN`, `_INBOX`, `_INBOX_INTERVAL`, `_INBOX_REGISTRY`, `_TOKEN`, `_READ_PUBLIC`,
-    /// `_MAX_UPLOAD_MB`.
+    /// `BENCHLENS_DB`, `_LISTEN`, `_INBOX`, `_INBOX_INTERVAL`, `_REGISTRY` (or the older `_INBOX_REGISTRY`),
+    /// `_TOKEN`, `_READ_PUBLIC`, `_MAX_UPLOAD_MB`, `_ALLOWED_HOSTS` (comma list).
     /// An empty variable counts as not set.
     pub fn from_env(var: impl Fn(&str) -> Option<String>) -> Result<Layer> {
         let get = |k: &str| var(k).filter(|v| !v.is_empty());
@@ -97,6 +103,7 @@ impl Layer {
             listen: get("BENCHLENS_LISTEN"),
             inbox: get("BENCHLENS_INBOX").map(PathBuf::from),
             inbox_interval: num("BENCHLENS_INBOX_INTERVAL")?,
+            registry: get("BENCHLENS_REGISTRY").map(PathBuf::from),
             inbox_registry: get("BENCHLENS_INBOX_REGISTRY").map(PathBuf::from),
             inbox_tags: None,
             token: get("BENCHLENS_TOKEN").map(Token),
@@ -104,6 +111,8 @@ impl Layer {
                 .map(|v| parse_bool("BENCHLENS_READ_PUBLIC", &v))
                 .transpose()?,
             max_upload_mb: num("BENCHLENS_MAX_UPLOAD_MB")?,
+            allowed_hosts: get("BENCHLENS_ALLOWED_HOSTS")
+                .map(|v| v.split(',').map(str::to_string).collect()),
         })
     }
 
@@ -113,6 +122,9 @@ impl Layer {
             toml::from_str(text).map_err(|e| anyhow::anyhow!("{}", e.message()))?;
         if layer.token.as_ref().is_some_and(|t| t.0.is_empty()) {
             layer.token = None;
+        }
+        if layer.registry.is_some() && layer.inbox_registry.is_some() {
+            bail!("give `registry` or its old name `inbox_registry`, not both");
         }
         Ok(layer)
     }
@@ -138,6 +150,23 @@ fn parse_bool(what: &str, v: &str) -> Result<bool> {
     }
 }
 
+/// Clean up `allowed_hosts`: trimmed, lower case, empty entries dropped; a scheme, path or port is an error.
+fn check_hosts(list: Vec<String>) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for h in list {
+        let h = h.trim().trim_end_matches('.').to_ascii_lowercase();
+        if h.is_empty() {
+            continue;
+        }
+        // IP addresses are always served, so only names make sense here
+        if h.contains(['/', ':', '[', ']']) || h.chars().any(char::is_whitespace) {
+            bail!("allowed_hosts: {h:?} is not a host name; give names such as bench.example.com, without scheme or port (IP addresses are always served)");
+        }
+        out.push(h);
+    }
+    Ok(out)
+}
+
 /// Where the config file is: the `--config` / `BENCHLENS_CONFIG` value if any (must exist), else
 /// `./benchlens.toml` when present.
 pub fn config_path(flag_or_env: Option<PathBuf>) -> (PathBuf, bool) {
@@ -154,13 +183,15 @@ pub struct Settings {
     pub listen: SocketAddr,
     pub inbox: Option<PathBuf>,
     pub inbox_interval: Duration,
-    /// Registry TSV for inbox imports, read again when it changes.
-    pub inbox_registry: Option<PathBuf>,
+    /// Registry TSV for inbox imports (read again when it changes) and uploads (read at every upload).
+    pub registry: Option<PathBuf>,
     /// Tags for every run the inbox imports (they win over the registry).
     pub inbox_tags: BTreeMap<String, String>,
     pub token: Option<Token>,
     pub read_public: bool,
     pub max_upload_bytes: u64,
+    /// `Host` names served besides `localhost` and IP addresses: lower case, no port.
+    pub allowed_hosts: Vec<String>,
 }
 
 impl Settings {
@@ -200,16 +231,22 @@ impl Settings {
         for (k, v) in &inbox_tags {
             benchlens_core::store::check_tag(k, v).context("inbox_tags")?;
         }
+        let allowed_hosts = check_hosts(pick!(allowed_hosts).unwrap_or_default())?;
+        // within one layer `registry` wins over its old name; a flag of either name beats the environment
+        let registry = layers
+            .iter()
+            .find_map(|l| l.registry.clone().or_else(|| l.inbox_registry.clone()));
         Ok(Settings {
             db: pick!(db).unwrap_or_else(|| PathBuf::from(DEFAULT_DB)),
             listen,
             inbox: pick!(inbox),
             inbox_interval: Duration::from_secs(secs.max(1)),
-            inbox_registry: pick!(inbox_registry),
+            registry,
             inbox_tags,
             token,
             read_public,
             max_upload_bytes: mb * 1024 * 1024,
+            allowed_hosts,
         })
     }
 
@@ -396,7 +433,7 @@ mod tests {
         )
         .unwrap();
         let s = Settings::resolve(&Layer::default(), &Layer::default(), &file).unwrap();
-        assert_eq!(s.inbox_registry, Some(PathBuf::from("file.tsv")));
+        assert_eq!(s.registry, Some(PathBuf::from("file.tsv")));
         assert_eq!(s.inbox_tags.get("set").map(String::as_str), Some("poc"));
         let s = Settings::resolve(
             &Layer::default(),
@@ -404,7 +441,7 @@ mod tests {
             &file,
         )
         .unwrap();
-        assert_eq!(s.inbox_registry, Some(PathBuf::from("env.tsv")));
+        assert_eq!(s.registry, Some(PathBuf::from("env.tsv")));
         let flags = Layer {
             inbox_tags: Some(BTreeMap::from([("set".to_string(), "flag".to_string())])),
             ..Layer::default()
@@ -413,6 +450,62 @@ mod tests {
         assert_eq!(s.inbox_tags.len(), 1, "flags replace the file's tags");
         let bad = Layer::from_toml("inbox_tags = { \"bad key\" = \"x\" }").unwrap();
         assert!(Settings::resolve(&Layer::default(), &Layer::default(), &bad).is_err());
+    }
+
+    #[test]
+    fn registry_and_its_old_name() {
+        let file = Layer::from_toml("registry = \"new.tsv\"\n").unwrap();
+        let s = Settings::resolve(&Layer::default(), &Layer::default(), &file).unwrap();
+        assert_eq!(s.registry, Some(PathBuf::from("new.tsv")));
+        assert!(Layer::from_toml("registry = \"a.tsv\"\ninbox_registry = \"b.tsv\"\n").is_err());
+        // the environment beats the file, whichever name each uses
+        let s = Settings::resolve(
+            &Layer::default(),
+            &env(&[("BENCHLENS_INBOX_REGISTRY", "old-env.tsv")]),
+            &file,
+        )
+        .unwrap();
+        assert_eq!(s.registry, Some(PathBuf::from("old-env.tsv")));
+        let s = Settings::resolve(
+            &Layer::default(),
+            &env(&[
+                ("BENCHLENS_INBOX_REGISTRY", "old-env.tsv"),
+                ("BENCHLENS_REGISTRY", "env.tsv"),
+            ]),
+            &file,
+        )
+        .unwrap();
+        assert_eq!(s.registry, Some(PathBuf::from("env.tsv")));
+    }
+
+    #[test]
+    fn allowed_hosts() {
+        let s = Settings::resolve(
+            &Layer::default(),
+            &env(&[("BENCHLENS_ALLOWED_HOSTS", " Bench.LAN, ,bench.example.com.")]),
+            &Layer::default(),
+        )
+        .unwrap();
+        assert_eq!(s.allowed_hosts, ["bench.lan", "bench.example.com"]);
+        let file = Layer::from_toml("allowed_hosts = [\"a.example\"]").unwrap();
+        let s = Settings::resolve(&Layer::default(), &Layer::default(), &file).unwrap();
+        assert_eq!(s.allowed_hosts, ["a.example"]);
+        for bad in [
+            "http://a.example",
+            "a.example:8080",
+            "a.example/x",
+            "a b",
+            "[::1]",
+        ] {
+            let l = Layer {
+                allowed_hosts: Some(vec![bad.to_string()]),
+                ..Layer::default()
+            };
+            assert!(
+                Settings::resolve(&l, &Layer::default(), &Layer::default()).is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]

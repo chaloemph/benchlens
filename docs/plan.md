@@ -112,11 +112,11 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 |---|---|---|---|
 | F12 | `has_report` (or the `files` list) in `RunSummary`, so the Runs view needs no RunDetail request per row for the report.md link. API change: api.md, core, UI. | core, server, web | W |
 | F13 | On a private server (`read_public = false`) the report.md link opens in a new tab without the token and gets 401: fetch it with the token into a blob, or offer a short-lived signed link. | web | L (C2 review) |
-| F14 | DNS rebinding against a loopback server without a token: any `Host` is accepted, so a rebinding page is same-origin and can read and write. Accept only localhost / 127.0.0.1 / [::1] as `Host` in no-token mode, or always require a token. | server auth | L (C2 review) |
-| F15 | Reverse proxy on the same host: loopback without a token means "writes open". Documented in the README; consider refusing open writes when `Forwarded` / `X-Forwarded-For` is present. | server auth | L (C2 review) |
-| F16 | Uploads get no registry: an uploaded run without a `group` tag lands in its automatic group. Apply the server's `inbox_registry` to uploads too (and say so in the dialog). | server upload | L (E2E) |
+| F14 (done, S) | DNS rebinding against a loopback server without a token: any `Host` is accepted, so a rebinding page is same-origin and can read and write. Accept only localhost / 127.0.0.1 / [::1] as `Host` in no-token mode, or always require a token. Done: without a token only `localhost`, IP addresses and `allowed_hosts` are served (403 otherwise); with a token, `allowed_hosts` when set. | server auth | L (C2 review) |
+| F15 (done, S) | Reverse proxy on the same host: loopback without a token means "writes open". Documented in the README; consider refusing open writes when `Forwarded` / `X-Forwarded-For` is present. Done: open writes carrying `Forwarded` / `X-Forwarded-For` / `X-Forwarded-Host` are 403. | server auth | L (C2 review) |
+| F16 (done, S) | Uploads get no registry: an uploaded run without a `group` tag lands in its automatic group. Apply the server's `inbox_registry` to uploads too (and say so in the dialog). Done: setting renamed `registry` (`inbox_registry` kept as an alias), read at every upload, form tags win. | server upload | L (E2E) |
 | F17 | The compare picker has no control for `group:NAME@KEY=VALUE` sides (only quick picks and links make them); a "split this group by tag" control. | web | L (K review) |
-| F18 | `benchlens compare ... \| head` panics with "failed printing to stdout: Broken pipe"; exit quietly on EPIPE. | cli | L (E2E) |
+| F18 (done, S) | `benchlens compare ... \| head` panics with "failed printing to stdout: Broken pipe"; exit quietly on EPIPE. Done: every command but `serve` restores the default SIGPIPE action and ends quietly by SIGPIPE (shell status 141). | cli | L (E2E) |
 
 ## Wave 2: done, integrated by L in `integration/wave2`
 

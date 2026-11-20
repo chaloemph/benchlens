@@ -19,7 +19,8 @@ services:
       # Inbox: result folders and .tar/.tar.gz archives dropped into ./inbox are imported, then moved to
       # ./inbox/done or ./inbox/failed. Uncomment this and the mount below; ./inbox must be writable by uid 65532.
       # BENCHLENS_INBOX: /data/inbox
-      # BENCHLENS_INBOX_REGISTRY: /data/inbox-registry.tsv   # tags for inbox imports (a mounted file)
+      # BENCHLENS_REGISTRY: /data/registry.tsv   # tags for inbox imports and uploads (a mounted file)
+      # BENCHLENS_ALLOWED_HOSTS: bench.lan       # without a token, Host names served besides localhost and IPs
     volumes:
       - benchlens-data:/data
       # - ./inbox:/data/inbox
