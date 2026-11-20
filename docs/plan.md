@@ -3,8 +3,8 @@
 Status 2026-11-20: **M1 done** (commit 298860c): core library, CLI, SQLite store, golden tests against vmbench.
 **T0 done** (PR #1). **Wave 1 done** (A, B, C1, E, F reviewed and integrated in `integration/wave1`; V in a
 vmbench PR); reviews in `docs/reviews/wave1-*.md`. **Wave 2 done** (K, I, C2, D, W, AB reviewed and integrated
-in `integration/wave2`); reviews in `docs/reviews/wave2-*.md`. With it **M2, M3 and M4 are complete**; what
-remains for `v0.1.0` is F4, the release dry run (see its row), then tagging. Follow-ups below.
+in `integration/wave2`); reviews in `docs/reviews/wave2-*.md`. With it **M2, M3 and M4 are complete**; the F4
+release dry run passed; what remains for `v0.1.0` is tagging it after the merge. Follow-ups below.
 Background and decisions: `PLAN-dashboard.md` in the performance-benchmark workspace (Thai). This file is
 the working plan for whoever builds the rest, person or agent.
 
@@ -97,7 +97,7 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 | F1 (done, K) | Group-subset reference such as `group:NAME@tag=value` (pooled runs of a group with one tag value), so "round 1 vs 2" compares pooled rounds; then switch B's quick picks to it. Contract change: api.md, core `resolve`, UI. | core, server, web | B |
 | F2 (done, K) | Distinguish ambiguous references in core (`Error::Ambiguous`, 400 or 409 instead of 404 with a message). | core, server, api.md | A |
 | F3 (done, I) | `benchlens watch`: stop cleanly on Ctrl-C between scans (the `stop` flag exists). | cli | C1 |
-| F4 | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F |
+| F4 (dry run done, L) | Release workflow dry run (`workflow_dispatch` on GitHub) before tagging v0.1.0: five targets, checksums, multi-arch image. | release.yml | F Dry run 2026-11-20 on `integration/wave2` (run 44670841928): all five targets built and packaged, SHA256SUMS made, multi-arch image built (not pushed); the first run failed in the docker job (registry cache race, fixed in the Dockerfile). Left: tag `v0.1.0` after the merge. |
 | F5 | The real part number of the POC's HiSilicon CPU: rerun the `info` stage of vmbench (with `hw/cpu-id.txt`) on one ARM VM, add the part to `ARM_PARTS` if it is certain. | vmbench | V |
 | F6 (done, I) | Inbox imports with tags: `--registry` for `watch` / `serve --inbox` (a re-imported run now loses its registry group). | core inbox, cli | L (E2E) |
 | F7 (done, K) | `v_values` excludes stages with `LIKE` on a section read from results.tsv; use `instr()` (needs a DB layout bump, the view is `IF NOT EXISTS`). | core store | L |
@@ -129,7 +129,7 @@ K (F1, F2, F7, F10), I (F3, F6, F11) and W (F8) took the Wave 1 follow-ups; C2, 
 | **AB** (done) | Integration pass: B against the real A, fix contract drift, end-to-end test (start server on fixtures, fetch every page's data). | small fixes in both | A, B | E2E test in CI |
 
 **M2** = T0 + A + B + AB. **M3** = C1 + C2. **M4** = E + D. Release `v0.1.0` after M4 with F. All three are
-complete with Wave 2; F4 (release dry run) is the last step before tagging `v0.1.0`.
+complete with Wave 2 and the F4 dry run passed; tagging `v0.1.0` is the last step.
 
 ## L: lead review, refactor and integration (after every wave)
 
