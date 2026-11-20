@@ -4,6 +4,44 @@ All notable changes to benchlens. Versions follow [semantic versioning](https://
 version is 0.x, a minor release may change the API, the CLI or the database layout (layouts are migrated
 automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
+## [Unreleased]
+
+### Security
+
+- On a loopback address (`127.0.0.1`, `::1`) the server now checks the `Host` header also when a token is
+  set: only `localhost`, IP addresses and `allowed_hosts` are served, anything else is 403. Before, with a
+  token any `Host` was served, so a DNS rebinding page could read the data that `read_public = true` makes
+  public from a server on 127.0.0.1 (it could not write). A reverse proxy on the same host that passes its
+  public name as `Host` (Caddy by default, nginx with `proxy_set_header Host $host`) needs that name in
+  `allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS`; the 403 names the exact setting. Non-loopback listeners are
+  unchanged.
+- Grafana (compose profile `grafana`): anonymous access is off by default (`GRAFANA_ANONYMOUS` defaults to
+  `false`), so a login is needed. Grafana reads the database directly and bypasses benchlens' token and
+  `read_public`; set `GRAFANA_ANONYMOUS=true` only on a local machine, and change the default `admin`
+  password with `GRAFANA_ADMIN_PASSWORD`.
+
+### Changed
+
+- **Behaviour change** (from the Host check above): with a token on a loopback address, opening the server by
+  a name other than `localhost` (an `/etc/hosts` alias, a tunnel or same-host proxy that passes another name as
+  `Host`) now gets 403 until that name is in `allowed_hosts`. `localhost` and IP addresses work as before.
+  Docker containers listen on 0.0.0.0 and are not affected; set `BENCHLENS_ALLOWED_HOSTS=localhost` there to
+  get the same check.
+- The start-up line `Host names served:` reflects the loopback Host check (`localhost, IP addresses` on
+  loopback with a token, where 0.1.0 printed `any`).
+- The Host-check 403 says exactly what to set (`allowed_hosts = ["name"]` / `BENCHLENS_ALLOWED_HOSTS=name`)
+  and suggests a token only where a token would help.
+
+### CI
+
+- Release notes come from the tag's section of this file (`scripts/release-notes.sh`) instead of GitHub's
+  generated notes; a missing, empty or "unreleased" section fails the release before anything is built or
+  pushed, and the dry run prints the notes.
+- New CI job `msrv`: `cargo check --locked --workspace --all-targets` with the workspace `rust-version`
+  (1.89), read from `Cargo.toml`.
+- The release's `notes` job also checks that the tag matches the workspace version, so a mismatched tag fails
+  before any build.
+
 ## [0.1.0] - 2026-11-20
 
 First public release.

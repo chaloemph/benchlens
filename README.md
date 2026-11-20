@@ -107,7 +107,7 @@ docker compose build                 # build the image locally instead of pullin
 
 ### Grafana
 
-The compose profile `grafana` adds Grafana (port 3000 on 127.0.0.1, anonymous viewers) with the benchlens database mounted
+The compose profile `grafana` adds Grafana (port 3000 on 127.0.0.1, login required) with the benchlens database mounted
 read-only and three dashboards: a metric over time per group, group vs group (mean, min, max, n), and the runs
 with tags, vmbench version and failed stages.
 
@@ -117,9 +117,12 @@ BENCHLENS_TOKEN=$(openssl rand -hex 32) GRAFANA_ADMIN_PASSWORD=change-me docker 
 
 Grafana shows means and ranges (SQLite has no median); verdicts (better / worse / within noise) are decided
 by benchlens only. Grafana reads the live database (SQLite WAL on a read-only mount), also while benchlens is
-stopped. The defaults (admin password `admin`, anonymous viewers, port on 127.0.0.1) are for a local machine;
-on a server set `GRAFANA_ADMIN_PASSWORD`, consider `GRAFANA_ANONYMOUS=false`, then publish the port with
-`GRAFANA_BIND=0.0.0.0`. Details, versions and limits: [deploy/grafana/README.md](deploy/grafana/README.md).
+stopped. Log in as `admin` / `$GRAFANA_ADMIN_PASSWORD`. **The admin password defaults to `admin`: change it**
+by setting `GRAFANA_ADMIN_PASSWORD` before the first start (Grafana keeps the first one). Anonymous viewers are
+off; `GRAFANA_ANONYMOUS=true` turns them on, for a local machine only. Grafana does not apply benchlens' token or
+`read_public`: anyone who can use Grafana sees every run, so do not expose it for a private benchlens. Publish
+the port with `GRAFANA_BIND=0.0.0.0` only with a real password. Details, versions and limits:
+[deploy/grafana/README.md](deploy/grafana/README.md).
 
 ## Running on a server
 
@@ -145,12 +148,13 @@ max_upload_mb = 256      # largest archive accepted by upload
   (command lines are visible to other users); the token is never printed.
 - **read_public = false** keeps the data private: every `/api` call except `/api/health` needs the token.
   The server refuses to start like that without a token.
-- **Host names** (DNS rebinding guard): without a token, the server answers only requests addressed to
-  `localhost` or an IP address (`127.0.0.1`, `[::1]`, `192.168.1.5`, any port); any other `Host` gets 403.
-  This stops a web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To
-  reach a token-less server by a name (`http://bench.lan:8080`), list it in `allowed_hosts` /
-  `BENCHLENS_ALLOWED_HOSTS`. With a token every name is served, unless `allowed_hosts` is set, which then
-  limits the names in the same way (set it if public reads of a local server must not reach web pages).
+- **Host names** (DNS rebinding guard): on a loopback address (with or without a token) and on any address
+  without a token, the server answers only requests addressed to `localhost` or an IP address (`127.0.0.1`,
+  `[::1]`, `192.168.1.5`, any port); any other `Host` gets 403, and the error says what to set. This stops a
+  web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To reach the
+  server by a name (`http://bench.lan:8080`, or a proxy's public name), list it in `allowed_hosts` /
+  `BENCHLENS_ALLOWED_HOSTS`. On a non-loopback address with a token every name is served, unless
+  `allowed_hosts` is set, which then limits the names in the same way.
 - **Upload**: the Upload button in the web UI, or
   `curl -H "Authorization: Bearer $TOKEN" -F file=@results.tar.gz -F tag=round=2 http://host:8080/api/runs`.
   The server's `registry`, when set, tags uploaded runs too (tags of the upload win over it).
@@ -158,9 +162,10 @@ max_upload_mb = 256      # largest archive accepted by upload
   the clear, and set a token even when benchlens itself listens on 127.0.0.1 behind the proxy: the proxy makes
   it reachable from outside, and without a token loopback means "writes open". As a safety net, a token-less
   server refuses writes (403) that carry `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host`, which proxies
-  add; a proxy that sends none of them is not detected, so the token is still needed. With a token, pass the
-  proxy's public name in `allowed_hosts` if you like, or keep the original `Host` (nginx: `proxy_set_header
-  Host $host`). Allow request bodies of at least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
+  add; a proxy that sends none of them is not detected, so the token is still needed. A proxy on the same
+  machine that passes its public name as `Host` (Caddy by default; nginx with `proxy_set_header Host $host`)
+  needs that name in `allowed_hosts` (`BENCHLENS_ALLOWED_HOSTS=bench.example.org`), since benchlens on
+  127.0.0.1 checks the `Host` also with a token; nginx's default `Host` (the upstream IP) is served. Allow request bodies of at least `max_upload_mb` in the proxy (nginx: `client_max_body_size`).
 
 Details: [docs/api.md](docs/api.md#auth).
 

@@ -181,6 +181,69 @@ async fn token_mode_serves_any_host_unless_allowed_hosts_is_set() {
     );
 }
 
+/// F19: on a loopback listener the Host check applies also with a token, so a DNS rebinding page cannot read
+/// public data from 127.0.0.1; non-loopback listeners keep serving any Host with a token.
+#[tokio::test]
+async fn loopback_with_token_checks_host() {
+    let lo = "127.0.0.1:8080".parse().unwrap();
+    for read_public in [true, false] {
+        let st = with_access(Access::for_listen(Some(Token::new(TOKEN)), read_public, lo));
+        for path in ["/", "/api/health", "/api/runs"] {
+            let r = get(&st, path, "evil.example:8080").await;
+            assert_eq!(r.status, StatusCode::FORBIDDEN, "{path}: {}", r.body);
+            let j = r.json();
+            assert!(
+                j["detail"]
+                    .as_str()
+                    .unwrap()
+                    .contains(r#"allowed_hosts = ["evil.example"]"#),
+                "{j}"
+            );
+        }
+        for h in ["localhost:8080", "127.0.0.1:8080", "[::1]:8080"] {
+            assert_eq!(
+                get(&st, "/api/health", h).await.status,
+                StatusCode::OK,
+                "{h}"
+            );
+        }
+    }
+    let st = with_access(Access::for_listen(Some(Token::new(TOKEN)), true, lo));
+    assert_eq!(
+        get(&st, "/api/runs", "localhost:8080").await.status,
+        StatusCode::OK
+    );
+    // a write with the token but a foreign Host is refused before the token is looked at
+    let auth = format!("Bearer {TOKEN}");
+    let r = send(
+        &st,
+        upload_req(
+            &[
+                ("host", "evil.example:8080"),
+                ("authorization", auth.as_str()),
+            ],
+            &[],
+        ),
+    )
+    .await;
+    assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+    // a reverse proxy on this machine that passes its public name: allowed_hosts
+    let st = with_access(
+        Access::for_listen(Some(Token::new(TOKEN)), true, lo)
+            .with_allowed_hosts(["bench.example.com".to_string()]),
+    );
+    assert_eq!(
+        get(&st, "/api/runs", "bench.example.com").await.status,
+        StatusCode::OK
+    );
+    // non-loopback with a token: any Host
+    let any = "0.0.0.0:8080".parse().unwrap();
+    let st = with_access(Access::for_listen(Some(Token::new(TOKEN)), true, any));
+    for h in ["evil.example:8080", "bench.example.com", "localhost"] {
+        assert_eq!(get(&st, "/api/runs", h).await.status, StatusCode::OK, "{h}");
+    }
+}
+
 #[tokio::test]
 async fn open_writes_through_a_proxy_are_refused() {
     let st = local();

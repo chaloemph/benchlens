@@ -50,11 +50,14 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
     page the local user visits cannot upload to a local server;
   - without a token, a write that carries `Forwarded`, `X-Forwarded-For` or `X-Forwarded-Host` is refused
     (403): it came through a reverse proxy, where "local" no longer means local.
-- **DNS rebinding**: without a token, a request is served only when its `Host` (and the authority of the
-  request target, if any) is `localhost`, an IP address or a name in `allowed_hosts`, any port; anything else
-  is 403, for the web UI files and the API alike. A page whose domain an attacker re-points at 127.0.0.1
-  sends that domain as `Host` and is refused; an IP address cannot be re-pointed. With a token, any `Host`
-  is served unless `allowed_hosts` is set.
+- **DNS rebinding**: on a loopback listener (with or without a token) and on any listener without a token, a
+  request is served only when its `Host` (and the authority of the request target, if any) is `localhost`,
+  an IP address or a name in `allowed_hosts`, any port; anything else is 403, for the web UI files and the
+  API alike. A page whose domain an attacker re-points at 127.0.0.1 sends that domain as `Host` and is
+  refused, so it can neither write nor read the public data of a local server; an IP address cannot be
+  re-pointed. A reverse proxy on the same host that passes its public name as `Host` needs that name in
+  `allowed_hosts` (the 403 names the setting). On a non-loopback listener with a token, any `Host` is served
+  unless `allowed_hosts` is set.
 - **Reads**: open by default. With `read_public = false`, every `/api` call except `/api/health` needs the
   token, including the export endpoint and kept files (the web UI fetches `report.md` with the token). The
   server refuses to start with `read_public = false` and no token.
@@ -78,10 +81,14 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   a token means "writes open". The forwarded-header check above catches proxies that add those headers, not
   one that adds none (nginx's plain `proxy_pass`). Always set a token when anything but the local machine
   can reach the server.
-- **DNS rebinding with a token and public reads**: with a token, any `Host` is served (the token itself is
-  safe: a rebinding page never sees it), so a rebinding page can read what `read_public = true` makes
-  public, also from a server on 127.0.0.1. Set `allowed_hosts` (or `read_public = false`) if the data of a
-  local server must not reach web pages the user visits.
+- **DNS rebinding with a token on a non-loopback address**: there any `Host` is served unless
+  `allowed_hosts` is set (the token itself is safe: a rebinding page never sees it), so a rebinding page in
+  the browser of a user on the same network can read what `read_public = true` makes public. Set
+  `allowed_hosts` (or `read_public = false`) if that matters. Loopback listeners check the `Host` also with
+  a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
+  **Docker counts as non-loopback**: the container listens on 0.0.0.0, so a token-protected container whose
+  port is published (also as `127.0.0.1:8080:8080`) serves any `Host`. Set `BENCHLENS_ALLOWED_HOSTS=localhost`
+  (or the names you use) to turn the check on there; `localhost` and IP addresses are always served.
 - **Anyone with the token can do everything**: upload, retag, delete. There is no audit log beyond each
   run's `source` (`cli`, `inbox`, `upload`) and import time.
 - **Reads are public by default.** Benchmark results and `hardware.json` (CPU model, memory, disks; vmbench
@@ -91,10 +98,12 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   "open in new tab") is a plain request without the token and gets 401: it fails closed, it does not leak.
   A plain click shows the file in the page, fetched with the token.
 - **Grafana** (compose profile `grafana`) reads the database read-only, but its defaults are for one
-  machine: admin password `admin` unless `GRAFANA_ADMIN_PASSWORD` is set, anonymous viewers, port 3000 on
-  127.0.0.1. Before publishing the port (`GRAFANA_BIND`), set a real password and decide on anonymous
-  access ([deploy/grafana/README.md](deploy/grafana/README.md)). Grafana has its own users, separate from
-  the benchlens token, and it can show every run, also on a benchlens server with `read_public = false`.
+  machine: admin password `admin` unless `GRAFANA_ADMIN_PASSWORD` is set (change it), port 3000 on
+  127.0.0.1. Anonymous viewers are off unless `GRAFANA_ANONYMOUS=true` (they were on by default in 0.1.0).
+  Before publishing the port (`GRAFANA_BIND`), set a real password and keep anonymous access off
+  ([deploy/grafana/README.md](deploy/grafana/README.md)). Grafana has its own users, separate from the
+  benchlens token, and bypasses `read_public`: it can show every run and run any read-only SQL, also for a
+  benchlens server with `read_public = false`. Do not expose it for a private benchlens.
 - **The database file** is not encrypted; protect it with file permissions. Anyone who can write it can
   change any result.
 - **The inbox folder** imports whatever is placed in it: whoever can write there can add runs (archives are

@@ -124,10 +124,12 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 
 | ID | Follow-up | Where | From |
 |---|---|---|---|
-| F19 | With a token and `read_public = true`, any `Host` is served, so a DNS rebinding page can read (not write) the public data of a server on 127.0.0.1. Documented (SECURITY.md); consider applying the Host check by default when listening on loopback, also with a token (mind proxies that pass the public name). | server auth | L (S review) |
-| F20 | Grafana's anonymous Viewer can send any read-only SQL to the benchlens database (`/api/ds/query`), so Grafana shows everything even when benchlens has `read_public = false`. Documented; consider `GRAFANA_ANONYMOUS` defaulting to false when benchlens is private, or a note in the compose file. | deploy/grafana | L (G review) |
-| F21 | The release notes come from `gh release create --generate-notes`; consider using the CHANGELOG section of the tag instead. | release.yml | L |
-| F22 | No MSRV job in CI: `rust-version = 1.89` (workspace; rules 1.80, wasm 1.81 on purpose) is only checked by hand (`cargo +1.89 check --locked --all-targets` passed on `integration/wave3`). Add a CI job with the 1.89 toolchain. | ci.yml | L |
+| F19 (done, M4) | With a token and `read_public = true`, any `Host` is served, so a DNS rebinding page can read (not write) the public data of a server on 127.0.0.1. Documented (SECURITY.md); consider applying the Host check by default when listening on loopback, also with a token (mind proxies that pass the public name). Done: a loopback listener checks the `Host` also with a token (`localhost`, IP addresses, `allowed_hosts`); the 403 names the exact `allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS` setting for the refused name (for a proxy on the same host that passes its public name); non-loopback listeners unchanged. Reviewed by L (docs/reviews/m4-followups.md): Docker (0.0.0.0) is not covered, documented with `BENCHLENS_ALLOWED_HOSTS=localhost` (F23). | server auth | L (S review) |
+| F20 (done, M4) | Grafana's anonymous Viewer can send any read-only SQL to the benchlens database (`/api/ds/query`), so Grafana shows everything even when benchlens has `read_public = false`. Documented; consider `GRAFANA_ANONYMOUS` defaulting to false when benchlens is private, or a note in the compose file. Done: `GRAFANA_ANONYMOUS` defaults to false (login needed; `GRAFANA_ANONYMOUS=true` to opt in on a local machine); README, guide, SECURITY.md and deploy/grafana/README.md say to change the `admin` password and that Grafana bypasses `read_public`. Checked with `docker compose --profile grafana up -d`: anonymous 401 / redirect to login, admin login works. | deploy/grafana | L (G review) |
+| F21 (done, M4) | The release notes come from `gh release create --generate-notes`; consider using the CHANGELOG section of the tag instead. Done: `scripts/release-notes.sh VERSION` extracts the `## [X.Y.Z]` section (fails when missing, empty or "unreleased"); release.yml runs it in a first job `notes` (build, docker and release wait for it), prints the notes (also on the dry run) and uses them with `--notes-file`. | release.yml | L |
+| F22 (done, M4) | No MSRV job in CI: `rust-version = 1.89` (workspace; rules 1.80, wasm 1.81 on purpose) is only checked by hand (`cargo +1.89 check --locked --all-targets` passed on `integration/wave3`). Add a CI job with the 1.89 toolchain. Done: CI job `msrv` reads `rust-version` from `[workspace.package]` and runs `cargo check --locked --workspace --all-targets` with that toolchain. | ci.yml | L |
+| F23 | Docker: the container listens on 0.0.0.0, so with a token it serves any `Host` (F19 covers loopback listeners only) and a rebinding page can read public data through a published port, also `127.0.0.1:8080:8080`. Documented with the workaround `BENCHLENS_ALLOWED_HOSTS=localhost` (SECURITY.md, CHANGELOG, compose comment); consider setting it in docker-compose.yml by default, or a `--host-check` switch. | docker-compose.yml, server auth | L (M4 review) |
+| F24 | A listen address in IPv4-mapped form (`[::ffff:127.0.0.1]`) is not treated as loopback (`Ipv6Addr::is_loopback` is false for it): with a token any `Host` is served, without one writes are closed. Fail-safe for writes, and an unusual way to listen; consider `ip.to_canonical().is_loopback()` in `Access::for_listen`, `ServeConfig` validation and the start-up message together. | server auth | L (M4 review) |
 
 ## Wave 2: done, integrated by L in `integration/wave2`
 
@@ -180,11 +182,14 @@ the owner:
 
 1. Merge the Wave 3 PR into `main` (optionally first set the date in CHANGELOG's `[0.1.0]` heading in the PR;
    the GitHub release shows the date either way).
+   For later releases: rename CHANGELOG's `[Unreleased]` section to `## [X.Y.Z] - YYYY-MM-DD` and set the
+   workspace version; `scripts/release-notes.sh X.Y.Z` must print the notes (the release fails otherwise).
 2. Tag the merge commit and push the tag:
    `git fetch origin && git tag -a v0.1.0 -m "benchlens v0.1.0" origin/main && git push origin v0.1.0`
    (check first that `origin/main` is the merge commit: `git log -1 origin/main`).
 3. `release.yml` does the rest: it checks the tag against the workspace version, builds the five targets,
-   writes `SHA256SUMS`, creates the GitHub release with the archives, and pushes the multi-arch image
+   writes `SHA256SUMS`, creates the GitHub release with the archives (since 0.1.1 with the tag's CHANGELOG
+   section as notes; 0.1.0 used `--generate-notes`), and pushes the multi-arch image
    `ghcr.io/chaloemph/benchlens` (`0.1.0`, `0.1`, `latest`, `sha-...`). Watch it with
    `gh run watch $(gh run list --workflow release.yml -L1 --json databaseId -q '.[0].databaseId') --exit-status`.
 4. After it: make the ghcr package public if it is not (GitHub, package settings), and check
