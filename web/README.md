@@ -19,7 +19,7 @@ All state is in the query string, so any page can be shared as a link:
 |---|---|---|
 | Compare | `/api/groups`, `/api/runs`, `/api/compare` | baseline picker, compare-with checkboxes (groups and single runs), quick picks derived from the data, takeaway sentence, API warnings, tally table, heatmap (section filter incl. key metrics; sysbench across architectures hatched and not counted) |
 | Metric | `/api/compare`, `/api/values` | dot plot of every raw value per side, coloured by the run's `round` tag (or by run), median tick from the comparison, axis not from zero; statistics table |
-| Runs | `/api/runs`, `PATCH /api/runs/{id}/tags`, `DELETE /api/runs/{id}` | search and filters, tags with inline editing, delete with confirmation, report.md link, flags for failed stages / excluded stages / no metric table |
+| Runs | `/api/runs`, `/api/runs/{id}`, `PATCH /api/runs/{id}/tags`, `DELETE /api/runs/{id}` | search and filters, tags with inline editing (drafts survive re-renders), delete with confirmation, report.md link when the run kept one (`/api/runs/{id}` file list, fetched when the row scrolls into view), flags for failed stages / excluded stages / no metric table |
 | Hardware | `/api/runs/{id}` | run facts and hardware.json of the selected runs side by side, rows that differ highlighted |
 
 The UI never computes medians, CV, differences or verdicts: every number is shown as `/api/compare` returns
@@ -79,7 +79,11 @@ NODE_PATH=/path/to/node_modules node web/dev/smoke.mjs http://127.0.0.1:8080 /tm
 ```
 
 It opens every view at 1280 and 400 px in light and dark, saves screenshots, fails on page errors or sideways
-page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. Other sides:
+page scroll, and checks that the tally table and every heatmap cell match the CLI's JSON. In the runs view it
+checks that a tag draft survives a re-render, a ticked checkbox and a filter change, that report.md is linked
+exactly for the runs whose file list has it (at least one must, and the folder named by `NO_REPORT`, default
+`x86-std-r2-20261119-103253`, must not: the fixtures keep no report.md, so add one to copies of the other
+folders before importing), and the delete dialog's wording. Other sides:
 `SIDES='base=...&other=...'` (the fixtures alone have no `x86-med` group: use
 `SIDES='base=group:x86-high&other=group:arm64-high'` then).
 

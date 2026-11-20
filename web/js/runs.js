@@ -1,13 +1,24 @@
 // Runs view: every run with search and filters, tags (inline editing via PATCH), delete, report.md link.
+//
+// The table is rebuilt on every render (checkbox, filter, reload after a write). Open tag forms keep their
+// draft in `drafts` (run id -> rows typed so far) and the focused control is put back after the rebuild, so
+// nothing typed is lost. The report.md link needs the run's file list, which only RunDetail has: it is fetched
+// (shared cache with the hardware view) when the row first scrolls into view; until then the link is disabled.
 
 import { api } from './api.js';
 import { store, sortedGroups } from './data.js';
-import { setState } from './state.js';
+import { setState, readState } from './state.js';
 import { h, clear, stateBlock, errorBlock, confirmDialog } from './ui.js';
 import { archName, shortDate } from './format.js';
+import { getDetail } from './hardware.js';
 
 const selected = new Set();
-const editing = new Set();
+/** run id -> { rows: [{k, v}], msg: string, saving: bool } for every open tag form */
+const drafts = new Map();
+/** run id -> true / false once its file list is known (reset when the runs are reloaded) */
+const hasReport = new Map();
+let reportFor = null;
+let observer = null;
 let onChanged = async () => {};
 
 /** `fn` reloads runs and groups after a write. */
@@ -54,6 +65,8 @@ export function renderRuns(s) {
   options(document.getElementById('runs-tag'), 'any', tagVals, s.tag, (v) => v.replace(':', ' = '));
 
   for (const id of [...selected]) if (!store.runById.has(id)) selected.delete(id);
+  for (const id of [...drafts.keys()]) if (!store.runById.has(id)) drafts.delete(id);
+  if (reportFor !== store.runs) { hasReport.clear(); reportFor = store.runs; }
   const runs = store.runs.filter((r) => matches(r, s));
   document.getElementById('runs-count').textContent = `${runs.length} of ${store.runs.length} runs` + (selected.size ? ` · ${selected.size} selected` : '');
   const hw = document.getElementById('runs-hw');
@@ -64,22 +77,90 @@ export function renderRuns(s) {
   const cols = ['', 'Run', 'Group', 'Arch', 'vCPU', 'RAM GB', 'CPU', 'vmbench', 'Started', 'Values', 'Flags', 'Tags', 'Actions'];
   const head = h('tr', {}, ...cols.map((c, i) => h('th', { scope: 'col', class: i === 0 ? '' : 'left' }, i === 0 ? h('span', { class: 'sr-only', text: 'Select' }) : c)));
   const body = h('tbody');
-  for (const r of runs) body.append(runRow(r, s));
+  for (const r of runs) body.append(runRow(r));
   if (!runs.length) body.append(h('tr', {}, h('td', { colspan: String(cols.length), class: 'left muted', text: 'No run matches these filters.' })));
+  const focus = saveFocus(table);
   clear(table, h('thead', {}, head), body);
+  restoreFocus(table, focus);
+  watchRows(body);
 }
 
-function runRow(r, s) {
+const rerender = () => renderRuns(readState());
+
+// Focus survives the rebuild: remember the focused control by run id + its index among the row's controls.
+const CONTROLS = 'input, button, a[href], select, textarea';
+function saveFocus(table) {
+  const el = document.activeElement;
+  const tr = el && table.contains(el) ? el.closest('tr[data-run]') : null;
+  if (!tr) return null;
+  const f = { run: tr.dataset.run, i: [...tr.querySelectorAll(CONTROLS)].indexOf(el), inForm: !!el.closest('.tag-form') };
+  if (el.tagName === 'INPUT' && el.type === 'text') { f.start = el.selectionStart; f.end = el.selectionEnd; }
+  return f;
+}
+function restoreFocus(table, f) {
+  if (!f || f.i < 0) return;
+  const tr = table.querySelector(`tr[data-run="${CSS.escape(f.run)}"]`);
+  if (!tr) return;
+  // the form was closed (Cancel, Save): back to the row's Edit tags button
+  const el = f.inForm && !tr.querySelector('.tag-form') ? tr.querySelector('button.edit-tags') : tr.querySelectorAll(CONTROLS)[f.i];
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  if (f.start != null && el.setSelectionRange) el.setSelectionRange(f.start, f.end);
+}
+
+// report.md: look up the file list when a row is first seen.
+function watchRows(body) {
+  if (observer) observer.disconnect();
+  const pending = [...body.querySelectorAll('tr[data-run]')].filter((tr) => !hasReport.has(tr.dataset.run));
+  if (!pending.length) return;
+  if (!('IntersectionObserver' in window)) { pending.forEach((tr) => lookUpReport(tr.dataset.run)); return; }
+  observer = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      observer.unobserve(e.target);
+      lookUpReport(e.target.dataset.run);
+    }
+  }, { rootMargin: '200px 0px' });
+  pending.forEach((tr) => observer.observe(tr));
+}
+
+function lookUpReport(id) {
+  const runs = store.runs;
+  getDetail(id).then((d) => {
+    if (runs !== store.runs) return;
+    hasReport.set(id, (d.files || []).some((f) => f.name === 'report.md'));
+    fillReport(id);
+  }, (err) => {
+    if (runs !== store.runs) return;
+    fillReport(id, err);
+  });
+}
+
+function fillReport(id, err) {
+  const slot = document.querySelector(`#runs-table tr[data-run="${CSS.escape(id)}"] .report-slot`);
+  if (slot) clear(slot, reportLink(id, err));
+}
+
+function reportLink(id, err) {
+  const known = hasReport.get(id);
+  if (known === true) return h('a', { href: api.fileUrl(id, 'report.md'), target: '_blank', rel: 'noopener', text: 'report.md' });
+  if (known === false) return h('span', { class: 'muted no-report', title: 'This run did not keep a report.md', text: 'no report.md' });
+  return h('span', { class: 'muted pending-report', 'aria-disabled': 'true',
+    title: err ? 'Cannot tell whether this run kept a report.md: ' + err.message : 'Checking whether this run kept a report.md…',
+    text: 'report.md' });
+}
+
+function runRow(r) {
   const cb = h('input', { type: 'checkbox', 'aria-label': 'Select ' + r.label, checked: selected.has(r.run_id) });
-  cb.addEventListener('change', () => { if (cb.checked) selected.add(r.run_id); else selected.delete(r.run_id); renderRuns(s); });
+  cb.addEventListener('change', () => { if (cb.checked) selected.add(r.run_id); else selected.delete(r.run_id); rerender(); });
   const flags = [];
   for (const st of r.failed_stages) flags.push(h('span', { class: 'flag', title: 'Values of this stage are left out', text: 'failed: ' + st }));
   if (!r.catalog_known) flags.push(h('span', { class: 'flag', title: 'No metric table for this vmbench version: values are stored but not judged', text: 'no metric table' }));
   if (r.tags.exclude) flags.push(h('span', { class: 'flag', title: 'Stages left out by the exclude tag', text: 'excluded: ' + r.tags.exclude }));
   const actions = h('div', { class: 'actions' },
-    h('a', { href: api.fileUrl(r.run_id, 'report.md'), target: '_blank', rel: 'noopener', text: 'report.md' }),
-    h('button', { type: 'button', class: 'small', text: 'Edit tags', 'aria-label': 'Edit tags of ' + r.label,
-      onclick: () => { editing.add(r.run_id); renderRuns(s); focusTagForm(r.run_id); } }),
+    h('span', { class: 'report-slot' }, reportLink(r.run_id)),
+    h('button', { type: 'button', class: 'small edit-tags', text: 'Edit tags', 'aria-label': 'Edit tags of ' + r.label,
+      onclick: () => { openForm(r); rerender(); focusTagForm(r.run_id); } }),
     h('button', { type: 'button', class: 'small', text: 'Delete', 'aria-label': 'Delete ' + r.label, onclick: () => deleteRun(r) }));
   return h('tr', { 'data-run': r.run_id },
     h('td', {}, cb),
@@ -94,7 +175,7 @@ function runRow(r, s) {
     h('td', { class: 'left', text: shortDate(r.start_utc) }),
     h('td', { text: String(r.values) }),
     h('td', { class: 'left wrap' }, h('div', {}, flags.length ? flags : h('span', { class: 'muted', text: '—' }))),
-    h('td', { class: 'tags' }, h('div', { class: 'tagbox' }, editing.has(r.run_id) ? tagForm(r, s) : tagChips(r))),
+    h('td', { class: 'tags' }, h('div', { class: 'tagbox' }, drafts.has(r.run_id) ? tagForm(r) : tagChips(r))),
     h('td', {}, actions));
 }
 
@@ -111,63 +192,77 @@ function focusTagForm(id) {
 
 const KEY_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 
-function tagForm(r, s) {
+function openForm(r) {
+  if (!drafts.has(r.run_id)) drafts.set(r.run_id, { rows: Object.entries(r.tags).map(([k, v]) => ({ k, v })), msg: '', saving: false });
+}
+
+/** The form is drawn from the draft; every keystroke goes back into the draft. */
+function tagForm(r) {
+  const d = drafts.get(r.run_id);
   const list = h('div', { class: 'rows' });
-  const addRow = (k = '', v = '') => {
-    const key = h('input', { type: 'text', value: k, 'aria-label': 'Tag name', placeholder: 'name', spellcheck: 'false' });
-    const val = h('input', { type: 'text', value: v, 'aria-label': 'Tag value', placeholder: 'value (empty removes)' });
+  const drawRow = (item) => {
+    const key = h('input', { type: 'text', value: item.k, 'aria-label': 'Tag name', placeholder: 'name', spellcheck: 'false',
+      oninput: () => { item.k = key.value; } });
+    const val = h('input', { type: 'text', value: item.v, 'aria-label': 'Tag value', placeholder: 'value (empty removes)',
+      oninput: () => { item.v = val.value; } });
     const row = h('div', { class: 'row' }, key, val,
-      h('button', { type: 'button', class: 'small', text: '×', 'aria-label': 'Remove tag ' + k, onclick: () => { row.remove(); } }));
+      h('button', { type: 'button', class: 'small', text: '×', 'aria-label': 'Remove tag ' + (item.k || '(new)'),
+        onclick: () => { d.rows.splice(d.rows.indexOf(item), 1); row.remove(); } }));
     list.append(row);
     return key;
   };
-  for (const [k, v] of Object.entries(r.tags)) addRow(k, v);
-  const msg = h('p', { class: 'error', role: 'alert', hidden: true });
-  const save = h('button', { type: 'submit', class: 'small primary', text: 'Save' });
+  d.rows.forEach(drawRow);
+  const msg = h('p', { class: 'error', role: 'alert', hidden: !d.msg, text: d.msg });
+  const save = h('button', { type: 'submit', class: 'small primary', text: d.saving ? 'Saving…' : 'Save', disabled: d.saving });
   const form = h('form', { class: 'tag-form', 'aria-label': 'Tags of ' + r.label }, list, msg,
     h('div', { class: 'buttons' },
-      h('button', { type: 'button', class: 'small', text: '+ tag', onclick: () => addRow().focus() }),
+      h('button', { type: 'button', class: 'small', text: '+ tag', onclick: () => { const item = { k: '', v: '' }; d.rows.push(item); drawRow(item).focus(); } }),
       save,
-      h('button', { type: 'button', class: 'small', text: 'Cancel', onclick: () => { editing.delete(r.run_id); renderRuns(s); } })),
+      h('button', { type: 'button', class: 'small', text: 'Cancel', onclick: () => { drafts.delete(r.run_id); rerender(); } })),
     h('p', { class: 'muted', text: 'group changes the run\'s group; exclude is a comma list of stages left out.' }));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (d.saving) return;
+    const cur = store.runById.get(r.run_id) || r;
     const next = {};
-    for (const row of list.querySelectorAll('.row')) {
-      const [k, v] = [...row.querySelectorAll('input')].map((i) => i.value.trim());
+    for (const item of d.rows) {
+      const k = item.k.trim(), v = item.v.trim();
       if (!k && !v) continue;
       if (!KEY_RE.test(k)) { showMsg(`Tag name "${k}": 1-64 of letters, digits, _ - .`); return; }
       if (v.length > 1024) { showMsg(`Tag ${k}: at most 1024 characters`); return; }
       next[k] = v;
     }
     const patch = {};
-    for (const [k, v] of Object.entries(next)) if (r.tags[k] !== v) patch[k] = v;
-    for (const k of Object.keys(r.tags)) if (!(k in next)) patch[k] = '';
-    if (!Object.keys(patch).length) { editing.delete(r.run_id); renderRuns(s); return; }
-    save.disabled = true;
-    save.textContent = 'Saving…';
+    for (const [k, v] of Object.entries(next)) if (cur.tags[k] !== v) patch[k] = v;
+    for (const k of Object.keys(cur.tags)) if (!(k in next)) patch[k] = '';
+    if (!Object.keys(patch).length) { drafts.delete(r.run_id); rerender(); return; }
+    d.saving = true;
+    d.msg = '';
+    rerender();
     try {
       await api.patchTags(r.run_id, patch);
-      editing.delete(r.run_id);
+      drafts.delete(r.run_id);
       await onChanged();
     } catch (err) {
+      d.saving = false;
       showMsg(err.message);
-      save.disabled = false;
-      save.textContent = 'Save';
     }
   });
-  function showMsg(t) { msg.textContent = t; msg.hidden = false; }
+  // Through the draft and a re-render: the form on screen may be a newer copy than this one.
+  function showMsg(t) { d.msg = t; if (drafts.get(r.run_id) === d) rerender(); }
   return form;
 }
 
 async function deleteRun(r) {
-  const ok = await confirmDialog(`Delete run ${r.label} (${r.run_id}, folder ${r.folder})? Its values and kept files are removed from the database. Importing the folder again brings it back.`);
+  const ok = await confirmDialog(
+    `Delete run ${r.label} (${r.run_id}, folder ${r.folder})? This removes the run and its values (and its kept files) from the database.`,
+    'Importing the same folder again brings the values back, but tags edited here or given by a registry are not restored unless they are given again (registry, benchlens-tags.json in the folder, or editing here).');
   if (!ok) return;
   const status = document.getElementById('status');
   try {
     await api.deleteRun(r.run_id);
     selected.delete(r.run_id);
-    editing.delete(r.run_id);
+    drafts.delete(r.run_id);
     clear(status, stateBlock('empty', `Deleted ${r.label}.`));
     await onChanged();
   } catch (err) {

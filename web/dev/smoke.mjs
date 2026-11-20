@@ -10,6 +10,7 @@
 // the token are 401, and UPLOAD (a .tar.gz of result folders) goes through the Upload dialog, the token prompt
 // (a wrong token first, then the right one) and lists its import reports. With READ_PRIVATE=1 (server started
 // with read_public=false) the first page load must ask for the token before showing anything.
+// It also checks the runs view: tag drafts survive re-renders, report.md links, delete dialog text (NO_REPORT=folder).
 
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
@@ -56,6 +57,77 @@ for (const scheme of process.env.READ_PRIVATE ? [] : ['light', 'dark']) {
     }
     await ctx.close();
   }
+}
+
+// Runs view interactions (light, 1280): tag drafts survive re-renders, report.md is linked only for runs that
+// kept it, the delete dialog says what deleting does. NO_REPORT names a folder that has no report.md (must exist).
+{
+  const NO_REPORT = process.env.NO_REPORT || 'x86-std-r2-20261119-103253';
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  page.on('pageerror', (e) => problems.push(`runs: page error: ${e.message}`));
+  await page.goto(base + '/?view=runs');
+  await page.waitForSelector('#runs-table tbody tr[data-run]');
+  const ids = await page.$$eval('#runs-table tbody tr[data-run]', (trs) => trs.map((tr) => tr.dataset.run));
+  const row = (id) => `#runs-table tr[data-run="${id}"]`;
+
+  // 1. draft: open the form, add a tag, type, then re-render in three ways
+  const [a, b] = ids;
+  await page.click(`${row(a)} button.edit-tags`);
+  await page.click(`${row(a)} .tag-form button:text("+ tag")`);
+  await page.keyboard.type('smoke_key');
+  await page.keyboard.press('Tab');
+  await page.keyboard.type('draft-val');
+  const draftOk = async (what, wantFocus) => {
+    const st = await page.evaluate((sel) => {
+      const ins = [...document.querySelectorAll(sel + ' .tag-form input')];
+      const last = ins.slice(-2).map((i) => i.value);
+      return { last, focused: document.activeElement === ins[ins.length - 1], caret: ins[ins.length - 1]?.selectionStart };
+    }, row(a));
+    if (JSON.stringify(st.last) !== JSON.stringify(['smoke_key', 'draft-val'])) problems.push(`runs: draft lost after ${what}: ${JSON.stringify(st.last)}`);
+    if (wantFocus && (!st.focused || st.caret !== 'draft-val'.length)) problems.push(`runs: focus/caret lost after ${what}`);
+  };
+  await page.evaluate(() => window.dispatchEvent(new Event('statechange')));   // what a reload or filter change does
+  await draftOk('a re-render while typing', true);
+  await page.keyboard.type('!');
+  await page.keyboard.press('Backspace');
+  await page.check(`${row(b)} input[type=checkbox]`);
+  await draftOk('ticking a checkbox', false);
+  if (!(await page.isChecked(`${row(b)} input[type=checkbox]`))) problems.push('runs: checkbox not kept');
+  await page.selectOption('#runs-arch', { index: 0 });
+  await page.fill('#runs-q', '');
+  await page.dispatchEvent('#runs-q', 'input');
+  await draftOk('a filter change', false);
+  await page.click(`${row(a)} .tag-form button:text("Cancel")`);
+  if (await page.$(`${row(a)} .tag-form`)) problems.push('runs: Cancel did not close the form');
+  if (!(await page.evaluate((sel) => document.activeElement === document.querySelector(sel + ' button.edit-tags'), row(a)))) problems.push('runs: focus not back on Edit tags after Cancel');
+
+  // 2. report.md: scroll every row into view, wait for the lookups, compare with each run's file list
+  for (const id of ids) await page.$eval(row(id), (tr) => tr.scrollIntoView({ block: 'center' }));
+  await page.waitForFunction(() => !document.querySelector('#runs-table .pending-report'), null, { timeout: 10000 })
+    .catch(() => problems.push('runs: report.md lookups did not finish'));
+  const links = await page.evaluate(async (list) => Promise.all(list.map(async (id) => {
+    const d = await (await fetch('api/runs/' + encodeURIComponent(id))).json();
+    const tr = document.querySelector(`#runs-table tr[data-run="${CSS.escape(id)}"]`);
+    return { id, folder: d.folder, kept: d.files.some((f) => f.name === 'report.md'), linked: !!tr.querySelector('.report-slot a[href]') };
+  })), ids);
+  for (const l of links) if (l.kept !== l.linked) problems.push(`runs: ${l.folder}: report.md kept=${l.kept} but linked=${l.linked}`);
+  const nr = links.find((l) => l.folder === NO_REPORT);
+  if (!nr) problems.push(`runs: no run with folder ${NO_REPORT} (NO_REPORT) to check the missing report.md`);
+  else if (nr.kept || nr.linked) problems.push(`runs: ${NO_REPORT} should have no report.md link`);
+  if (!links.some((l) => l.linked)) problems.push('runs: no run links report.md at all (import one that kept it)');
+
+  // 3. delete dialog text, then cancel
+  await page.click(`${row(a)} button:text("Delete")`);
+  const text = await page.$eval('#confirm-dialog', (d) => d.open ? d.textContent.replace(/\s+/g, ' ') : '');
+  for (const want of ['removes the run and its values', 'Importing the same folder again brings the values back',
+    'tags edited here or given by a registry are not restored unless they are given again']) {
+    if (!text.includes(want)) problems.push(`runs: delete dialog lacks "${want}": ${text}`);
+  }
+  await page.click('#confirm-dialog button[value="cancel"]');
+  await page.waitForTimeout(100);
+  if (!(await page.$(row(a)))) problems.push('runs: Cancel in the delete dialog deleted the run');
+  await page.close();
+  console.log(`checked runs view: drafts, report.md links of ${links.length} runs, delete dialog`);
 }
 
 if (cliJson) {
