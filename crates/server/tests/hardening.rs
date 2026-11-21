@@ -244,6 +244,90 @@ async fn loopback_with_token_checks_host() {
     }
 }
 
+/// F25, F26: settings resolved as `benchlens serve` does (the Docker image's environment plus a mounted
+/// benchlens.toml), through the real middleware: the file replaces the image default, and the 403 names only
+/// the setting that works for that source, without the configured names or the token.
+#[tokio::test]
+async fn image_default_and_mounted_file_through_the_router() {
+    use benchlens_server::config::{HostsSource, Layer, Settings};
+    let image = |extra: &[(&str, &str)]| {
+        let mut vars = vec![
+            ("BENCHLENS_LISTEN", "0.0.0.0:8080"),
+            ("BENCHLENS_TOKEN", TOKEN),
+            ("BENCHLENS_DEFAULT_ALLOWED_HOSTS", "localhost"),
+        ];
+        vars.extend_from_slice(extra);
+        let vars: Vec<(String, String)> = vars
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        Layer::from_env(move |k| vars.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())).unwrap()
+    };
+    let mounted = Layer::from_toml("allowed_hosts = [\"bench.lan\"]").unwrap();
+    let state = |env: &Layer, file: &Layer| {
+        let cfg = Settings::resolve(&Layer::default(), env, file).unwrap();
+        (with_access(Access::for_settings(&cfg)), cfg)
+    };
+    let detail = |r: &Res| {
+        assert_eq!(r.status, StatusCode::FORBIDDEN, "{}", r.body);
+        assert!(!r.body.contains(TOKEN));
+        r.json()["detail"].as_str().unwrap().to_string()
+    };
+
+    // mounted file, no extra env: the file's list replaces the image default
+    let (st, cfg) = state(&image(&[]), &mounted);
+    assert_eq!(cfg.allowed_hosts_source, HostsSource::File);
+    assert!(cfg.warnings().is_empty(), "{:?}", cfg.warnings());
+    for h in ["bench.lan:8080", "localhost:8080", "127.0.0.1:8080"] {
+        assert_eq!(get(&st, "/api/runs", h).await.status, StatusCode::OK, "{h}");
+    }
+    let d = detail(&get(&st, "/api/runs", "evil.example:8080").await);
+    assert!(d.contains(r#"allowed_hosts = ["evil.example"]"#), "{d}");
+    assert!(!d.contains("BENCHLENS_ALLOWED_HOSTS"), "{d}");
+    assert!(!d.contains("bench.lan"), "{d}");
+
+    // no file: the image default (localhost and IP addresses only); either setting works
+    let (st, cfg) = state(&image(&[]), &Layer::default());
+    assert_eq!(cfg.allowed_hosts_source, HostsSource::DefaultEnv);
+    assert_eq!(get(&st, "/", "localhost:8080").await.status, StatusCode::OK);
+    let d = detail(&get(&st, "/", "bench.lan:8080").await);
+    assert!(d.contains(r#"allowed_hosts = ["bench.lan"]"#), "{d}");
+    assert!(d.contains("BENCHLENS_ALLOWED_HOSTS=bench.lan"), "{d}");
+
+    // an explicit variable beats the file (warned at start-up); the 403 names only the variable
+    let (st, cfg) = state(
+        &image(&[("BENCHLENS_ALLOWED_HOSTS", "other.lan")]),
+        &mounted,
+    );
+    assert_eq!(cfg.allowed_hosts_source, HostsSource::Env);
+    assert_eq!(cfg.warnings().len(), 1);
+    assert_eq!(
+        get(&st, "/api/runs", "other.lan").await.status,
+        StatusCode::OK
+    );
+    let d = detail(&get(&st, "/api/runs", "bench.lan").await);
+    assert!(d.contains("BENCHLENS_ALLOWED_HOSTS=bench.lan"), "{d}");
+    assert!(!d.contains("allowed_hosts = ["), "{d}");
+    assert!(!d.contains("other.lan"), "{d}");
+
+    // BENCHLENS_ALLOWED_HOSTS= (empty): the 0.1.2 opt-out, any Host with a token when no file lists names ...
+    let (st, _) = state(
+        &image(&[("BENCHLENS_ALLOWED_HOSTS", "")]),
+        &Layer::default(),
+    );
+    assert_eq!(
+        get(&st, "/api/runs", "evil.example").await.status,
+        StatusCode::OK
+    );
+    // ... and the file's list when one does
+    let (st, _) = state(&image(&[("BENCHLENS_ALLOWED_HOSTS", "")]), &mounted);
+    assert_eq!(get(&st, "/", "bench.lan").await.status, StatusCode::OK);
+    assert_eq!(
+        get(&st, "/", "evil.example").await.status,
+        StatusCode::FORBIDDEN
+    );
+}
+
 /// F24: a listener on the IPv4-mapped form of a loopback address is loopback: the Host check applies with a
 /// token, and without one writes are open (and the Host is still checked).
 #[tokio::test]

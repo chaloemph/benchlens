@@ -50,7 +50,10 @@ Any failure: HTTP status plus `{"error": "message for people", "detail": "option
 Settings of `benchlens serve` (flag > `BENCHLENS_*` variable > `benchlens.toml` > default): `token`
 (`BENCHLENS_TOKEN`; no command-line flag), `read_public` (`--read-public`, `BENCHLENS_READ_PUBLIC`,
 default `true`) and `allowed_hosts` (`BENCHLENS_ALLOWED_HOSTS` as a comma list, a TOML array in the file;
-names only, no scheme or port).
+names only, no scheme or port). `allowed_hosts` has one more, lowest-priority source,
+`BENCHLENS_DEFAULT_ALLOWED_HOSTS` (comma list), used only when neither the variable nor the file gives names;
+the Docker image sets it to `localhost`. An empty list counts as not set, and `BENCHLENS_ALLOWED_HOSTS=`
+(set, but empty) also drops the default list.
 
 | Configuration | Reads (`/api/...`) | Writes (`PATCH .../tags`, `DELETE /api/runs/{id}`, `POST /api/runs`) |
 |---|---|---|
@@ -63,15 +66,18 @@ names only, no scheme or port).
   on a loopback listener (`127.0.0.1`, `::1`), with or without a token, and on any listener without a token,
   a request is served only when its `Host` (HTTP/2: `:authority`) is `localhost`, an IP address
   (`127.0.0.1`, `[::1]`, `192.168.1.5`, ...) or a name in `allowed_hosts`, with any port; anything else is
-  **403** with a JSON error whose `detail` names the exact setting for that name (`allowed_hosts =
-  ["name"]` / `BENCHLENS_ALLOWED_HOSTS=name`; the names already configured are not shown). Names are compared without case and without a
+  **403** with a JSON error whose `detail` names the exact setting for that name, and only the one that
+  would work given where the current list came from: `BENCHLENS_ALLOWED_HOSTS=name` when the list comes from
+  that variable (it beats the file), `allowed_hosts = ["name"]` when it comes from the file, either when it
+  comes from `BENCHLENS_DEFAULT_ALLOWED_HOSTS` or there is none. The names already configured and the token
+  are never shown. Names are compared without case and without a
   trailing dot; when a request gives more than one name (two `Host` headers, or an absolute-form target such
   as `GET http://name/ HTTP/1.1`), every one must pass. A rebinding page (its domain re-pointed at
   127.0.0.1) sends its own domain as `Host`, so it is refused; an IP address cannot be rebound, and the port
   is not checked so port mappings (`docker -p 9000:8080`) keep working. On loopback the check stays with a
   token: a rebinding page never sees the token, but it could read what `read_public = true` makes public.
   On a non-loopback listener with a token every `Host` is served, unless `allowed_hosts` is set: then the
-  same rule applies. The Docker image sets `BENCHLENS_ALLOWED_HOSTS=localhost`, so a container (which
+  same rule applies. The Docker image sets `BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost`, so a container (which
   listens on `0.0.0.0`) checks the `Host` with a token too. Loopback includes the IPv4-mapped form of a
   loopback address (`[::ffff:127.0.0.1]`). A reverse proxy on the same machine that passes its public name as `Host` (Caddy by
   default, nginx with `proxy_set_header Host $host`) needs that name in `allowed_hosts`; nginx's default
