@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "benchlens"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "benchlens-core",
@@ -160,7 +160,7 @@ dependencies = [
 
 [[package]]
 name = "benchlens-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "benchlens-rules",
  "csv",
@@ -177,14 +177,14 @@ dependencies = [
 
 [[package]]
 name = "benchlens-rules"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "benchlens-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "anyhow",
  "axum",
@@ -206,7 +206,7 @@ dependencies = [
 
 [[package]]
 name = "benchlens-wasm"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "benchlens-core",
  "benchlens-rules",
