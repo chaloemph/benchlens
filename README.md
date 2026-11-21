@@ -8,7 +8,7 @@ vmbench's own reports. Compare one run with another, or pool repeated runs of a 
 binary: command line, web UI and JSON API, an inbox folder, upload with token auth, and an HTML export that
 opens offline.
 
-> Status: v0.1.2 (0.1.0 was the first public release). Import (CLI, registry, inbox, upload), compare (CLI, web UI,
+> Status: v0.1.3 (0.1.0 was the first public release). Import (CLI, registry, inbox, upload), compare (CLI, web UI,
 > API), static HTML / JSON / CSV export, Docker image. See [CHANGELOG.md](CHANGELOG.md) and
 > [docs/plan.md](docs/plan.md).
 
@@ -62,7 +62,7 @@ Download the archive for your platform and `SHA256SUMS` from
 `x86_64-pc-windows-msvc` (zip).
 
 ```bash
-VERSION=0.1.2 TARGET=x86_64-unknown-linux-musl
+VERSION=0.1.3 TARGET=x86_64-unknown-linux-musl
 curl -LO https://github.com/chaloemph/benchlens/releases/download/v$VERSION/benchlens-$VERSION-$TARGET.tar.gz
 curl -LO https://github.com/chaloemph/benchlens/releases/download/v$VERSION/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS     # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS

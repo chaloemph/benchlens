@@ -16,7 +16,7 @@ cargo install --path crates/cli          # or put a release binary on your PATH
 
 ```text
 $ benchlens --version
-benchlens 0.1.2
+benchlens 0.1.3
 ```
 
 ## 2. The example data
@@ -138,7 +138,7 @@ by label, folder or id prefix: `benchlens compare x86-std-r2 x86-high-r2`.
 
 ```text
 $ benchlens serve --listen 127.0.0.1:8091
-benchlens 0.1.2 on http://127.0.0.1:8091 (database benchlens.db)
+benchlens 0.1.3 on http://127.0.0.1:8091 (database benchlens.db)
 reads open; writes open (loopback, no token); uploads up to 256 MiB
 Host names served: localhost, IP addresses
 ```
