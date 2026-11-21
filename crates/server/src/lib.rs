@@ -200,8 +200,7 @@ pub fn router(state: AppState) -> Router {
 /// Open the database and serve until Ctrl-C or SIGTERM. The token is never printed.
 pub async fn serve(cfg: ServeConfig) -> anyhow::Result<()> {
     let store = Store::open(&cfg.db)?;
-    let access = auth::Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen)
-        .with_allowed_hosts(cfg.allowed_hosts.clone());
+    let access = auth::Access::for_settings(&cfg);
     let access_hosts = access.hosts_served();
     let state = AppState::new(store)
         .with_access(access)

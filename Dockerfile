@@ -8,11 +8,10 @@
 # editing and delete answer 403. `docker stop` sends SIGTERM, which stops the server gracefully.
 #
 # Host check (DNS rebinding guard): only `localhost` and IP addresses are served by default, also with a token
-# (BENCHLENS_ALLOWED_HOSTS=localhost below). To open it by a DNS name (LAN name, reverse proxy), give the names
-# with `-e BENCHLENS_ALLOWED_HOSTS=bench.lan,bench.example.org`: that replaces the default (localhost and IP
-# addresses stay served). It also wins over `allowed_hosts` in a mounted benchlens.toml (environment beats
-# file; the server warns at start-up); to use the file's list, start with `-e BENCHLENS_ALLOWED_HOSTS=` (empty
-# counts as not set). Empty and no list in a file turns the guard off with a token: not recommended.
+# (BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost below). This default has the lowest priority: `allowed_hosts` in a
+# mounted benchlens.toml replaces it, and so does `-e BENCHLENS_ALLOWED_HOSTS=bench.lan,bench.example.org`
+# (which also beats the file; localhost and IP addresses always stay served). `-e BENCHLENS_ALLOWED_HOSTS=`
+# (empty) drops the default: with no list in a file that turns the guard off with a token, not recommended.
 
 ARG RUST_VERSION=1
 FROM rust:${RUST_VERSION}-alpine AS build
@@ -38,7 +37,7 @@ USER 65532:65532
 WORKDIR /data
 ENV BENCHLENS_DB=/data/benchlens.db \
     BENCHLENS_LISTEN=0.0.0.0:8080 \
-    BENCHLENS_ALLOWED_HOSTS=localhost
+    BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost
 VOLUME /data
 EXPOSE 8080
 ENTRYPOINT ["benchlens"]

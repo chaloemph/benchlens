@@ -15,9 +15,10 @@
 //!   127.0.0.1 sends `Host: evil.example:8080` and is refused (403), for the API and the static files alike;
 //!   with a token it could not write, but it could read what `read_public` makes public (F19). On a
 //!   non-loopback listener with a token any `Host` is served, unless `allowed_hosts` is set, which then
-//!   applies in the same way; the Docker image sets `BENCHLENS_ALLOWED_HOSTS=localhost` for this (F23). A
-//!   reverse proxy on the same machine that passes its own public name as `Host` needs that name in
-//!   `allowed_hosts`. "Loopback" includes the IPv4-mapped form `::ffff:127.x.y.z` (F24). A request without `Host` (HTTP/1.0 tools) is served: browsers
+//!   applies in the same way; the Docker image sets `BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost` for this
+//!   (F23, F26). A reverse proxy on the same machine that passes its own public name as `Host` needs that name
+//!   in `allowed_hosts`. The 403 names only the setting that would work, given where the list came from
+//!   ([`HostsSource`], F25), and never the configured names. "Loopback" includes the IPv4-mapped form `::ffff:127.x.y.z` (F24). A request without `Host` (HTTP/1.0 tools) is served: browsers
 //!   always send one.
 //! - Reverse proxy: open writes (loopback, no token) are refused when the request carries `Forwarded`,
 //!   `X-Forwarded-For` or `X-Forwarded-Host`: a proxy on the same machine would otherwise turn "local" into
@@ -35,7 +36,7 @@ use sha2::{Digest, Sha256};
 use std::net::IpAddr;
 use subtle::ConstantTimeEq;
 
-pub use crate::config::Token;
+pub use crate::config::{HostsSource, Token};
 
 /// The access rules of a running server.
 #[derive(Debug, Clone)]
@@ -48,6 +49,8 @@ pub struct Access {
     loopback: bool,
     /// Extra `Host` names served besides `localhost` and IP addresses (lower case, no port).
     allowed_hosts: Vec<String>,
+    /// Where `allowed_hosts` came from, for the 403 and the start-up message.
+    hosts_source: HostsSource,
 }
 
 impl Default for Access {
@@ -66,6 +69,7 @@ impl Access {
             open_writes: true,
             loopback: true,
             allowed_hosts: Vec::new(),
+            hosts_source: HostsSource::Unset,
         }
     }
 
@@ -77,6 +81,7 @@ impl Access {
             open_writes: false,
             loopback: false,
             allowed_hosts: Vec::new(),
+            hosts_source: HostsSource::Unset,
         }
     }
 
@@ -89,6 +94,7 @@ impl Access {
             open_writes: false,
             loopback: false,
             allowed_hosts: Vec::new(),
+            hosts_source: HostsSource::Unset,
         }
     }
 
@@ -106,6 +112,13 @@ impl Access {
         self
     }
 
+    /// Where the `allowed_hosts` list came from (default: [`HostsSource::Unset`]), so a refused `Host` is
+    /// told the setting that would work.
+    pub fn with_hosts_source(mut self, source: HostsSource) -> Access {
+        self.hosts_source = source;
+        self
+    }
+
     /// The rules for these settings. `read_public = false` without a token is refused earlier, in
     /// [`crate::config::Settings::resolve`]; here it falls back to open reads.
     pub fn for_listen(
@@ -120,6 +133,14 @@ impl Access {
             None if loopback => Access::local(),
             None => Access::public_read_only(),
         }
+    }
+
+    /// The rules `benchlens serve` runs with: [`for_listen`](Access::for_listen) plus `allowed_hosts` and
+    /// where that list came from.
+    pub fn for_settings(cfg: &crate::config::Settings) -> Access {
+        Access::for_listen(cfg.token.clone(), cfg.read_public, cfg.listen)
+            .with_allowed_hosts(cfg.allowed_hosts.clone())
+            .with_hosts_source(cfg.allowed_hosts_source)
     }
 
     pub fn has_token(&self) -> bool {
@@ -145,7 +166,12 @@ impl Access {
                 .filter(|h| *h != "localhost")
                 .cloned(),
         );
-        names.join(", ")
+        let names = names.join(", ");
+        match self.hosts_source {
+            HostsSource::Unset => names,
+            _ if self.allowed_hosts.is_empty() => names,
+            src => format!("{names} (from {})", src.describe()),
+        }
     }
 
     /// May this request write?
@@ -196,21 +222,53 @@ impl Access {
         } else {
             "without a token only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)"
         };
-        // Name exactly what to set when the name could go into allowed_hosts; a token helps only on a
-        // non-loopback listener.
+        // Name exactly what to set when the name could go into allowed_hosts, and only the setting that would
+        // work given where the list came from (F25); a token helps only on a non-loopback listener. The
+        // configured names are not shown: this answer goes to whoever sent the request.
         let name = host_name(given);
-        let what = if is_plain_name(&name) {
-            // the configured names are not shown: this answer goes to whoever sent the request
-            format!(
-                "to serve this name (for example behind a reverse proxy on this machine that passes its public \
-                 name as Host), set allowed_hosts = [\"{name}\"] in benchlens.toml or \
-                 BENCHLENS_ALLOWED_HOSTS={name} (keep any names already listed)"
-            )
-        } else {
-            "to serve a name, add it to allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS (comma list)"
-                .to_string()
+        let plain = is_plain_name(&name);
+        let to_serve = "to serve this name (for example behind a reverse proxy on this machine that passes its \
+                        public name as Host), ";
+        let what = match self.hosts_source {
+            // a flag beats the variable and the file: only the flag's list helps
+            HostsSource::Flag if plain => format!(
+                "{to_serve}add {name} to the allowed_hosts list given on the command line (keep the names \
+                 already listed; it wins over BENCHLENS_ALLOWED_HOSTS and benchlens.toml)"
+            ),
+            HostsSource::Flag => "to serve a name, add it to the allowed_hosts list given on the command line"
+                .to_string(),
+            // BENCHLENS_ALLOWED_HOSTS: the file's list is not used, so only the variable helps
+            HostsSource::Env if plain => format!(
+                "{to_serve}add it to BENCHLENS_ALLOWED_HOSTS: BENCHLENS_ALLOWED_HOSTS={name} (keep the names \
+                 already listed; this variable wins over allowed_hosts in benchlens.toml)"
+            ),
+            HostsSource::Env => "to serve a name, add it to BENCHLENS_ALLOWED_HOSTS \
+                 (comma list; this variable wins over allowed_hosts in benchlens.toml)"
+                .to_string(),
+            HostsSource::File if plain => format!(
+                "{to_serve}add it to allowed_hosts in benchlens.toml: allowed_hosts = [\"{name}\"] (keep the \
+                 names already listed)"
+            ),
+            HostsSource::File => "to serve a name, add it to allowed_hosts in benchlens.toml".to_string(),
+            HostsSource::DefaultEnv if plain => format!(
+                "{to_serve}set allowed_hosts = [\"{name}\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS={name}; \
+                 either replaces the default list (BENCHLENS_DEFAULT_ALLOWED_HOSTS); localhost and IP \
+                 addresses stay served"
+            ),
+            HostsSource::DefaultEnv => "to serve a name, list it in allowed_hosts in benchlens.toml or \
+                 BENCHLENS_ALLOWED_HOSTS (comma list); either replaces the default list \
+                 (BENCHLENS_DEFAULT_ALLOWED_HOSTS)"
+                .to_string(),
+            HostsSource::Unset if plain => format!(
+                "{to_serve}set allowed_hosts = [\"{name}\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS={name}"
+            ),
+            HostsSource::Unset => "to serve a name, add it to allowed_hosts in benchlens.toml or \
+                 BENCHLENS_ALLOWED_HOSTS (comma list)"
+                .to_string(),
         };
-        let detail = if self.token.is_none() && !self.loopback {
+        // a token turns the check off on a non-loopback listener only while no list is set; with a list it
+        // would not serve this name
+        let detail = if self.token.is_none() && !self.loopback && self.allowed_hosts.is_empty() {
             format!("{what}, or set a token")
         } else {
             what
@@ -662,6 +720,131 @@ mod tests {
             Access::for_listen(Some(Token::new(T)), true, lan).hosts_served(),
             "any"
         );
+    }
+
+    /// F25: the 403 names only the setting that would work, given where the list came from, and never the
+    /// configured names or the token.
+    #[test]
+    fn host_refused_names_the_setting_of_the_source() {
+        let uri = Uri::from_static("/api/runs");
+        let any: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
+        let detail = |src: HostsSource, hosts: &[&str], h: &'static str| {
+            let a = Access::for_listen(Some(Token::new(T)), true, any)
+                .with_allowed_hosts(hosts.iter().map(|s| s.to_string()))
+                .with_hosts_source(src);
+            let e = a.check_host(&host(h), &uri).unwrap_err();
+            assert_eq!(e.0.status, StatusCode::FORBIDDEN);
+            let d = e.0.detail.unwrap();
+            for secret in ["secret.lan", T] {
+                assert!(!e.0.error.contains(secret) && !d.contains(secret), "{d}");
+            }
+            d
+        };
+        let file_key = r#"allowed_hosts = ["evil.example"]"#;
+        let env_var = "BENCHLENS_ALLOWED_HOSTS=evil.example";
+        // the variable: only the variable works, the file is not used
+        let d = detail(HostsSource::Env, &["secret.lan"], "evil.example:8080");
+        assert!(d.contains(env_var), "{d}");
+        assert!(!d.contains(file_key), "{d}");
+        assert!(d.contains("wins over allowed_hosts"), "{d}");
+        assert!(d.contains("keep the names already listed"), "{d}");
+        // a flag (review): it beats the variable, so only the flag's list works
+        let d = detail(HostsSource::Flag, &["secret.lan"], "evil.example:8080");
+        assert!(d.contains("command line"), "{d}");
+        assert!(!d.contains(env_var) && !d.contains(file_key), "{d}");
+        // the file: the file key
+        let d = detail(HostsSource::File, &["secret.lan"], "evil.example:8080");
+        assert!(d.contains(file_key), "{d}");
+        assert!(!d.contains("BENCHLENS_ALLOWED_HOSTS"), "{d}");
+        assert!(d.contains("keep the names already listed"), "{d}");
+        // the image default: either works now; the default's names are not shown
+        let d = detail(
+            HostsSource::DefaultEnv,
+            &["secret.lan"],
+            "evil.example:8080",
+        );
+        assert!(d.contains(file_key) && d.contains(env_var), "{d}");
+        assert!(d.contains("replaces the default list"), "{d}");
+        assert!(!d.contains("keep the names"), "{d}");
+        // no list (loopback with a token): both, as in 0.1.2
+        let lo: std::net::SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let a = Access::for_listen(Some(Token::new(T)), true, lo);
+        let d = a
+            .check_host(&host("evil.example"), &uri)
+            .unwrap_err()
+            .0
+            .detail
+            .unwrap();
+        assert!(d.contains(file_key) && d.contains(env_var), "{d}");
+        assert!(!d.contains("keep the names"), "{d}");
+        // a name that cannot be listed: the setting without the name
+        for (src, want, not) in [
+            (
+                HostsSource::Env,
+                "BENCHLENS_ALLOWED_HOSTS",
+                Some("benchlens.toml:"),
+            ),
+            (
+                HostsSource::File,
+                "allowed_hosts in benchlens.toml",
+                Some("BENCHLENS"),
+            ),
+            (
+                HostsSource::DefaultEnv,
+                "BENCHLENS_DEFAULT_ALLOWED_HOSTS",
+                None,
+            ),
+        ] {
+            let d = detail(src, &["secret.lan"], "user@evil.example");
+            assert!(d.contains(want), "{d}");
+            assert!(!d.contains("user@"), "{d}");
+            if let Some(n) = not {
+                assert!(!d.contains(n), "{d}");
+            }
+        }
+        // review: without a token on a non-loopback listener, a token serves the name only while no list is
+        // set (with the image default or any other list the name would still be refused)
+        let no_token = |hosts: &[&str], src| {
+            Access::for_listen(None, true, any)
+                .with_allowed_hosts(hosts.iter().map(|s| s.to_string()))
+                .with_hosts_source(src)
+                .check_host(&host("evil.example"), &uri)
+                .unwrap_err()
+                .0
+                .detail
+                .unwrap()
+        };
+        assert!(no_token(&[], HostsSource::Unset).ends_with("or set a token"));
+        for src in [HostsSource::DefaultEnv, HostsSource::File, HostsSource::Env] {
+            let d = no_token(&["localhost"], src);
+            assert!(!d.contains("token"), "{d}");
+        }
+    }
+
+    #[test]
+    fn hosts_served_names_the_source() {
+        let any: std::net::SocketAddr = "0.0.0.0:8080".parse().unwrap();
+        let a = |hosts: &[&str], src| {
+            Access::for_listen(Some(Token::new(T)), true, any)
+                .with_allowed_hosts(hosts.iter().map(|s| s.to_string()))
+                .with_hosts_source(src)
+                .hosts_served()
+        };
+        assert_eq!(
+            a(&["localhost"], HostsSource::DefaultEnv),
+            "localhost, IP addresses (from BENCHLENS_DEFAULT_ALLOWED_HOSTS)"
+        );
+        assert_eq!(
+            a(&["bench.lan"], HostsSource::File),
+            "localhost, IP addresses, bench.lan (from allowed_hosts in the config file)"
+        );
+        assert_eq!(
+            a(&["bench.lan"], HostsSource::Env),
+            "localhost, IP addresses, bench.lan (from BENCHLENS_ALLOWED_HOSTS)"
+        );
+        // an empty list from the variable turns the check off (the 0.1.2 opt-out)
+        assert_eq!(a(&[], HostsSource::Env), "any");
+        assert_eq!(a(&[], HostsSource::Unset), "any");
     }
 
     #[test]

@@ -79,7 +79,8 @@ Template variables: **Section** (`cpu`, `disk`, `pg`, ...), **Group** (the effec
 automatic one), **Metric** (narrowed by section and group), **Run** (narrowed by group) and **benchlens UI**
 (a text box, default `http://localhost:8080`: where *your browser* reaches benchlens; used by the links. Set it
 in the box or in the URL, `?var-benchlens_url=https://bench.example.org`; benchlens must serve that name: the
-container answers only `localhost` and IP addresses unless `BENCHLENS_ALLOWED_HOSTS` lists it).
+container answers only `localhost` and IP addresses unless `BENCHLENS_ALLOWED_HOSTS` or `allowed_hosts` in a
+mounted `benchlens.toml` lists it).
 
 | Dashboard | Panels | Source |
 |---|---|---|

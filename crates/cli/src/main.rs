@@ -85,6 +85,8 @@ enum Cmd {
     /// Settings come from the flags, then BENCHLENS_* variables (BENCHLENS_DB, _LISTEN, _INBOX,
     /// _INBOX_INTERVAL, _REGISTRY, _TOKEN, _READ_PUBLIC, _MAX_UPLOAD_MB, _ALLOWED_HOSTS), then benchlens.toml, then the defaults. The token
     /// has no flag (command lines are visible to other users): set BENCHLENS_TOKEN or `token` in the file.
+    /// BENCHLENS_DEFAULT_ALLOWED_HOSTS (set to localhost in the Docker image) is used for allowed_hosts only
+    /// when neither BENCHLENS_ALLOWED_HOSTS nor the file gives names.
     Serve {
         /// Config file [default: ./benchlens.toml when present].
         #[arg(long, env = "BENCHLENS_CONFIG", value_name = "FILE")]

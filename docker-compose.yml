@@ -21,10 +21,11 @@ services:
       # BENCHLENS_INBOX: /data/inbox
       # BENCHLENS_REGISTRY: /data/registry.tsv   # tags for inbox imports and uploads (a mounted file)
       # Host names served besides localhost and IP addresses (DNS rebinding guard). The image sets
-      # BENCHLENS_ALLOWED_HOSTS=localhost, so the check is on also with a token: http://localhost:8080 and
-      # http://<ip>:8080 work, any other name gets 403. To open it by a DNS name (LAN name, reverse proxy), list
-      # the names here; this replaces the image default (localhost and IP addresses stay served):
-      # BENCHLENS_ALLOWED_HOSTS: localhost,bench.example.org
+      # BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost, so the check is on also with a token: http://localhost:8080
+      # and http://<ip>:8080 work, any other name gets 403. To open it by a DNS name (LAN name, reverse proxy),
+      # list the names here (or in `allowed_hosts` of a mounted benchlens.toml); either replaces the image
+      # default, localhost and IP addresses stay served. This variable also beats the file's list:
+      # BENCHLENS_ALLOWED_HOSTS: bench.example.org
     volumes:
       - benchlens-data:/data
       # - ./inbox:/data/inbox
