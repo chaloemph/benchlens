@@ -53,7 +53,7 @@ default `true`) and `allowed_hosts` (`BENCHLENS_ALLOWED_HOSTS` as a comma list, 
 names only, no scheme or port). `allowed_hosts` has one more, lowest-priority source,
 `BENCHLENS_DEFAULT_ALLOWED_HOSTS` (comma list), used only when neither the variable nor the file gives names;
 the Docker image sets it to `localhost`. An empty list counts as not set, and `BENCHLENS_ALLOWED_HOSTS=`
-(set, but empty) also drops the default list.
+(set, but empty or only blanks and commas) also drops the default list.
 
 | Configuration | Reads (`/api/...`) | Writes (`PATCH .../tags`, `DELETE /api/runs/{id}`, `POST /api/runs`) |
 |---|---|---|

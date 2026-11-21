@@ -18,10 +18,15 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
   still the opt-out (it counts as not set and also drops the image default, so with no list in a file and a
   token every `Host` is served, as in 0.1.2). An empty `allowed_hosts = []` in the file counts as not set and
   keeps the image default.
+- `BENCHLENS_ALLOWED_HOSTS` holding no name (only blanks or commas, e.g. `" "`) now counts as empty, like
+  `BENCHLENS_ALLOWED_HOSTS=`: a config file's `allowed_hosts` is used when there is one. In 0.1.2 such a value
+  turned the Host check off and also hid the file's list.
 - The Host-check 403 names only the setting that would work, given where the current list came from:
   `BENCHLENS_ALLOWED_HOSTS=name` when the list comes from that variable (the file's list has no effect then),
   `allowed_hosts = ["name"]` when it comes from the config file, either one for the image default or no
-  list. Configured names and the token are still never shown. Before, it always suggested both.
+  list. Configured names and the token are still never shown. Before, it always suggested both. Without a
+  token on a non-loopback address it adds "or set a token" only when no list is set (with a list, such as the
+  image default, a token would not serve the name; 0.1.2 suggested it anyway).
 - The start-up line names the source of the list, e.g. `Host names served: localhost, IP addresses, bench.lan
   (from allowed_hosts in the config file)`. The warning about a config file's `allowed_hosts` being ignored now
   appears only when `BENCHLENS_ALLOWED_HOSTS` (or a flag) really hides a different, non-empty list; it no

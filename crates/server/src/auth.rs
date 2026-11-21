@@ -230,12 +230,19 @@ impl Access {
         let to_serve = "to serve this name (for example behind a reverse proxy on this machine that passes its \
                         public name as Host), ";
         let what = match self.hosts_source {
-            // a flag or BENCHLENS_ALLOWED_HOSTS: the file's list is not used, so only the variable helps
-            HostsSource::Env | HostsSource::Flag if plain => format!(
+            // a flag beats the variable and the file: only the flag's list helps
+            HostsSource::Flag if plain => format!(
+                "{to_serve}add {name} to the allowed_hosts list given on the command line (keep the names \
+                 already listed; it wins over BENCHLENS_ALLOWED_HOSTS and benchlens.toml)"
+            ),
+            HostsSource::Flag => "to serve a name, add it to the allowed_hosts list given on the command line"
+                .to_string(),
+            // BENCHLENS_ALLOWED_HOSTS: the file's list is not used, so only the variable helps
+            HostsSource::Env if plain => format!(
                 "{to_serve}add it to BENCHLENS_ALLOWED_HOSTS: BENCHLENS_ALLOWED_HOSTS={name} (keep the names \
                  already listed; this variable wins over allowed_hosts in benchlens.toml)"
             ),
-            HostsSource::Env | HostsSource::Flag => "to serve a name, add it to BENCHLENS_ALLOWED_HOSTS \
+            HostsSource::Env => "to serve a name, add it to BENCHLENS_ALLOWED_HOSTS \
                  (comma list; this variable wins over allowed_hosts in benchlens.toml)"
                 .to_string(),
             HostsSource::File if plain => format!(
@@ -259,7 +266,9 @@ impl Access {
                  BENCHLENS_ALLOWED_HOSTS (comma list)"
                 .to_string(),
         };
-        let detail = if self.token.is_none() && !self.loopback {
+        // a token turns the check off on a non-loopback listener only while no list is set; with a list it
+        // would not serve this name
+        let detail = if self.token.is_none() && !self.loopback && self.allowed_hosts.is_empty() {
             format!("{what}, or set a token")
         } else {
             what
@@ -733,14 +742,16 @@ mod tests {
         };
         let file_key = r#"allowed_hosts = ["evil.example"]"#;
         let env_var = "BENCHLENS_ALLOWED_HOSTS=evil.example";
-        // the variable (or a flag): only the variable works, the file is not used
-        for src in [HostsSource::Env, HostsSource::Flag] {
-            let d = detail(src, &["secret.lan"], "evil.example:8080");
-            assert!(d.contains(env_var), "{d}");
-            assert!(!d.contains(file_key), "{d}");
-            assert!(d.contains("wins over allowed_hosts"), "{d}");
-            assert!(d.contains("keep the names already listed"), "{d}");
-        }
+        // the variable: only the variable works, the file is not used
+        let d = detail(HostsSource::Env, &["secret.lan"], "evil.example:8080");
+        assert!(d.contains(env_var), "{d}");
+        assert!(!d.contains(file_key), "{d}");
+        assert!(d.contains("wins over allowed_hosts"), "{d}");
+        assert!(d.contains("keep the names already listed"), "{d}");
+        // a flag (review): it beats the variable, so only the flag's list works
+        let d = detail(HostsSource::Flag, &["secret.lan"], "evil.example:8080");
+        assert!(d.contains("command line"), "{d}");
+        assert!(!d.contains(env_var) && !d.contains(file_key), "{d}");
         // the file: the file key
         let d = detail(HostsSource::File, &["secret.lan"], "evil.example:8080");
         assert!(d.contains(file_key), "{d}");
@@ -790,6 +801,23 @@ mod tests {
             if let Some(n) = not {
                 assert!(!d.contains(n), "{d}");
             }
+        }
+        // review: without a token on a non-loopback listener, a token serves the name only while no list is
+        // set (with the image default or any other list the name would still be refused)
+        let no_token = |hosts: &[&str], src| {
+            Access::for_listen(None, true, any)
+                .with_allowed_hosts(hosts.iter().map(|s| s.to_string()))
+                .with_hosts_source(src)
+                .check_host(&host("evil.example"), &uri)
+                .unwrap_err()
+                .0
+                .detail
+                .unwrap()
+        };
+        assert!(no_token(&[], HostsSource::Unset).ends_with("or set a token"));
+        for src in [HostsSource::DefaultEnv, HostsSource::File, HostsSource::Env] {
+            let d = no_token(&["localhost"], src);
+            assert!(!d.contains("token"), "{d}");
         }
     }
 

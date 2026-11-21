@@ -127,10 +127,19 @@ impl Layer {
     /// The `BENCHLENS_*` variables, read through `var` (so tests need not touch the process environment):
     /// `BENCHLENS_DB`, `_LISTEN`, `_INBOX`, `_INBOX_INTERVAL`, `_REGISTRY` (or the older `_INBOX_REGISTRY`),
     /// `_TOKEN`, `_READ_PUBLIC`, `_MAX_UPLOAD_MB`, `_ALLOWED_HOSTS` (comma list), `_DEFAULT_ALLOWED_HOSTS`
-    /// (comma list, lowest priority). An empty variable counts as not set; an empty `_ALLOWED_HOSTS` also
-    /// drops `_DEFAULT_ALLOWED_HOSTS` (the opt-out of the Docker image default, as in 0.1.2).
+    /// (comma list, lowest priority). An empty variable counts as not set; an `_ALLOWED_HOSTS` without any name
+    /// (empty, or only blanks and commas) counts as not set too and also drops `_DEFAULT_ALLOWED_HOSTS` (the
+    /// opt-out of the Docker image default, as in 0.1.2).
     pub fn from_env(var: impl Fn(&str) -> Option<String>) -> Result<Layer> {
         let get = |k: &str| var(k).filter(|v| !v.is_empty());
+        // BENCHLENS_ALLOWED_HOSTS set without any name (empty, or only blanks, commas, dots: review) counts as
+        // not set and drops the default list, so `BENCHLENS_ALLOWED_HOSTS=" "` behaves like the documented
+        // opt-out `BENCHLENS_ALLOWED_HOSTS=` instead of also hiding a config file's list
+        let hosts = var("BENCHLENS_ALLOWED_HOSTS");
+        let hosts_blank = hosts.as_deref().is_some_and(|v| {
+            v.split(',')
+                .all(|h| h.trim().trim_end_matches('.').is_empty())
+        });
         let num = |k: &str| -> Result<Option<u64>> {
             get(k)
                 .map(|v| {
@@ -153,8 +162,8 @@ impl Layer {
                 .map(|v| parse_bool("BENCHLENS_READ_PUBLIC", &v))
                 .transpose()?,
             max_upload_mb: num("BENCHLENS_MAX_UPLOAD_MB")?,
-            allowed_hosts: get("BENCHLENS_ALLOWED_HOSTS").map(|v| comma_list(&v)),
-            default_allowed_hosts: if var("BENCHLENS_ALLOWED_HOSTS").is_some_and(|v| v.is_empty()) {
+            allowed_hosts: hosts.filter(|_| !hosts_blank).map(|v| comma_list(&v)),
+            default_allowed_hosts: if hosts_blank {
                 None
             } else {
                 get("BENCHLENS_DEFAULT_ALLOWED_HOSTS").map(|v| comma_list(&v))
@@ -769,6 +778,30 @@ mod tests {
                 file,
                 &["file.lan"],
                 HostsSource::File,
+            ),
+            // review: a value without any name (blanks, commas) is the same opt-out, and does not hide the
+            // file's list (in 0.1.2 it turned the check off and ignored the file)
+            (
+                &none,
+                &[dflt, ("BENCHLENS_ALLOWED_HOSTS", " , ")],
+                "",
+                &[],
+                HostsSource::Unset,
+            ),
+            (
+                &none,
+                &[dflt, ("BENCHLENS_ALLOWED_HOSTS", " ")],
+                file,
+                &["file.lan"],
+                HostsSource::File,
+            ),
+            // names are cleaned up: case, blanks, trailing dot, empty entries
+            (
+                &none,
+                &[("BENCHLENS_DEFAULT_ALLOWED_HOSTS", " LocalHost. ,")],
+                "",
+                &["localhost"],
+                HostsSource::DefaultEnv,
             ),
         ];
         for (i, (flags, e, f, want, src)) in cases.iter().enumerate() {
