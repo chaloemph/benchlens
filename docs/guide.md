@@ -543,7 +543,8 @@ when present), then the defaults. The [README](../README.md#running-on-a-server)
 For the extra Host names there is one more source with the lowest priority, `BENCHLENS_DEFAULT_ALLOWED_HOSTS`
 (since 0.1.3): it is used only when neither `BENCHLENS_ALLOWED_HOSTS` nor `allowed_hosts` in the file gives
 names. The Docker image sets it to `localhost`, so a mounted `benchlens.toml` replaces the image default. An
-empty list counts as not set; `BENCHLENS_ALLOWED_HOSTS=` (set, but empty) also drops the default list.
+empty list counts as not set; `BENCHLENS_ALLOWED_HOSTS=` (set, but empty or only blanks and commas) also drops
+the default list.
 
 ### Who may read and write
 
@@ -767,8 +768,9 @@ port, even one published only as `127.0.0.1:8080:8080`. The image therefore turn
 `BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost` (since 0.1.3; 0.1.2 set `BENCHLENS_ALLOWED_HOSTS=localhost`), a
 default with the lowest priority: names you give in `BENCHLENS_ALLOWED_HOSTS` or in `allowed_hosts` of a
 mounted `benchlens.toml` replace it. With the container above (token set; `192.168.1.5` stands for the Docker
-host's address; the outputs in this section were captured for 0.1.3 with an image built from this checkout,
-under other container and volume names):
+host's address; the outputs in this section were captured with an image built from this checkout before the 0.1.3
+version bump, so the binary still reports 0.1.2; container and volume names were edited to match
+the commands):
 
 ```text
 $ curl -s http://192.168.1.5:8080/api/health
@@ -818,6 +820,7 @@ file), and the server says so at start-up when that hides a different list (here
 `-e BENCHLENS_ALLOWED_HOSTS=other.lan` with the file above); the 403 then names only the variable:
 
 ```text
+$ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -v "$PWD/benchlens.toml:/data/benchlens.toml:ro" -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS=other.lan benchlens:h-docs
 $ docker logs benchlens
 benchlens 0.1.2 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
@@ -828,9 +831,9 @@ $ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
 ```
 
 **Opting out** (not recommended for a container that a browser can reach): `-e BENCHLENS_ALLOWED_HOSTS=` (an
-empty value) counts as not set and also drops the image default, as in 0.1.2. With no `allowed_hosts` in a
-file and a token the container then serves every `Host` (`Host names served: any`); with the file's list it
-serves that list.
+empty value, or one with only blanks or commas) counts as not set and also drops the image default, as in
+0.1.2. With no `allowed_hosts` in a file and a token the container then serves every `Host`
+(`Host names served: any`); with the file's list it serves that list.
 
 **Behaviour change in 0.1.2**: before, a container with a token answered any name. If you open yours by a
 name (a LAN name, a reverse proxy's public name, a proxy container's upstream name), it now answers 403
