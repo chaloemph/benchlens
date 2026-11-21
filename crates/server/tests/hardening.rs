@@ -311,7 +311,8 @@ async fn image_default_and_mounted_file_through_the_router() {
     assert!(!d.contains("other.lan"), "{d}");
 
     // BENCHLENS_ALLOWED_HOSTS= (empty): the 0.1.2 opt-out, any Host with a token when no file lists names ...
-    let (st, _) = state(
+    // (F27: warned at start-up, since any Host is served)
+    let (st, cfg) = state(
         &image(&[("BENCHLENS_ALLOWED_HOSTS", "")]),
         &Layer::default(),
     );
@@ -319,8 +320,14 @@ async fn image_default_and_mounted_file_through_the_router() {
         get(&st, "/api/runs", "evil.example").await.status,
         StatusCode::OK
     );
-    // ... and the file's list when one does
-    let (st, _) = state(&image(&[("BENCHLENS_ALLOWED_HOSTS", "")]), &mounted);
+    assert_eq!(Access::for_settings(&cfg).hosts_served(), "any");
+    let w = cfg.warnings();
+    assert_eq!(w.len(), 1, "{w:?}");
+    assert!(w[0].contains("with no Host check"), "{w:?}");
+    assert!(!w[0].contains(TOKEN));
+    // ... and the file's list when one does (no warning: the check is on)
+    let (st, cfg) = state(&image(&[("BENCHLENS_ALLOWED_HOSTS", "")]), &mounted);
+    assert!(cfg.warnings().is_empty(), "{:?}", cfg.warnings());
     assert_eq!(get(&st, "/", "bench.lan").await.status, StatusCode::OK);
     assert_eq!(
         get(&st, "/", "evil.example").await.status,

@@ -142,7 +142,14 @@ Errors: JSON `{"error": "...", "detail": "..."}` with 400 / 404 / 401 / 413 / 50
 
 | ID | Follow-up | Where | From |
 |---|---|---|---|
-| F27 | No start-up warning when the Host check is off on a non-loopback listener with a token (`Host names served: any` is the only hint), e.g. a container started with `-e BENCHLENS_ALLOWED_HOSTS=` and no `allowed_hosts` in a file. Consider a warning like the no-token one, naming the opt-out and `allowed_hosts`. | server config | L (M6 review) |
+| F27 (done, M7) | No start-up warning when the Host check is off on a non-loopback listener with a token (`Host names served: any` is the only hint), e.g. a container started with `-e BENCHLENS_ALLOWED_HOSTS=` and no `allowed_hosts` in a file. Consider a warning like the no-token one, naming the opt-out and `allowed_hosts`. Done: `Settings::warnings()` adds `warning: listening on <addr> with no Host check: ...` when a token, a non-loopback listener, `read_public = true` and an empty `allowed_hosts` meet (`Access::checks_host` itself, plus open reads; L review: the warning now asks `checks_host` instead of repeating its condition); it names `allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS=name` and `read_public = false`, never the token or configured names. Quiet with a list from any source (image default included), on loopback, with `read_public = false` (only `/api/health` and the UI files are open; L review: accepted, documented in SECURITY.md), and without a token (the old warning). Unit tests (`config::tests::warns_when_the_host_check_is_off`), router test of the opt-out (`hardening`), binary stderr test (`crates/cli/tests/serve_warnings.rs`); Docker-checked (opt-out warns in `docker logs`, image default quiet). | server config | L (M6 review) |
+
+## Follow-ups from the M7 review (F27)
+
+| ID | Follow-up | Where | From |
+|---|---|---|---|
+| F28 | Start-up warnings print the configured listen address, so `serve --listen 0.0.0.0:0` reads `0.0.0.0:0` while the first line shows the bound port. Use the bound address (low). | server serve / config | L (M7 review) |
+| F29 | `HostsSource::Flag` (and its 403 text) is reachable only from code: `benchlens serve` has no `--allowed-hosts` flag. Add the flag (docs/guide.md table) or drop the source (low). | cli / server config | L (M7 review) |
 
 ## Wave 2: done, integrated by L in `integration/wave2`
 

@@ -94,13 +94,17 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
 - **DNS rebinding with a token on a non-loopback address**: there any `Host` is served unless
   `allowed_hosts` is set (the token itself is safe: a rebinding page never sees it), so a rebinding page in
   the browser of a user on the same network can read what `read_public = true` makes public. Set
-  `allowed_hosts` (or `read_public = false`) if that matters. Loopback listeners check the `Host` also with
-  a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
+  `allowed_hosts` (or `read_public = false`) if that matters; the server warns at start-up in that case
+  (`warning: listening on ... with no Host check`, since 0.1.4; before, `Host names served: any` was the only
+  hint). With `read_public = false` and no `allowed_hosts` the check is still off, but only what is open
+  without the token is readable: `/api/health` (version and number of runs) and the web UI files; there is
+  no warning for that. Loopback listeners check the `Host` also with a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
   The Docker image checks the `Host` by default (since 0.1.2; in 0.1.0 and 0.1.1 a token-protected
   container served any `Host`, also on a port published as `127.0.0.1:8080:8080`). Setting
   `BENCHLENS_ALLOWED_HOSTS` to an empty value in the container (`-e BENCHLENS_ALLOWED_HOSTS=`; it also drops
-  the image default) and having no `allowed_hosts` in a config file turns the check off again with a token;
-  do not do that for a container reachable from a browser.
+  the image default) and having no `allowed_hosts` in a config file turns the check off again with a token
+  (the same start-up warning appears in `docker logs`); do not do that for a container reachable from a
+  browser.
 - **Anyone with the token can do everything**: upload, retag, delete. There is no audit log beyond each
   run's `source` (`cli`, `inbox`, `upload`) and import time.
 - **Reads are public by default.** Benchmark results and `hardware.json` (CPU model, memory, disks; vmbench

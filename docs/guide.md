@@ -618,7 +618,15 @@ $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 0.0.0.0:18085
 benchlens 0.1.3 on http://0.0.0.0:18085 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: any
+warning: listening on 0.0.0.0:18085 with no Host check: any Host name is served, so a DNS rebinding web page can read the public data (writes still need the token); set allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false to keep reads behind the token
 ```
+
+With a token on a non-loopback address and no `allowed_hosts`, the Host check is off: a DNS rebinding page in
+a browser on the same network can read what `read_public = true` makes public (it never sees the token, so it
+cannot write). The server warns about it at start-up (since 0.1.4); the warning is quiet once
+`allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS` lists a name, with `read_public = false` (then only
+`/api/health` and the page itself are open without the token), and on loopback addresses (checked there
+anyway).
 
 ```text
 $ benchlens --db srv.db serve --listen 0.0.0.0:18081
@@ -832,7 +840,17 @@ $ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
 **Opting out** (not recommended for a container that a browser can reach): `-e BENCHLENS_ALLOWED_HOSTS=` (an
 empty value, or one with only blanks or commas) counts as not set and also drops the image default, as in
 0.1.2. With no `allowed_hosts` in a file and a token the container then serves every `Host`
-(`Host names served: any`); with the file's list it serves that list.
+(`Host names served: any`) and says so in `docker logs` (since 0.1.4); with the file's list it serves that
+list, without the warning:
+
+```text
+$ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS= benchlens:h-docs
+$ docker logs benchlens
+benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+reads open; writes need the token; uploads up to 256 MiB
+Host names served: any
+warning: listening on 0.0.0.0:8080 with no Host check: any Host name is served, so a DNS rebinding web page can read the public data (writes still need the token); set allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false to keep reads behind the token
+```
 
 **Behaviour change in 0.1.2**: before, a container with a token answered any name. If you open yours by a
 name (a LAN name, a reverse proxy's public name, a proxy container's upstream name), it now answers 403
