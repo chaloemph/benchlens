@@ -359,13 +359,11 @@ impl Settings {
                 self.listen
             ));
         }
-        // F27: the Host check is off (see `Access::checks_host`) and reads are open, so a DNS rebinding page
-        // can read the public data; with read_public = false nothing is readable without the token
-        if self.token.is_some()
-            && self.read_public
-            && !is_loopback(self.listen.ip())
-            && self.allowed_hosts.is_empty()
-        {
+        // F27: the Host check is off (a token, a non-loopback listener, no allowed_hosts: asked of
+        // `Access::checks_host` itself, so the two cannot drift) and reads are open, so a DNS rebinding page can
+        // read the public data. With read_public = false only /api/health (version, run count) and the static
+        // UI files are readable without the token: not warned about (docs/reviews/m7-f27.md)
+        if self.read_public && !crate::auth::Access::for_settings(self).checks_host() {
             out.push(format!(
                 "warning: listening on {} with no Host check: any Host name is served, so a DNS rebinding web \
                  page can read the public data (writes still need the token); set allowed_hosts in \

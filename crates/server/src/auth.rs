@@ -148,8 +148,9 @@ impl Access {
     }
 
     /// Is the `Host` of a request checked at all? Not only with a token on a non-loopback listener and no
-    /// `allowed_hosts`.
-    fn checks_host(&self) -> bool {
+    /// `allowed_hosts`. [`crate::config::Settings::warnings`] uses it too, so the start-up warning about the
+    /// check being off (F27) cannot drift from what the server does.
+    pub(crate) fn checks_host(&self) -> bool {
         self.token.is_none() || self.loopback || !self.allowed_hosts.is_empty()
     }
 
