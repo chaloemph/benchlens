@@ -180,7 +180,7 @@ S (F14, F15, F16, F18) and U (F12, F13, F17) took the Wave 2 follow-ups; G and H
 
 ## Releasing v0.1.0
 
-**Released 2026-11-20** (tag `v0.1.0` on the Wave 3 merge commit 51855e0). v0.1.1 (F19-F22) follows the same steps; a
+**Released 2026-11-20** (tag `v0.1.0` on the Wave 3 merge commit 51855e0). v0.1.1 (F19-F22) and v0.1.2 (F23-F24) follow the same steps; a
 release PR first bumps `[workspace.package] version` (and `Cargo.lock`), dates the CHANGELOG heading and rebuilds
 `web/wasm` (the wasm embeds the version), because `release.yml` refuses a tag that does not match them. The steps below are what was done and
 the template for the next release.
