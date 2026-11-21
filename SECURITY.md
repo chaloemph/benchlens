@@ -96,8 +96,9 @@ hostile multi-tenant hosting: there is **one write token**, no users and no role
   the browser of a user on the same network can read what `read_public = true` makes public. Set
   `allowed_hosts` (or `read_public = false`) if that matters; the server warns at start-up in that case
   (`warning: listening on ... with no Host check`, since 0.1.4; before, `Host names served: any` was the only
-  hint). Loopback listeners check the `Host` also with
-  a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
+  hint). With `read_public = false` and no `allowed_hosts` the check is still off, but only what is open
+  without the token is readable: `/api/health` (version and number of runs) and the web UI files; there is
+  no warning for that. Loopback listeners check the `Host` also with a token (since 0.1.1; in 0.1.0 a rebinding page could read the public data of a server on 127.0.0.1).
   The Docker image checks the `Host` by default (since 0.1.2; in 0.1.0 and 0.1.1 a token-protected
   container served any `Host`, also on a port published as `127.0.0.1:8080:8080`). Setting
   `BENCHLENS_ALLOWED_HOSTS` to an empty value in the container (`-e BENCHLENS_ALLOWED_HOSTS=`; it also drops

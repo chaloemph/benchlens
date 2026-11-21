@@ -624,8 +624,9 @@ warning: listening on 0.0.0.0:18085 with no Host check: any Host name is served,
 With a token on a non-loopback address and no `allowed_hosts`, the Host check is off: a DNS rebinding page in
 a browser on the same network can read what `read_public = true` makes public (it never sees the token, so it
 cannot write). The server warns about it at start-up (since 0.1.4); the warning is quiet once
-`allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS` lists a name, with `read_public = false`, and on loopback
-addresses (checked there anyway).
+`allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS` lists a name, with `read_public = false` (then only
+`/api/health` and the page itself are open without the token), and on loopback addresses (checked there
+anyway).
 
 ```text
 $ benchlens --db srv.db serve --listen 0.0.0.0:18081
