@@ -2,7 +2,7 @@
 
 benchlens keeps [vmbench](https://github.com/chaloemph/vmbench) results in one SQLite file and compares
 machines metric by metric with the same rule as `vmbench report compare`. This guide covers everything it
-does in v0.1.3. For a guided first run see [walkthrough.md](walkthrough.md); for the HTTP API see
+does in v0.1.4. For a guided first run see [walkthrough.md](walkthrough.md); for the HTTP API see
 [api.md](api.md); for what benchlens reads from vmbench see [contract.md](contract.md).
 
 Every command below was run on the result folders in this repository (`tests/fixtures/`, real vmbench
@@ -299,7 +299,7 @@ archive made above (it carries a `benchlens-tags.json`):
 
 ```text
 $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080 --registry registry.tsv
-benchlens 0.1.3 on http://127.0.0.1:18080 (database srv.db)
+benchlens 0.1.4 on http://127.0.0.1:18080 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses
 registry registry.tsv (inbox imports and uploads)
@@ -574,11 +574,11 @@ The 403 names the exact setting that would serve the refused name, given where t
 
 ```text
 $ benchlens --db local.db serve --listen 127.0.0.1:18084
-benchlens 0.1.3 on http://127.0.0.1:18084 (database local.db)
+benchlens 0.1.4 on http://127.0.0.1:18084 (database local.db)
 reads open; writes open (loopback, no token); uploads up to 256 MiB
 Host names served: localhost, IP addresses
 $ curl -s http://localhost:18084/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":0}
+{"benchlens":"0.1.4","db_layout":2,"runs":0}
 $ curl -s -H 'Host: evil.example:18084' http://127.0.0.1:18084/api/health
 {"error":"Host \"evil.example:18084\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"evil.example\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=evil.example"}
 ```
@@ -592,11 +592,11 @@ To reach a loopback server by a name, list it:
 
 ```text
 $ BENCHLENS_ALLOWED_HOSTS=bench.lan benchlens --db local.db serve --listen 127.0.0.1:18084
-benchlens 0.1.3 on http://127.0.0.1:18084 (database local.db)
+benchlens 0.1.4 on http://127.0.0.1:18084 (database local.db)
 reads open; writes open (loopback, no token); uploads up to 256 MiB
 Host names served: localhost, IP addresses, bench.lan (from BENCHLENS_ALLOWED_HOSTS)
 $ curl -s -H 'Host: bench.lan:18084' http://127.0.0.1:18084/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":0}
+{"benchlens":"0.1.4","db_layout":2,"runs":0}
 $ curl -s -H 'Host: evil.example:18084' http://127.0.0.1:18084/api/health
 {"error":"Host \"evil.example:18084\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), add it to BENCHLENS_ALLOWED_HOSTS: BENCHLENS_ALLOWED_HOSTS=evil.example (keep the names already listed; this variable wins over allowed_hosts in benchlens.toml)"}
 ```
@@ -608,14 +608,14 @@ The start-up lines say which case applies:
 
 ```text
 $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
-benchlens 0.1.3 on http://127.0.0.1:18080 (database srv.db)
+benchlens 0.1.4 on http://127.0.0.1:18080 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses
 ```
 
 ```text
 $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 0.0.0.0:18085
-benchlens 0.1.3 on http://0.0.0.0:18085 (database srv.db)
+benchlens 0.1.4 on http://0.0.0.0:18085 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: any
 warning: listening on 0.0.0.0:18085 with no Host check: any Host name is served, so a DNS rebinding web page can read the public data (writes still need the token); set allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false to keep reads behind the token
@@ -630,7 +630,7 @@ anyway).
 
 ```text
 $ benchlens --db srv.db serve --listen 0.0.0.0:18081
-benchlens 0.1.3 on http://0.0.0.0:18081 (database srv.db)
+benchlens 0.1.4 on http://0.0.0.0:18081 (database srv.db)
 reads open; writes refused (no token); uploads up to 256 MiB
 Host names served: localhost, IP addresses
 warning: listening on 0.0.0.0:18081 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
@@ -663,7 +663,7 @@ inbox_tags = { set = "poc" }
 ```text
 $ benchlens serve                      # in the folder holding benchlens.toml
 watching inbox /srv/benchlens/inbox2 every 5s
-benchlens 0.1.3 on http://127.0.0.1:18083 (database /srv/benchlens/srv.db)
+benchlens 0.1.4 on http://127.0.0.1:18083 (database /srv/benchlens/srv.db)
 reads need the token; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses
 registry /srv/benchlens/registry.tsv (inbox imports and uploads)
@@ -673,7 +673,7 @@ inbox: done      arm64-high-r2-20261119-074530: 1 imported, 0 already present ->
 $ curl -s http://127.0.0.1:18083/api/runs
 {"error":"a token is needed: send Authorization: Bearer <token>"}
 $ curl -s http://127.0.0.1:18083/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":1}
+{"benchlens":"0.1.4","db_layout":2,"runs":1}
 ```
 
 (Paths were in a scratch folder when this ran; shown here as `/srv/benchlens`.) `benchlens serve` stops
@@ -713,11 +713,11 @@ $ BENCHLENS_TOKEN=$TOKEN benchlens --db srv.db serve --listen 127.0.0.1:18080
 $ curl -s -H 'Host: bench.example.org' http://127.0.0.1:18080/api/health
 {"error":"Host \"bench.example.org\" refused: on a loopback address only localhost, IP addresses and allowed_hosts are served (DNS rebinding guard)","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"bench.example.org\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=bench.example.org"}
 $ BENCHLENS_TOKEN=$TOKEN BENCHLENS_ALLOWED_HOSTS=bench.example.org benchlens --db srv.db serve --listen 127.0.0.1:18080
-benchlens 0.1.3 on http://127.0.0.1:18080 (database srv.db)
+benchlens 0.1.4 on http://127.0.0.1:18080 (database srv.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses, bench.example.org (from BENCHLENS_ALLOWED_HOSTS)
 $ curl -s -H 'Host: bench.example.org' http://127.0.0.1:18080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":0}
+{"benchlens":"0.1.4","db_layout":2,"runs":0}
 ```
 
 (The start-up lines of the first server are left out.) On a non-loopback address with a token every `Host`
@@ -745,11 +745,11 @@ imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2
 $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$(openssl rand -hex 32)" benchlens:h-docs
 <container id>
 $ docker logs benchlens
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses (from BENCHLENS_DEFAULT_ALLOWED_HOSTS)
 $ curl -s http://localhost:8080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":7}
+{"benchlens":"0.1.4","db_layout":2,"runs":7}
 $ docker stop benchlens               # SIGTERM: the server stops cleanly
 ```
 
@@ -759,7 +759,7 @@ Keep the token somewhere: the web UI and `curl` need it for upload, tag editing 
 `BENCHLENS_TOKEN`, the container says so:
 
 ```text
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes refused (no token); uploads up to 256 MiB
 Host names served: localhost, IP addresses (from BENCHLENS_DEFAULT_ALLOWED_HOSTS)
 warning: listening on 0.0.0.0:8080 without a token: anyone who can reach it can read, and writes (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them
@@ -781,7 +781,7 @@ container and volume names were edited to match the commands):
 
 ```text
 $ curl -s http://192.168.1.5:8080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":7}
+{"benchlens":"0.1.4","db_layout":2,"runs":7}
 $ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
 {"error":"Host \"bench.lan:8080\" refused: it is not in allowed_hosts","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), set allowed_hosts = [\"bench.lan\"] in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=bench.lan; either replaces the default list (BENCHLENS_DEFAULT_ALLOWED_HOSTS); localhost and IP addresses stay served"}
 ```
@@ -794,11 +794,11 @@ is lost, because `localhost` and IP addresses are always served once the check i
 ```text
 $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -v "$PWD/benchlens.toml:/data/benchlens.toml:ro" -e BENCHLENS_TOKEN="$TOKEN" benchlens:h-docs
 $ docker logs benchlens
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses, bench.lan (from allowed_hosts in the config file)
 $ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":7}
+{"benchlens":"0.1.4","db_layout":2,"runs":7}
 $ curl -s -H 'Host: evil.example:8080' http://localhost:8080/api/health
 {"error":"Host \"evil.example:8080\" refused: it is not in allowed_hosts","detail":"to serve this name (for example behind a reverse proxy on this machine that passes its public name as Host), add it to allowed_hosts in benchlens.toml: allowed_hosts = [\"evil.example\"] (keep the names already listed)"}
 ```
@@ -808,13 +808,13 @@ Or with the variable, without a file:
 ```text
 $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS=bench.lan benchlens:h-docs
 $ docker logs benchlens
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses, bench.lan (from BENCHLENS_ALLOWED_HOSTS)
 $ curl -s -H 'Host: bench.lan:8080' http://localhost:8080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":7}
+{"benchlens":"0.1.4","db_layout":2,"runs":7}
 $ curl -s http://localhost:8080/api/health
-{"benchlens":"0.1.3","db_layout":2,"runs":7}
+{"benchlens":"0.1.4","db_layout":2,"runs":7}
 ```
 
 In compose, set `BENCHLENS_ALLOWED_HOSTS: bench.example.org` under `environment` (there is a commented line
@@ -829,7 +829,7 @@ file), and the server says so at start-up when that hides a different list (here
 ```text
 $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -v "$PWD/benchlens.toml:/data/benchlens.toml:ro" -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS=other.lan benchlens:h-docs
 $ docker logs benchlens
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: localhost, IP addresses, other.lan (from BENCHLENS_ALLOWED_HOSTS)
 warning: allowed_hosts in the config file (bench.lan) is ignored: BENCHLENS_ALLOWED_HOSTS (other.lan) wins over the file; put the names in BENCHLENS_ALLOWED_HOSTS, or remove it to use the file's list
@@ -846,7 +846,7 @@ list, without the warning:
 ```text
 $ docker run -d --name benchlens -p 8080:8080 -v benchlens-data:/data -e BENCHLENS_TOKEN="$TOKEN" -e BENCHLENS_ALLOWED_HOSTS= benchlens:h-docs
 $ docker logs benchlens
-benchlens 0.1.3 on http://0.0.0.0:8080 (database /data/benchlens.db)
+benchlens 0.1.4 on http://0.0.0.0:8080 (database /data/benchlens.db)
 reads open; writes need the token; uploads up to 256 MiB
 Host names served: any
 warning: listening on 0.0.0.0:8080 with no Host check: any Host name is served, so a DNS rebinding web page can read the public data (writes still need the token); set allowed_hosts in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false to keep reads behind the token
