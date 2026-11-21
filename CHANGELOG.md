@@ -6,6 +6,10 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.1.4] - 2026-11-21
+
 ### Added
 
 - `benchlens serve` warns at start-up when the Host check is off: a token, a non-loopback listener and no
@@ -176,7 +180,8 @@ First public release.
   dashboards (metric over time, group vs group, runs). benchlens keeps the SQLite `-wal` and `-shm` files
   when it closes the database, so a read-only reader keeps working while benchlens is stopped.
 
-[Unreleased]: https://github.com/chaloemph/benchlens/compare/v0.1.3...main
+[Unreleased]: https://github.com/chaloemph/benchlens/compare/v0.1.4...main
+[0.1.4]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.4
 [0.1.3]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.3
 [0.1.2]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.2
 [0.1.1]: https://github.com/chaloemph/benchlens/releases/tag/v0.1.1
