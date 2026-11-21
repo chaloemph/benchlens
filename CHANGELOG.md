@@ -6,7 +6,15 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- `benchlens serve` warns at start-up when the Host check is off: a token, a non-loopback listener and no
+  `allowed_hosts` list (for example `benchlens serve --listen 0.0.0.0:8080` with a token, or a container
+  started with the opt-out `-e BENCHLENS_ALLOWED_HOSTS=` and no `allowed_hosts` in a mounted file). Any `Host`
+  is then served, so a DNS rebinding page can read what `read_public = true` makes public; the warning names
+  `allowed_hosts` / `BENCHLENS_ALLOWED_HOSTS=name` and `read_public = false`. Before, `Host names served: any`
+  was the only hint. Quiet with a list (also the Docker image default), with `read_public = false`, on
+  loopback, and without a token (which has its own warning). Behaviour unchanged.
 
 ## [0.1.3] - 2026-11-21
 

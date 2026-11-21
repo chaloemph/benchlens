@@ -158,8 +158,8 @@ max_upload_mb = 256      # largest archive accepted by upload
   `[::1]`, `192.168.1.5`, any port); any other `Host` gets 403, and the error says what to set. This stops a
   web page whose domain is re-pointed at 127.0.0.1 from reading or writing a local server. To reach the
   server by a name (`http://bench.lan:8080`, or a proxy's public name), list it in `allowed_hosts` /
-  `BENCHLENS_ALLOWED_HOSTS`. On a non-loopback address with a token every name is served, unless
-  `allowed_hosts` is set, which then limits the names in the same way; the Docker image sets
+  `BENCHLENS_ALLOWED_HOSTS`. On a non-loopback address with a token every name is served (the server warns
+  at start-up), unless `allowed_hosts` is set, which then limits the names in the same way; the Docker image sets
   `BENCHLENS_DEFAULT_ALLOWED_HOSTS=localhost` for this (the lowest-priority source: `allowed_hosts` in a file
   or `BENCHLENS_ALLOWED_HOSTS` replaces it). An IPv4-mapped loopback address (`[::ffff:127.0.0.1]`) counts
   as loopback.

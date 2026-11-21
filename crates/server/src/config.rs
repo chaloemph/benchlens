@@ -347,14 +347,30 @@ impl Settings {
         })
     }
 
-    /// Warnings to print at start-up: serving other machines without a token, and a config file's
-    /// `allowed_hosts` hidden by a flag or `BENCHLENS_ALLOWED_HOSTS`.
+    /// Warnings to print at start-up: serving other machines without a token, serving them with a token but
+    /// no Host check while reads are open, and a config file's `allowed_hosts` hidden by a flag or
+    /// `BENCHLENS_ALLOWED_HOSTS`.
     pub fn warnings(&self) -> Vec<String> {
         let mut out = Vec::new();
         if self.token.is_none() && !is_loopback(self.listen.ip()) {
             out.push(format!(
                 "warning: listening on {} without a token: anyone who can reach it can read, and writes \
                  (upload, tags, delete) are refused; set BENCHLENS_TOKEN to allow them",
+                self.listen
+            ));
+        }
+        // F27: the Host check is off (see `Access::checks_host`) and reads are open, so a DNS rebinding page
+        // can read the public data; with read_public = false nothing is readable without the token
+        if self.token.is_some()
+            && self.read_public
+            && !is_loopback(self.listen.ip())
+            && self.allowed_hosts.is_empty()
+        {
+            out.push(format!(
+                "warning: listening on {} with no Host check: any Host name is served, so a DNS rebinding web \
+                 page can read the public data (writes still need the token); set allowed_hosts in \
+                 benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false \
+                 to keep reads behind the token",
                 self.listen
             ));
         }
@@ -537,10 +553,96 @@ mod tests {
         let l = Layer {
             listen: Some("0.0.0.0:8080".into()),
             token: Some(Token::new(TOKEN)),
+            allowed_hosts: Some(vec!["bench.lan".into()]),
             ..Layer::default()
         };
         let s = Settings::resolve(&l, &Layer::default(), &Layer::default()).unwrap();
         assert!(s.warnings().is_empty());
+    }
+
+    /// F27: a token on a non-loopback listener with no Host list turns the Host check off; say so at start-up.
+    #[test]
+    fn warns_when_the_host_check_is_off() {
+        let off = |w: &[String]| w.iter().any(|l| l.contains("with no Host check"));
+        let resolve = |e: &[(&str, &str)], f: &str| {
+            Settings::resolve(&Layer::default(), &env(e), &Layer::from_toml(f).unwrap()).unwrap()
+        };
+        let open = ("BENCHLENS_LISTEN", "0.0.0.0:8080");
+        let tok = ("BENCHLENS_TOKEN", TOKEN);
+
+        // token, non-loopback, no list: warn, naming both fixes, never the token
+        let w = resolve(&[open, tok], "").warnings();
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert_eq!(
+            w[0],
+            "warning: listening on 0.0.0.0:8080 with no Host check: any Host name is served, so a DNS \
+             rebinding web page can read the public data (writes still need the token); set allowed_hosts \
+             in benchlens.toml or BENCHLENS_ALLOWED_HOSTS=name to turn the check on, or read_public = false \
+             to keep reads behind the token"
+        );
+        assert!(!w[0].contains(TOKEN));
+        // same with IPv6 and a LAN address
+        for addr in ["[::]:8080", "192.168.1.5:8080", "[::ffff:192.168.1.5]:8080"] {
+            let w = resolve(&[("BENCHLENS_LISTEN", addr), tok], "").warnings();
+            assert!(off(&w), "{addr}: {w:?}");
+        }
+
+        // the documented opt-out BENCHLENS_ALLOWED_HOSTS= (and a blank value) with the image default and no
+        // file list: warn
+        for opt_out in ["", " ", ","] {
+            let e = [
+                open,
+                tok,
+                ("BENCHLENS_DEFAULT_ALLOWED_HOSTS", "localhost"),
+                ("BENCHLENS_ALLOWED_HOSTS", opt_out),
+            ];
+            let s = resolve(&e, "");
+            assert_eq!(s.allowed_hosts_source, HostsSource::Unset);
+            assert!(off(&s.warnings()), "{opt_out:?}: {:?}", s.warnings());
+            // an empty file list counts as not set: still off
+            assert!(off(&resolve(&e, "allowed_hosts = []").warnings()));
+            // a file list turns the check on, and its names are not printed
+            let w = resolve(&e, "allowed_hosts = [\"bench.lan\"]").warnings();
+            assert!(w.is_empty(), "{w:?}");
+        }
+
+        // token, non-loopback, a list from any source: quiet (configured names never printed)
+        for (e, f) in [
+            (
+                vec![open, tok, ("BENCHLENS_ALLOWED_HOSTS", "bench.lan")],
+                "",
+            ),
+            (vec![open, tok], "allowed_hosts = [\"bench.lan\"]"),
+            // the image default (Docker with no extra env)
+            (
+                vec![open, tok, ("BENCHLENS_DEFAULT_ALLOWED_HOSTS", "localhost")],
+                "",
+            ),
+        ] {
+            let w = resolve(&e, f).warnings();
+            assert!(w.is_empty(), "{e:?} {f:?}: {w:?}");
+        }
+        let flags = Layer {
+            allowed_hosts: Some(vec!["flag.lan".into()]),
+            ..Layer::default()
+        };
+        let s = Settings::resolve(&flags, &env(&[open, tok]), &Layer::default()).unwrap();
+        assert!(s.warnings().is_empty(), "{:?}", s.warnings());
+
+        // token on a loopback listener: the check is on there anyway
+        for addr in ["127.0.0.1:8080", "[::1]:8080", "[::ffff:127.0.0.1]:8080"] {
+            let w = resolve(&[("BENCHLENS_LISTEN", addr), tok], "").warnings();
+            assert!(w.is_empty(), "{addr}: {w:?}");
+        }
+
+        // no token: only the old warning, not this one
+        let w = resolve(&[open, ("BENCHLENS_ALLOWED_HOSTS", "")], "").warnings();
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(w[0].contains("without a token"), "{w:?}");
+
+        // read_public = false: nothing is readable without the token, so nothing to warn about
+        let w = resolve(&[open, tok, ("BENCHLENS_READ_PUBLIC", "false")], "").warnings();
+        assert!(w.is_empty(), "{w:?}");
     }
 
     #[test]
