@@ -48,8 +48,7 @@ test('summary: sides line names the sides and links to Compare with the same sta
   await expect(page.locator('#sum-sides')).toContainText(baseName);
   const change = page.locator('#sum-sides a');
   const href = new URL(await change.getAttribute('href'), page.url());
-  // hrefFor leaves out values equal to the default, and the default view is compare.
-  expect(href.searchParams.get('view') ?? 'compare').toBe('compare');
+  expect(href.searchParams.get('view')).toBe('compare');
   expect(href.searchParams.get('base')).toBe(cmp.base);
   expect(href.searchParams.getAll('other')).toEqual(cmp.others);
   await change.click();
@@ -118,3 +117,12 @@ for (const width of [1280, 400]) {
     }
   });
 }
+
+test('summary: a link without view opens the Summary view; view=compare still opens Compare', async ({ page, request }) => {
+  const [cmp] = await pickComparisons(request);
+  await page.goto('?' + sidesQuery(cmp));
+  await expect(page.locator('#view-summary')).toBeVisible();
+  await expect(page.locator('nav a[data-view="summary"]')).toHaveAttribute('aria-current', 'page');
+  await openView(page, '?view=compare&' + sidesQuery(cmp));
+  await expect(page.locator('nav a[data-view="compare"]')).toHaveAttribute('aria-current', 'page');
+});

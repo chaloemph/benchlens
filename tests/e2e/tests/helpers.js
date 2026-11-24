@@ -177,7 +177,7 @@ export function watchErrors(page, into) {
 /** Open a UI URL (query string) and wait until the view named in it has rendered its data. */
 export async function openView(page, query) {
   await page.goto(query);
-  const view = new URLSearchParams(query.replace(/^[^?]*\?/, '')).get('view') || 'compare';
+  const view = new URLSearchParams(query.replace(/^[^?]*\?/, '')).get('view') || 'summary';
   await waitForView(page, view);
   return view;
 }

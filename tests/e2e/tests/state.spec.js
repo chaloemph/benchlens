@@ -8,7 +8,7 @@ test('compare: baseline, compared sides and section survive a reload', async ({ 
   const [cmp] = await pickComparisons(request);
   const groups = await api(request, 'api/groups');
   const extra = groups.map((g) => 'group:' + g.group).find((ref) => ref !== cmp.base && !cmp.others.includes(ref));
-  await openView(page, '?' + sidesQuery(cmp));
+  await openView(page, '?view=compare&' + sidesQuery(cmp));
 
   // pick through the UI: one more group to compare with, then the "all" section
   if (extra) {
@@ -47,7 +47,7 @@ test('compare: baseline, compared sides and section survive a reload', async ({ 
 
 test('compare: single runs picked in the UI survive a reload', async ({ page, request }) => {
   const [, runsCmp] = await pickComparisons(request);
-  await openView(page, `?base=${encodeURIComponent(runsCmp.base)}&other=${encodeURIComponent(runsCmp.others[0])}`);
+  await openView(page, `?view=compare&base=${encodeURIComponent(runsCmp.base)}&other=${encodeURIComponent(runsCmp.others[0])}`);
   await expect(page.locator('#view-compare details.picks-runs')).toHaveAttribute('open', '');
   await expect(page.locator(`#pick-runs input[value="${runsCmp.others[0]}"]`)).toBeChecked();
   await page.locator(`#pick-runs input[value="${runsCmp.others[0]}"]`).uncheck();
@@ -61,7 +61,7 @@ test('compare: single runs picked in the UI survive a reload', async ({ page, re
 test('metric: the chosen metric survives a reload; heatmap name opens it', async ({ page, request }) => {
   const [cmp] = await pickComparisons(request);
   const c = await api(request, 'api/compare?' + sidesQuery(cmp));
-  await openView(page, '?' + sidesQuery(cmp) + '&section=all');
+  await openView(page, '?view=compare&' + sidesQuery(cmp) + '&section=all');
   const row = c.rows[c.rows.length - 1];
   await page.locator('#heat tbody th button', { hasText: row.name }).first().click();
   await waitForView(page, 'metric');

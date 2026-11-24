@@ -132,5 +132,8 @@ weight > 0; a missing section with weight > 0 lands in `incomplete`.
   in the file twice (harmless, same rules); inline it once (task X, `crates/server/src/export.rs`) (low).
 - F31: `tools/score_check.py` does not recompute the price / performance index; task P's e2e compares with it
   per the plan, so add it there or in score_check (low).
-- F32: Summary is first in the nav but a URL without `view` still opens Compare; decide with task X whether
-  the live UI also opens on Summary (the export will) (owner decision).
+- F32 (done in Wave 0, owner's decision): a URL without `view` now opens Summary (`DEFAULTS.view` in
+  `web/js/state.js`). Links to Compare carry `view=compare` (hrefFor writes non-default values); e2e specs that
+  meant Compare without saying so now say `view=compare`, and a new test checks both. The export does not offer
+  Summary yet, so it still falls back to Compare until task X adds it. Task X: note the change in CHANGELOG
+  (bookmarks without `view` now open Summary).

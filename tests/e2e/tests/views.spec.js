@@ -17,8 +17,9 @@ for (const scheme of SCHEMES) {
       const sides = sidesQuery(cmp);
       const cross = c.rows.find((r) => r.cross_arch);
       const pages = [
-        ['compare', `?${sides}`],
-        ['compare-all', `?${sides}&section=all`],
+        ['summary', `?view=summary&${sides}`],
+        ['compare', `?view=compare&${sides}`],
+        ['compare-all', `?view=compare&${sides}&section=all`],
         ['metric', `?view=metric&${sides}&metric=${encodeURIComponent(c.rows[0].id)}`],
         ...(cross ? [['metric-cross-arch', `?view=metric&${sides}&metric=${encodeURIComponent(cross.id)}`]] : []),
         ['runs', '?view=runs'],
