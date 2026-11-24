@@ -132,7 +132,8 @@ weight > 0; a missing section with weight > 0 lands in `incomplete`.
   in the file twice (harmless, same rules); inline it once (task X, `crates/server/src/export.rs`) (low).
 - F31: `tools/score_check.py` does not recompute the price / performance index; task P's e2e compares with it
   per the plan, so add it there or in score_check (low).
-- F32 (done in Wave 0, owner's decision): a URL without `view` now opens Summary (`DEFAULTS.view` in
+- F32 (owner's decision; written on `integration/m8-wave0` after pull request #14 was merged, so it landed with
+  Wave 1, see m8-wave1.md): a URL without `view` now opens Summary (`DEFAULTS.view` in
   `web/js/state.js`). Links to Compare carry `view=compare` (hrefFor writes non-default values); e2e specs that
   meant Compare without saying so now say `view=compare`, and a new test checks both. The export does not offer
   Summary yet, so it still falls back to Compare until task X adds it. Task X: note the change in CHANGELOG
