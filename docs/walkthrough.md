@@ -144,7 +144,8 @@ Host names served: localhost, IP addresses
 ```
 
 (Without `--listen` it uses `127.0.0.1:8080`. Without a token the server answers only `localhost` and IP
-addresses, a guard against DNS rebinding; see the [user guide](guide.md#who-may-read-and-write).) Open the address in a browser. The Compare view starts with
+addresses, a guard against DNS rebinding; see the [user guide](guide.md#who-may-read-and-write).) Open the address in a browser. It opens on the Summary view (below); choose Compare in the menu for the rest of
+this step. The Compare view starts with
 the quick pick "x86 vs ARM64 · high", the same comparison as above: the takeaway sentence, the tally per
 section and a heatmap of the key metrics (choose "Show" for every metric or one section).
 
@@ -162,17 +163,35 @@ The Runs view lists the seven runs with their tags (editable), and the Hardware 
 selection, for example
 `http://127.0.0.1:8091/?view=compare&base=group:x86-high&other=group:arm64-high&section=key`.
 
+### The Summary view
+
+The first view is for the person who has to choose a machine and does not want to read 65 results. It uses the
+sides picked in Compare and draws six blocks: a leaderboard with workload profiles, a radar per section, price /
+performance, scaling with vCPUs, stability and verdicts by section. Here x86-high is the baseline (100) against
+arm64-high and x86-std:
+
+![Summary view: leaderboard and radar for x86-high, arm64-high and x86-std](img/summary.png)
+
+*Example prices (4500, 3900 and 1200 THB/month, set through a copy of the POC registry, see the
+[guide](guide.md#price-tags); they are not measurements) make the price / performance block appear below the
+radar. Without a `price` tag on at least two sides it is hidden and a muted line says how to get it.*
+
+For "Balanced" x86-high leads; arm64-high scores 81.6 (better 23, worse 37, within noise 5, the same counts as
+`benchlens compare`) and x86-std 55.4. Pick "Database" and arm64-high moves to 110 on the strength of its disk and
+PostgreSQL results. A score is a summary, not a verdict; the counts under each bar are vmbench's.
+How the scores are computed: [contract](contract.md#scores); every block: [guide](guide.md#summary-view).
+
 Stop the server with Ctrl-C.
 
 ## 6. Share it
 
 ```text
 $ benchlens export html --base group:x86-high --other group:arm64-high --other group:x86-std -o poc-high.html
-wrote poc-high.html (786 KB): 3 sides, 7 runs, 709 values
+wrote poc-high.html (883 KB): 3 sides, 7 runs, 709 values
 ```
 
-Send `poc-high.html` to anyone: it opens from disk in a browser with no server and no network, shows the
-same views, and lets the reader change the baseline or compare single runs of the exported groups, with the
+Send `poc-high.html` to anyone: it opens from disk in a browser with no server and no network, opens on the
+Summary view, shows the same views, and lets the reader change the baseline or compare single runs of the exported groups, with the
 verdicts computed by the same rule. `benchlens export csv` and `export json` give the raw values for a
 spreadsheet or a script ([guide](guide.md#exporting)).
 

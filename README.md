@@ -14,6 +14,11 @@ opens offline.
 
 ![Compare view of the example data: x86-high against arm64-high](docs/img/compare.png)
 
+The **Summary view** turns a comparison into a few charts for someone who has to decide: a leaderboard with
+workload profiles, a radar per section, price / performance, scaling with vCPUs, stability and verdicts by
+section ([guide](docs/guide.md#summary-view); the exported HTML opens on it).
+[Screenshot](docs/img/summary.png), with example prices on the POC data.
+
 ## Quick start
 
 With [benchlens installed](#install), from a clone of this repository (the example data is real, from a POC
