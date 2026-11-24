@@ -32,6 +32,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - name: score module of the Summary view (node tests against tools/score_check.py)
+        # cargo test --all built target/debug/benchlens; naming it makes the whole-fixtures test fail, not skip, without it
+        env:
+          BENCHLENS_BIN: target/debug/benchlens
+        run: |
+          python3 tools/score_check.py
+          node --test tests/score/
       - name: wasm build passes the golden pairs in node
         # the bytes depend on the rustc version, so a differing build only warns
         run: |

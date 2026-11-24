@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "node --test tests/score/ (Node 24 treats a directory argument as a module, so index.js loads the test files)"
+}
