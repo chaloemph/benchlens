@@ -1,6 +1,7 @@
 // The same comparison on the whole fixtures: docs/api-examples cut long lists, so this one runs the real
 // `benchlens compare --json` on tests/fixtures (the sides of docs/api-examples/compare.json) when a built
-// binary is available (BENCHLENS_BIN, target/release or target/debug) and is skipped, loudly, when not.
+// binary is available (BENCHLENS_BIN, target/release or target/debug) and is skipped, loudly, when not. In CI
+// (CI set, as GitHub Actions does) or when BENCHLENS_BIN names a missing file it fails instead of skipping.
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,10 +12,13 @@ import path from 'node:path';
 import { sectionScores, SECTIONS } from '../../web/js/score.js';
 import { ROOT, example, checkAgainstPython } from './_helpers.mjs';
 
-const candidates = [process.env.BENCHLENS_BIN, path.join(ROOT, 'target/release/benchlens'), path.join(ROOT, 'target/debug/benchlens')].filter(Boolean);
+const named = process.env.BENCHLENS_BIN;
+const candidates = named ? [named] : [path.join(ROOT, 'target/release/benchlens'), path.join(ROOT, 'target/debug/benchlens')];
 const bin = candidates.find((p) => fs.existsSync(p));
+const mustRun = Boolean(named || process.env.CI);
 
-test('whole fixtures: every score equals score_check.py', { skip: bin ? false : 'no benchlens binary (cargo build --release -p benchlens, or set BENCHLENS_BIN)' }, () => {
+test('whole fixtures: every score equals score_check.py', { skip: bin || mustRun ? false : 'no benchlens binary (cargo build --release -p benchlens, or set BENCHLENS_BIN)' }, () => {
+  assert.ok(bin, `no benchlens binary at ${candidates.join(' or ')}: build it first (cargo build -p benchlens)`);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'benchlens-score-full-'));
   try {
     const db = path.join(dir, 'full.db');
