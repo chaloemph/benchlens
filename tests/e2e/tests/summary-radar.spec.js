@@ -93,10 +93,11 @@ test('radar: tooltip shows the score and the verdict counts', async ({ page, req
 });
 
 test('radar: more than four sides draw four and offer a selector', async ({ page, request }) => {
-  const groups = await api(request, 'api/groups');
-  test.skip(groups.length < 6, 'the fixtures have fewer than six groups');
-  const names = groups.map((g) => 'group:' + g.group);
-  const cmp = { base: names[0], others: names.slice(1, 6) };
+  // runs as sides: the fixtures hold three groups but seven runs
+  const runs = await api(request, 'api/runs');
+  expect(runs.length, 'the fixtures have six runs or more').toBeGreaterThanOrEqual(6);
+  const ids = runs.map((r) => r.run_id);
+  const cmp = { base: ids[0], others: ids.slice(1, 6) };
   await openRadar(page, sidesQuery(cmp));
   const boxes = page.locator(`${SLOT} .sum-radar-pick input`);
   await expect(boxes).toHaveCount(5);
