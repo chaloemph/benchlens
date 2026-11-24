@@ -54,16 +54,49 @@ export function takeaway(entries, profileName) {
   return `For ${profileName}, ${base.name} (100) leads; the best of the others, ${others[0].name}, scores ${fmtScore(others[0].score)}.`;
 }
 
+// Focus across re-renders. Changing the profile or a weight calls setState, which re-renders every block and
+// replaces the content of this slot, so the control the user was on would lose the keyboard focus. The board
+// remembers the last control focused inside it and, after a re-render it caused itself, gives the focus back to
+// that control (the new element with the same id). The custom weight inputs are kept as they are while the URL
+// holds the weights they produced, so a value being typed in another input survives the re-render too.
+const tracked = new WeakSet();
+let lastFocus = null;   // last element focused inside the slot
+let refocus = false;    // the next render follows a change made with the board's own controls
+let kept = null;        // { w, node }: the custom inputs and the `w` they stand for
+
+function trackFocus(el) {
+  if (tracked.has(el)) return;
+  tracked.add(el);
+  el.addEventListener('focusin', (e) => { lastFocus = e.target; });
+  el.addEventListener('focusout', (e) => { if (e.relatedTarget && !el.contains(e.relatedTarget)) lastFocus = null; });
+}
+
+// A change event can fire in the middle of a focus move (Tab out of a weight input): the state is set one task
+// later, once the focus has landed, so the re-render gives it back to where it went, not where it was.
+function change(patch) {
+  refocus = true;
+  setTimeout(() => setState(patch), 0);
+}
+
+function restoreFocus(el) {
+  if (!refocus) return;
+  refocus = false;
+  const active = document.activeElement;
+  if (!lastFocus || (active && active !== document.body)) return; // the user is elsewhere already
+  const target = lastFocus.isConnected ? lastFocus : (lastFocus.id ? el.querySelector('#' + CSS.escape(lastFocus.id)) : null);
+  if (target && el.contains(target)) target.focus({ preventScroll: true });
+}
+
 function profileControl(ctx) {
   const { state, profile } = ctx;
   const chosen = state.profile === 'custom' ? 'custom' : profile.profile;
   const group = h('div', { class: 'sum-board-profiles', role: 'radiogroup', 'aria-label': 'Workload profile' });
   for (const p of PROFILE_ORDER) {
-    const input = h('input', { type: 'radio', name: 'sum-profile', value: p, checked: chosen === p });
+    const input = h('input', { type: 'radio', name: 'sum-profile', value: p, checked: chosen === p, id: 'sum-profile-' + p });
     input.addEventListener('change', () => {
       if (!input.checked) return;
-      if (p === 'custom') setState({ profile: 'custom', w: formatWeights(profile.weights) });
-      else setState({ profile: p, w: '' });
+      if (p === 'custom') change({ profile: 'custom', w: formatWeights(profile.weights) });
+      else change({ profile: p, w: '' });
     });
     group.append(h('label', { class: 'sum-board-profile' + (chosen === p ? ' on' : '') }, input, ' ', profileLabel(p)));
   }
@@ -73,7 +106,12 @@ function profileControl(ctx) {
   } else if (state.profile && state.profile !== 'custom' && profile.invalid) {
     box.append(h('p', { class: 'sum-board-error', role: 'alert', text: 'Unknown profile "' + state.profile + '", so Balanced is shown.' }));
   }
-  if (chosen === 'custom') box.append(customInputs(profile.weights));
+  if (chosen === 'custom') {
+    if (!kept || kept.w !== state.w || profile.invalid) kept = { w: state.w, node: customInputs(profile.weights) };
+    box.append(kept.node);
+  } else {
+    kept = null;
+  }
   return box;
 }
 
@@ -92,7 +130,9 @@ function customInputs(weights) {
     }
     err.hidden = true;
     err.textContent = '';
-    setState({ profile: 'custom', w: formatWeights(res.weights) });
+    const w = formatWeights(res.weights);
+    if (kept && kept.node === box) kept.w = w;
+    change({ profile: 'custom', w });
   };
   for (const sec of SECTIONS) {
     const input = h('input', { type: 'number', min: '0', max: '5', step: '0.5', value: String(weights[sec]), id: 'sum-w-' + sec });
@@ -100,7 +140,8 @@ function customInputs(weights) {
     inputs[sec] = input;
     grid.append(h('label', { class: 'sum-board-weight', for: 'sum-w-' + sec }, h('span', { text: SECTION_NAMES[sec] }), input));
   }
-  return h('div', { class: 'sum-board-custom' }, grid, err);
+  const box = h('div', { class: 'sum-board-custom' }, grid, err);
+  return box;
 }
 
 function bars(entries, profileName) {
@@ -131,6 +172,7 @@ function bars(entries, profileName) {
 
 /** Fill `el` (the block's slot) from `ctx` = { comparison, runs, groups, state, profile, scores, hide } (see index.js). */
 export function render(el, ctx) {
+  trackFocus(el);
   const name = profileLabel(ctx.profile.profile);
   const entries = boardEntries(ctx);
   clear(el,
@@ -148,4 +190,5 @@ export function render(el, ctx) {
         e.baseline ? 'baseline' : incompleteText(e.overall),
       ]),
     }));
+  restoreFocus(el);
 }

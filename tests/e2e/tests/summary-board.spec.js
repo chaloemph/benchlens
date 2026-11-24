@@ -87,16 +87,20 @@ test('summary board: custom weights are validated, written to the URL and restor
   await expect.poll(() => params(page).get('profile')).toBe('custom');
   await expect(page.locator('#sum-w-cpu')).toBeVisible();
 
-  // invalid: negative, then all zero; the URL keeps the last valid weights
+  // each weight applies when its input loses the focus. Invalid: negative, then all zero; the URL keeps the last
+  // valid weights (moving from one input to the next applies the one left, while it is still valid)
   const before = params(page).get('w');
   await page.locator('#sum-w-cpu').fill('-1');
   await page.locator('#sum-w-cpu').blur();
-  await expect(page.locator('.sum-board-custom .sum-board-error')).toBeVisible();
+  await expect(page.locator('.sum-board-custom .sum-board-error')).toContainText('CPU: a weight cannot be negative');
+  await expect(page.locator('#sum-w-cpu')).toHaveAttribute('aria-invalid', 'true');
   expect(params(page).get('w')).toBe(before);
   for (const sec of ['cpu', 'disk', 'mem', 'net', 'pg', 'web']) await page.locator(`#sum-w-${sec}`).fill('0');
   await page.locator('#sum-w-web').blur();
   await expect(page.locator('.sum-board-custom .sum-board-error')).toContainText('At least one');
-  expect(params(page).get('w')).toBe(before);
+  expect(params(page).get('w')).toBe('cpu:0,disk:0,mem:0,net:0,pg:0,web:1');
+  // what was typed survives the re-renders in between
+  for (const sec of ['cpu', 'disk', 'mem', 'net', 'pg', 'web']) await expect(page.locator(`#sum-w-${sec}`)).toHaveValue('0');
 
   // valid: written in the fixed section order
   await page.locator('#sum-w-cpu').fill('3');
@@ -104,6 +108,7 @@ test('summary board: custom weights are validated, written to the URL and restor
   await page.locator('#sum-w-mem').blur();
   const w = 'cpu:3,disk:0,mem:2,net:0,pg:0,web:0';
   await expect.poll(() => params(page).get('w')).toBe(w);
+  await expect(page.locator('.sum-board-custom .sum-board-error')).toBeHidden();
 
   // a link restores the same chart
   const first = await shown(page);
@@ -113,6 +118,28 @@ test('summary board: custom weights are validated, written to the URL and restor
   const want = expectedBoard(c, 'custom', w);
   expect((await shown(page)).map((g) => g.name)).toEqual(want.map((e) => e.name));
   expect(formatWeights(weightsFor('custom', w).weights)).toBe(w);
+});
+
+test('summary board: the keyboard focus stays on the control used, across the re-render it causes', async ({ page }) => {
+  await openBoard(page, comparisons[0]);
+  const focusedId = () => page.evaluate(() => document.activeElement && document.activeElement.id);
+  // arrow keys move through the radio group: each step changes the profile and re-renders every block
+  await page.locator('#sum-profile-balanced').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => params(page).get('profile')).toBe('web');
+  await expect(page.locator('#sum-board .sum-board-takeaway')).toContainText('Web app');
+  await expect.poll(focusedId).toBe('sum-profile-web');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => params(page).get('profile')).toBe('db');
+  await expect.poll(focusedId).toBe('sum-profile-db');
+  // custom weights: Tab from one input to the next applies the first and keeps the focus on the second
+  await page.locator('#sum-profile-custom').check();
+  await expect.poll(() => params(page).get('profile')).toBe('custom');
+  await expect.poll(focusedId).toBe('sum-profile-custom');
+  await page.locator('#sum-w-cpu').fill('4');
+  await page.keyboard.press('Tab');
+  await expect.poll(() => params(page).get('w')).toMatch(/^cpu:4,/);
+  await expect.poll(focusedId).toBe('sum-w-disk');
 });
 
 test('summary board: an invalid w in a link is reported and Balanced is shown', async ({ page }) => {
