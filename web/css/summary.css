@@ -33,6 +33,36 @@
 
 /* ---- radar ---- */
 
+#sum-radar { --sum-radar-c0: #2f5fb3; --sum-radar-c1: #c2410c; --sum-radar-c2: #0f766e; --sum-radar-c3: #a21caf; margin-bottom: 1.5rem; }
+@media (prefers-color-scheme: dark) {
+  #sum-radar { --sum-radar-c0: #7ea6ef; --sum-radar-c1: #fb923c; --sum-radar-c2: #2dd4bf; --sum-radar-c3: #e879f9; }
+}
+.sum-radar-pick { border: 1px solid var(--line); border-radius: var(--radius); margin: 0 0 .6rem; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.sum-radar-pick[hidden] { display: none; }
+.sum-radar-pick label { cursor: pointer; }
+.sum-radar-chart svg.sum-radar-svg { width: 100%; max-width: 520px; margin: 0 auto; }
+.sum-radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.sum-radar-spoke { stroke: var(--line); stroke-width: 1; }
+.sum-radar-base { fill: none; stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart text.sum-radar-tick { font-size: 10px; }
+.chart text.sum-radar-label { fill: var(--fg); }
+.chart text.sum-radar-label.faded { fill: var(--muted); opacity: .75; font-style: italic; }
+.sum-radar-s0 { color: var(--sum-radar-c0); }
+.sum-radar-s1 { color: var(--sum-radar-c1); }
+.sum-radar-s2 { color: var(--sum-radar-c2); }
+.sum-radar-s3 { color: var(--sum-radar-c3); }
+.sum-radar-fill { fill: currentColor; fill-opacity: .1; stroke: none; }
+.sum-radar-edge { stroke: currentColor; stroke-width: 2; fill: none; }
+.sum-radar-edge.faded { opacity: .4; }
+.sum-radar-marker { fill: currentColor; stroke: var(--bg); stroke-width: 1; }
+.sum-radar-marker.faded { opacity: .5; }
+.sum-radar-marker:focus-visible { outline: 2px solid var(--focus); }
+.sum-radar-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: center; font-size: .87rem; margin-top: 4px; }
+.sum-radar-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.sum-radar-sw line { stroke: currentColor; stroke-width: 2; }
+.sum-radar-swbase { color: var(--fg); }
+.sum-radar-swbase line { stroke-width: 1.5; }
+
 /* ---- price ---- */
 
 /* ---- scaling ---- */
