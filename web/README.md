@@ -18,7 +18,7 @@ All state is in the query string, so any page can be shared as a link:
 
 | View | Data | What it shows |
 |---|---|---|
-| Summary | `/api/compare`, `/api/runs`, `/api/groups` | the same sides as Compare (picked there; a "Sides: ... · change" line links to it), then six blocks: leaderboard with workload profiles, radar, price / performance, scaling, stability, verdicts by section. The last blocks are built one by one (see `js/summary/`); blocks without data hide themselves and say why in one muted line at the end |
+| Summary | `/api/compare`, `/api/runs`, `/api/groups` | the same sides as Compare (picked there; a "Sides: ... · change" line links to it), then six blocks: leaderboard with workload profiles, radar, price / performance, scaling, stability, verdicts by section (one module per block in `js/summary/`). Price / performance and scaling hide themselves when their data is missing and say why in one muted line at the end. The static export opens on this view |
 | Compare | `/api/groups`, `/api/runs`, `/api/compare` | baseline picker, compare-with checkboxes (groups and single runs), quick picks derived from the data, takeaway sentence, API warnings, tally table, heatmap (section filter incl. key metrics; sysbench across architectures hatched and not counted) |
 | Metric | `/api/compare`, `/api/values` | dot plot of every raw value per side, coloured by the run's `round` tag (or by run), median tick from the comparison, axis not from zero; statistics table |
 | Runs | `/api/runs`, `/api/runs/{id}`, `PATCH /api/runs/{id}/tags`, `DELETE /api/runs/{id}` | search and filters, tags with inline editing (drafts survive re-renders), delete with confirmation, report.md link when the run kept one (`/api/runs/{id}` file list, fetched when the row scrolls into view), flags for failed stages / excluded stages / no metric table |
@@ -55,7 +55,8 @@ js/data.js          runs/groups store, picker entries, quick picks
 js/compare.js       compare view
 js/score.js         scores of the Summary view (pure functions; tests/score/, tools/score_check.py)
 js/summary/         Summary view: index.js (loads the data, one slot per block), board, radar, price, scaling,
-                    stability, verdicts (one file per block), table.js ("Show as table" fallback)
+                    stability, verdicts (one file per block), table.js ("Show as table" fallback), common.js
+                    (block heading, score and count wording shared by the blocks)
 js/detail.js        metric view (dot plot)
 js/runs.js          runs view
 js/hardware.js      hardware view
@@ -64,7 +65,8 @@ js/format.js        number and label formatting
 js/ui.js            DOM helpers (textContent only), tooltip, dialogs
 vendor/             d3 v7.9.0 (dist/d3.min.js, licence header kept; LICENSE-d3.txt)
 js/main.js          UI shell shared with the static export: loading, routing between views
-export/             static HTML export entry (offline.js: API answered from inlined data, WASM compare)
+export/             static HTML export entry (offline.js: API answered from inlined data, WASM compare; opens
+                    on Summary), export.css (inlined once, after the last stylesheet)
 ```
 
 Rules: values go into the page with `textContent` (the `h()` helper), never `innerHTML`; SVG charts carry
