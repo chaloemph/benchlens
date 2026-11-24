@@ -111,5 +111,32 @@
 #sum-scaling .sum-table summary { cursor: pointer; font-size: .9rem; }
 
 /* ---- stability ---- */
+#sum-stability { margin-top: 1.5rem; }
+#sum-stability .sum-stab-lead { font-weight: 600; margin: .3rem 0; }
+.sum-stab-wrap { margin-top: .5rem; }
+.sum-stab-band { fill: var(--neutral); fill-opacity: .55; stroke: none; }
+.sum-stab-bandedge { stroke: var(--hatch); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sum-stab-sep { stroke: var(--line); stroke-width: 1; }
+.sum-stab-dot { stroke: var(--bg); stroke-width: 1; }
+.sum-stab-dot:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
+.sum-stab-base { fill: var(--fg); }
+.sum-stab-c0 { fill: #2f5fb3; }
+.sum-stab-c1 { fill: #c8651b; }
+.sum-stab-c2 { fill: #1e8a4c; }
+.sum-stab-c3 { fill: #8e44ad; }
+.sum-stab-c4 { fill: #b8860b; }
+.sum-stab-c5 { fill: #0e8a96; }
+@media (prefers-color-scheme: dark) {
+  .sum-stab-c0 { fill: #7ea6ef; }
+  .sum-stab-c1 { fill: #f0a05a; }
+  .sum-stab-c2 { fill: #3fbf78; }
+  .sum-stab-c3 { fill: #c79be0; }
+  .sum-stab-c4 { fill: #e3c56b; }
+  .sum-stab-c5 { fill: #5fd0da; }
+}
+.sum-stab-legend { margin-top: .4rem; }
+.sum-stab-legend svg { flex: none; }
+.sum-stab-once { margin: .5rem 0; padding-left: 1.2rem; color: var(--muted); font-size: .87rem; }
+#sum-stability .sum-table { margin-top: .6rem; }
 
 /* ---- verdicts ---- */
