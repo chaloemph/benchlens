@@ -106,7 +106,7 @@ async function boot() {
   installApi(data);
   banner(data);
   await start({
-    views: ['compare', 'metric', 'hardware'],
+    views: ['summary', 'compare', 'metric', 'hardware'],
     firstComparison: () => ({ base: data.base, others: data.others }),
     title: data.title,
   });

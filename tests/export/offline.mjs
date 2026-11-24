@@ -3,11 +3,17 @@
 // which builds the inputs; needs the `playwright` npm package and its chromium (not a project dependency).
 //
 //   node tests/export/offline.mjs REPORT.html EXPORTED.json [SWAPPED.json] [QUERY CLI.json]... [--hostile]
+//                                 [--prices=PRICES.json] [--no-price=PLAIN.html]
 //
 // EXPORTED.json: `benchlens compare BASE OTHER... --json` for the exported selection (checked on first load).
 // SWAPPED.json: the comparison with the first compared side as the baseline and the old baseline as the only
 // compared side; reached by using the baseline picker and the checkboxes like a reader would.
 // QUERY CLI.json: open REPORT.html?QUERY (e.g. `base=RUN_ID&other=group:NAME`) and check against CLI.json.
+// The report opens on the Summary view (the first view of an export): its blocks are checked against the CLI
+// comparison and score.js (the same module the live UI uses), also for a profile and custom weights in the link.
+// --prices=PRICES.json: `{side label: price}`, the example prices set on the runs of REPORT.html; the price block
+// must show them. --no-price=PLAIN.html: an export of the same sides before any price was set; its price block
+// is hidden, with the reason in the notes.
 // --hostile: the export holds labels such as `</script><img onerror=...>`; check nothing ran and the text shows
 // as text.
 
@@ -17,15 +23,21 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
+const { weightsFor, scoresFor } = await import(pathToFileURL(path.resolve(import.meta.dirname, '../../web/js/score.js')).href);
 
 const args = process.argv.slice(2);
 const hostile = args.includes('--hostile');
-const [report, exportedJson, swappedJson, ...pairs] = args.filter((a) => a !== '--hostile');
+const plainArg = args.find((a) => a.startsWith('--no-price='));
+const plain = plainArg ? plainArg.slice('--no-price='.length) : null;
+const pricesArg = args.find((a) => a.startsWith('--prices='));
+const pricesFile = pricesArg ? pricesArg.slice('--prices='.length) : null;
+const [report, exportedJson, swappedJson, ...pairs] = args.filter((a) => a !== '--hostile' && a !== plainArg && a !== pricesArg);
 if (!report || !exportedJson) {
   console.error('usage: node tests/export/offline.mjs REPORT.html EXPORTED.json [SWAPPED.json] [QUERY CLI.json]... [--hostile]');
   process.exit(2);
 }
 const fileUrl = pathToFileURL(path.resolve(report)).href;
+const fileUrls = new Set([fileUrl]);
 const problems = [];
 const requests = [];
 
@@ -34,7 +46,7 @@ const ctx = await browser.newContext({ offline: true, viewport: { width: 1280, h
 // nothing but the file itself may be loaded
 await ctx.route('**/*', (route) => {
   const u = route.request().url();
-  if (u.startsWith('file:') && u.split('?')[0] === fileUrl) return route.continue();
+  if (u.startsWith('file:') && fileUrls.has(u.split('?')[0])) return route.continue();
   requests.push(u);
   return route.abort();
 });
@@ -83,8 +95,123 @@ async function checkAgainst(what, cliPath) {
   return c;
 }
 
-// 1. first load: the exported selection
+
+const SLOTS = ['sum-board', 'sum-radar', 'sum-price', 'sum-scaling', 'sum-stability', 'sum-verdicts'];
+const SECTION = { cpu: 'CPU', mem: 'Memory', disk: 'Disk', pg: 'PostgreSQL', net: 'Network', web: 'Web' };
+const f1 = (x) => x.toFixed(1);
+
+/**
+ * The Summary view of the open page against a CLI Comparison: six slots, each drawn or hidden with its reason
+ * in #sum-hidden-notes; leaderboard names, scores and counts equal score.js; the verdicts table equals the
+ * tallies (what `benchlens compare --json` prints). `price`: 'shown' | 'hidden' | null (not checked).
+ */
+async function checkSummary(what, cliPath, { profile = 'balanced', w = '', price = null } = {}) {
+  const c = JSON.parse(fs.readFileSync(cliPath, 'utf8'));
+  await page.waitForSelector('#view-summary:not([hidden]) #sum-board .sum-board-row', { timeout: 15000 });
+  await settle();
+  const slots = await page.$$eval('#sum-body > *', (els) => els.map((e) => e.id));
+  if (JSON.stringify(slots) !== JSON.stringify([...SLOTS, 'sum-hidden-notes'])) problems.push(`${what}: summary slots ${slots}`);
+  const hidden = await page.evaluate((ids) => ids.filter((id) => document.getElementById(id).hidden), SLOTS);
+  const notes = await page.$$eval('#sum-hidden-notes .sum-note', (els) => els.length);
+  if (notes !== hidden.length) problems.push(`${what}: ${hidden.length} hidden blocks, ${notes} notes`);
+  for (const id of hidden) if (await page.$eval('#' + id, (e) => e.childElementCount)) problems.push(`${what}: hidden ${id} is not empty`);
+  for (const id of ['sum-board', 'sum-radar', 'sum-stability', 'sum-verdicts']) {
+    if (hidden.includes(id)) problems.push(`${what}: ${id} is hidden`);
+    else if (!(await page.$eval(`#${id} h2`, (e) => e.textContent))) problems.push(`${what}: ${id} has no heading`);
+  }
+  if (price) {
+    const isHidden = hidden.includes('sum-price');
+    if (isHidden !== (price === 'hidden')) problems.push(`${what}: price block ${isHidden ? 'hidden' : 'shown'}, want ${price}`);
+    if (price === 'hidden') {
+      const text = await page.$eval('#sum-hidden-notes', (e) => e.textContent);
+      if (!text.includes('Price / performance: add a "price" tag')) problems.push(`${what}: no price note: ${text}`);
+    }
+  }
+
+  const scores = scoresFor(c, weightsFor(profile, w).weights);
+  const want = [{ name: scores.base.label + ' (baseline)', score: 100 }];
+  scores.sides.forEach((s, i) => want.push({ name: s.label, score: s.overall.score, detail: `better ${c.tallies[i].better} · worse ${c.tallies[i].worse} · within noise ${c.tallies[i].not_clear}` }));
+  const key = (e) => (e.score == null ? -Infinity : e.score);
+  want.sort((a, b) => key(b) - key(a));
+  const got = await page.$$eval('#sum-board .sum-board-row', (rows) => rows.map((r) => ({
+    name: r.querySelector('.sum-board-name').textContent,
+    value: r.querySelector('.sum-board-value').textContent,
+    detail: r.querySelector('.sum-board-detail').textContent,
+  })));
+  if (JSON.stringify(got.map((g) => g.name)) !== JSON.stringify(want.map((e) => e.name))) problems.push(`${what}: board order ${got.map((g) => g.name)} want ${want.map((e) => e.name)}`);
+  got.forEach((g, i) => {
+    const e = want.find((x) => x.name === g.name);
+    if (!e) return;
+    if (e.score == null ? g.value !== 'no score' : Math.abs(Number(g.value) - e.score) > 0.051 + (Math.abs(e.score - 100) < 10 ? 0 : 0.5)) problems.push(`${what}: board ${g.name}: ${g.value}, score.js ${e.score}`);
+    if (e.detail && g.detail !== e.detail) problems.push(`${what}: board ${g.name}: ${g.detail}, want ${e.detail}`);
+  });
+
+  await page.$$eval('#sum-verdicts details.sum-table', (ds) => ds.forEach((d) => { d.open = true; }));
+  const rows = await page.$$eval('#sum-verdicts table.data tbody tr', (trs) => trs.map((tr) => [...tr.children].map((x) => x.textContent)));
+  c.tallies.forEach((t, i) => {
+    const mine = rows.filter((r) => r[0] === c.others[i].label);
+    for (const [sec, [b, wr, n]] of Object.entries(t.by_section)) {
+      const row = mine.find((r) => r[1] === (SECTION[sec] || sec));
+      if (!row || JSON.stringify(row.slice(2).map(Number)) !== JSON.stringify([b, wr, n, b + wr + n])) problems.push(`${what}: verdicts ${c.others[i].label} / ${sec}: ${row && row.slice(2)}, CLI ${[b, wr, n]}`);
+    }
+    const all = mine.find((r) => r[1] === 'All sections');
+    if (!all || JSON.stringify(all.slice(2, 5).map(Number)) !== JSON.stringify([t.better, t.worse, t.not_clear])) problems.push(`${what}: verdicts ${c.others[i].label} totals ${all && all.slice(2, 5)}, CLI ${[t.better, t.worse, t.not_clear]}`);
+  });
+  console.log(`${what}: summary blocks checked (${SLOTS.length - hidden.length} shown, ${hidden.length} hidden: ${hidden.join(', ') || 'none'}); ${got.length} leaderboard rows against score.js, ${c.tallies.length} tallies against the CLI`);
+  return { c, scores, hidden };
+}
+
+/** The price block's table rows against the example prices set by tests/export/run.sh (side label -> price). */
+async function checkPriceBlock(what, c, scores, prices) {
+  await page.$$eval('#sum-price details.sum-table', (ds) => ds.forEach((d) => { d.open = true; }));
+  const rows = await page.$$eval('#sum-price table.data tbody tr', (trs) => trs.map((tr) => [...tr.children].map((x) => x.textContent)));
+  const sides = [{ label: scores.base.label + ' (baseline)', score: 100 }, ...scores.sides.map((s) => ({ label: s.label, score: s.overall.score }))];
+  if (rows.length !== sides.length) problems.push(`${what}: price table has ${rows.length} rows, ${sides.length} sides`);
+  for (const sd of sides) {
+    const row = rows.find((r) => r[0] === sd.label);
+    const p = prices[sd.label.replace(' (baseline)', '')];
+    if (!row) { problems.push(`${what}: price table has no row for ${sd.label}`); continue; }
+    if (row[1] !== String(p)) problems.push(`${what}: ${sd.label} price ${row[1]}, example price ${p}`);
+    if (Math.abs(Number(row[2]) - sd.score) > 0.051 + (Math.abs(sd.score - 100) < 10 ? 0 : 0.5)) problems.push(`${what}: ${sd.label} score ${row[2]}, score.js ${f1(sd.score)}`);
+  }
+  console.log(`${what}: price block with ${rows.length} priced sides checked`);
+}
+
+// 0. first load: an export opens on the Summary view, with the six blocks (or their hidden notes)
 await page.goto(fileUrl);
+await settle();
+if (await page.getAttribute('nav a[data-view]', 'data-view') !== 'summary') problems.push('Summary is not the first view of the export');
+if ((await page.getAttribute('nav a[aria-current="page"]', 'data-view')) !== 'summary') problems.push('the export does not open on the Summary view');
+{
+  const first = await checkSummary('summary, exported selection', exportedJson, { price: pricesFile ? 'shown' : null });
+  if (pricesFile) {
+    const prices = JSON.parse(fs.readFileSync(pricesFile, 'utf8'));
+    await checkPriceBlock('summary, exported selection', first.c, first.scores, prices);
+  }
+  // a profile and custom weights in the link work offline
+  const sides = [first.c.base.reference, ...first.c.others.map((o) => o.reference)];
+  const q = `base=${encodeURIComponent(sides[0])}` + sides.slice(1).map((o) => `&other=${encodeURIComponent(o)}`).join('');
+  await page.goto(`${fileUrl}?${q}&profile=db`);
+  await checkSummary('summary, profile=db link', exportedJson, { profile: 'db' });
+  const w = 'cpu:3,disk:1,mem:0,net:1,pg:2,web:0';
+  await page.goto(`${fileUrl}?${q}&profile=custom&w=${encodeURIComponent(w)}`);
+  await checkSummary('summary, custom weights link', exportedJson, { profile: 'custom', w });
+  await page.goto(fileUrl);
+  await settle();
+}
+if (plain) {
+  // the same sides exported before any price was set: no price block, one note
+  const plainUrl = pathToFileURL(path.resolve(plain)).href;
+  fileUrls.add(plainUrl);
+  await page.goto(plainUrl);
+  await settle();
+  await checkSummary('summary without prices', exportedJson, { price: 'hidden' });
+  await page.goto(fileUrl);
+  await settle();
+}
+
+// 1. the compare view of the exported selection (Compare links carry view=compare)
+await page.click('nav a[data-view="compare"]');
 await settle();
 const meta = await page.$eval('.export-meta', (el) => el.textContent);
 if (!/Static export of benchlens \d+\.\d+\.\d+/.test(meta)) problems.push(`export metadata missing: ${meta}`);
@@ -138,9 +265,11 @@ if (swappedJson) {
 
 // 5. other selections by link
 for (let i = 0; i + 1 < pairs.length; i += 2) {
-  await page.goto(fileUrl + '?' + pairs[i]);
+  await page.goto(fileUrl + '?view=compare&' + pairs[i]);
   await settle();
   await checkAgainst(pairs[i], pairs[i + 1]);
+  await page.goto(fileUrl + '?' + pairs[i]);
+  await checkSummary(pairs[i] + ' (summary)', pairs[i + 1]);
 }
 
 // 6. hostile labels: shown as text, never run
