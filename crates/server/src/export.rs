@@ -208,7 +208,10 @@ fn build_assets() -> anyhow::Result<Assets> {
         .enumerate()
         .filter(|(_, l)| l.trim().starts_with("<link rel=\"stylesheet\""))
         .map(|(n, _)| n)
-        .last();
+        .last()
+        .ok_or_else(|| {
+            anyhow::anyhow!("web/index.html has no stylesheet to append export/export.css to")
+        })?;
     for (n, line) in index.lines().enumerate() {
         let t = line.trim();
         let out = if in_head { &mut head } else { &mut middle };
@@ -225,7 +228,7 @@ fn build_assets() -> anyhow::Result<Assets> {
         } else if t.starts_with("<link rel=\"stylesheet\"") {
             let href = attr(t, "href")?;
             let mut css = web_text(href)?;
-            if Some(n) == last_css {
+            if n == last_css {
                 css.push('\n');
                 css.push_str(&web_text("export/export.css")?);
             }

@@ -88,7 +88,8 @@ test('export: the file carries the stylesheet of the export once', async ({ requ
   const [cmp] = await pickComparisons(request);
   const res = await request.get('api/export.html?' + sidesQuery(cmp));
   const html = await res.text();
-  expect(html.split('.export-meta { margin-bottom: 16px; }').length - 1).toBe(1);
+  const exportCss = fs.readFileSync(new URL('../../../web/export/export.css', import.meta.url), 'utf8').trim();
+  expect(html.split(exportCss).length - 1).toBe(1);
   expect(html.split('<style>').length - 1).toBe(2); // css/app.css, css/summary.css (+ export.css appended to the last)
   expect(html).toContain('.sum-'); // css/summary.css is inlined
 });
