@@ -1,0 +1,16 @@
+/* Summary view. One block per task: edit only your own, add its rules right under its header, and scope them
+   to its slot (#sum-board ...) or a .sum-<name>- class prefix. Shared rules go in the shell block. */
+
+/* ---- shell ---- */
+
+/* ---- board ---- */
+
+/* ---- radar ---- */
+
+/* ---- price ---- */
+
+/* ---- scaling ---- */
+
+/* ---- stability ---- */
+
+/* ---- verdicts ---- */

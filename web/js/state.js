@@ -1,16 +1,17 @@
 // UI state lives in the URL query string so a link reproduces the page:
-//   view=compare|metric|runs|hardware  base=REF  other=REF (repeated)  section=key|all|cpu|...
+//   view=summary|compare|metric|runs|hardware  base=REF  other=REF (repeated)  section=key|all|cpu|...
 //   metric=METRIC_ID  run=RUN_ID (repeated, hardware view)  q / arch / group / tag (runs filters)
+//   profile=balanced|web|db|compute|custom  w=cpu:1,disk:3,... (custom section weights; summary view)
 
 const LISTS = ['other', 'run'];
-const DEFAULTS = { view: 'compare', base: '', section: 'key', metric: '', q: '', arch: '', group: '', tag: '' };
+const DEFAULTS = { view: 'compare', base: '', section: 'key', metric: '', q: '', arch: '', group: '', tag: '', profile: 'balanced', w: '' };
 
 export function readState() {
   const p = new URLSearchParams(location.search);
   const s = {};
   for (const [k, d] of Object.entries(DEFAULTS)) s[k] = p.get(k) ?? d;
   for (const k of LISTS) s[k] = p.getAll(k).filter(Boolean);
-  if (!['compare', 'metric', 'runs', 'hardware'].includes(s.view)) s.view = 'compare';
+  if (!['summary', 'compare', 'metric', 'runs', 'hardware'].includes(s.view)) s.view = 'compare';
   return s;
 }
 
