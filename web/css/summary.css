@@ -8,6 +8,24 @@
 /* ---- radar ---- */
 
 /* ---- price ---- */
+#sum-price h3 { font-size: .95rem; font-weight: 600; margin: 1rem 0 .3rem; }
+#sum-price .sum-price-chart { max-width: 640px; }
+#sum-price .sum-price-frontier { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 3; }
+#sum-price .sum-price-pt { outline: none; cursor: default; }
+#sum-price .sum-price-pt circle { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; }
+#sum-price .sum-price-pt rect { fill: var(--bg); stroke: var(--muted); stroke-width: 2; }
+#sum-price .sum-price-pt:focus-visible circle, #sum-price .sum-price-pt:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+#sum-price .chart text.dim { fill: var(--muted); }
+#sum-price .sum-price-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+#sum-price .sum-price-list li { display: grid; grid-template-columns: minmax(0, 1fr) 4.5em; gap: 0 .6rem; align-items: center; }
+#sum-price .sum-price-name { grid-column: 1 / -1; overflow-wrap: anywhere; font-weight: 600; font-size: .9rem; }
+#sum-price .sum-price-track { display: block; height: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+#sum-price .sum-price-bar { display: block; height: 100%; background: var(--neutral); border-right: 3px solid var(--muted); box-sizing: border-box; }
+#sum-price .sum-price-bar.front { background: var(--accent); border-right-color: var(--fg); }
+#sum-price .sum-price-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+#sum-price .sum-price-sub { grid-column: 1 / -1; overflow-wrap: anywhere; }
+#sum-price .sum-price-problems ul { margin: 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
+#sum-price .sum-table { margin-top: .8rem; }
 
 /* ---- scaling ---- */
 
