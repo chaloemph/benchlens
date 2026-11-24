@@ -6,12 +6,13 @@ import { store, loadAll, defaultComparison } from './data.js';
 import { readState, setState, hrefFor } from './state.js';
 import { clear, stateBlock, errorBlock, emptyRunsBlock, hideTip } from './ui.js';
 import { renderCompare, dropComparisonCache } from './compare.js';
+import { renderSummary } from './summary/index.js';
 import { renderMetric, dropValueCache } from './detail.js';
 import { initRuns, renderRuns } from './runs.js';
 import { initHardware, renderHardware, dropDetailCache } from './hardware.js';
 
-const ALL_VIEWS = ['compare', 'metric', 'runs', 'hardware'];
-const TITLES = { compare: 'Compare', metric: 'Metric', runs: 'Runs', hardware: 'Hardware' };
+const ALL_VIEWS = ['summary', 'compare', 'metric', 'runs', 'hardware'];
+const TITLES = { summary: 'Summary', compare: 'Compare', metric: 'Metric', runs: 'Runs', hardware: 'Hardware' };
 
 /**
  * Start the UI.
@@ -39,11 +40,12 @@ export function start({ views = ALL_VIEWS, firstComparison = defaultComparison, 
     if (!store.loaded) return;
     if (!store.runs.length) { clear(status, emptyRunsBlock()); return; }
 
-    if ((s.view === 'compare' || s.view === 'metric') && !s.base) {
+    if ((s.view === 'summary' || s.view === 'compare' || s.view === 'metric') && !s.base) {
       const d = firstComparison();
       if (d) { setState({ base: d.base, other: d.others }, { replace: true }); return; }
     }
-    if (s.view === 'compare') renderCompare(s);
+    if (s.view === 'summary') renderSummary(s);
+    else if (s.view === 'compare') renderCompare(s);
     else if (s.view === 'metric') renderMetric(s);
     else if (s.view === 'runs') renderRuns(s);
     else renderHardware(s);
