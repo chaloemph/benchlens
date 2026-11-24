@@ -5,6 +5,32 @@
 
 /* ---- board ---- */
 
+#sum-board { margin-bottom: 1.6rem; }
+.sum-board-control { margin: .6rem 0; }
+.sum-board-profiles { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
+.sum-board-profile { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9rem; }
+.sum-board-profile.on { border-color: var(--accent); background: var(--panel); font-weight: 600; }
+.sum-board-profile input { margin: 0; }
+.sum-board-profile:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sum-board-weights { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
+.sum-board-weight { display: flex; flex-direction: column; gap: 2px; font-size: .85rem; color: var(--muted); }
+.sum-board-weight input { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+.sum-board-weight input[aria-invalid="true"] { border-color: var(--bad); border-width: 2px; }
+.sum-board-error { color: var(--bad); font-size: .87rem; margin: .4rem 0 0; }
+.sum-board-error::before { content: "\26A0\FE0E  "; }
+.sum-board-list { list-style: none; margin: .8rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.sum-board-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.sum-board-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.sum-board-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+.sum-board-track { position: relative; height: 16px; margin: 3px 0; background: var(--panel); border-radius: 3px; }
+.sum-board-bar { height: 100%; background: var(--accent); border-radius: 3px; }
+.sum-board-bar.base { background: repeating-linear-gradient(45deg, var(--hatch) 0 4px, var(--neutral) 4px 8px); }
+.sum-board-100 { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--fg); }
+.sum-board-detail { font-size: .82rem; }
+.sum-board-incomplete { font-size: .82rem; color: var(--muted); font-style: italic; }
+.sum-board-incomplete::before { content: "\26A0\FE0E  "; }
+#sum-board .sum-table { margin-top: .8rem; }
+
 /* ---- radar ---- */
 
 /* ---- price ---- */
