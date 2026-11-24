@@ -4,7 +4,7 @@
 
 import { h, clear } from '../ui.js';
 import { setState } from '../state.js';
-import { PROFILES, SECTIONS, formatWeights } from '../score.js';
+import { PROFILES, SECTIONS, formatWeights, checkWeights } from '../score.js';
 import { tableFallback } from './table.js';
 
 const SECTION_NAMES = { cpu: 'CPU', disk: 'disk', mem: 'memory', net: 'network', pg: 'PostgreSQL', web: 'web' };
@@ -54,22 +54,6 @@ export function takeaway(entries, profileName) {
   return `For ${profileName}, ${base.name} (100) leads; the best of the others, ${others[0].name}, scores ${fmtScore(others[0].score)}.`;
 }
 
-/** Validate six custom weight texts: { weights, error }. */
-export function checkWeights(texts) {
-  const weights = {};
-  for (const sec of SECTIONS) {
-    const t = String(texts[sec] ?? '').trim();
-    const v = Number(t);
-    if (!t || !Number.isFinite(v)) return { error: `${SECTION_NAMES[sec]}: enter a number from 0 to 5.` };
-    if (v < 0) return { error: `${SECTION_NAMES[sec]}: a weight cannot be negative.` };
-    if (v > 5) return { error: `${SECTION_NAMES[sec]}: the largest weight is 5.` };
-    if (!Number.isInteger(v * 2)) return { error: `${SECTION_NAMES[sec]}: use steps of 0.5.` };
-    weights[sec] = v;
-  }
-  if (!SECTIONS.some((s) => weights[s] > 0)) return { error: 'At least one weight must be above 0.' };
-  return { weights };
-}
-
 function profileControl(ctx) {
   const { state, profile } = ctx;
   const chosen = state.profile === 'custom' ? 'custom' : profile.profile;
@@ -100,11 +84,10 @@ function customInputs(weights) {
   const apply = () => {
     const texts = Object.fromEntries(SECTIONS.map((s) => [s, inputs[s].value]));
     const res = checkWeights(texts);
-    for (const s of SECTIONS) inputs[s].setAttribute('aria-invalid', 'false');
+    for (const s of SECTIONS) inputs[s].setAttribute('aria-invalid', String(res.section === s));
     if (res.error) {
-      err.textContent = res.error;
+      err.textContent = res.section ? `${SECTION_NAMES[res.section]}: ${res.error}.` : res.error[0].toUpperCase() + res.error.slice(1) + '.';
       err.hidden = false;
-      for (const s of SECTIONS) if (res.error.startsWith(SECTION_NAMES[s] + ':')) inputs[s].setAttribute('aria-invalid', 'true');
       return;
     }
     err.hidden = true;

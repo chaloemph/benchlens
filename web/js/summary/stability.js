@@ -1,7 +1,7 @@
 // Summary block: Stability. A Cleveland dot chart: one row per section, one dot per side (the baseline
 // included) at the median CV in %, lower is better, x from 0. A shaded band marks the median `noise` threshold of
-// the section, so a dot inside it is as steady as the verdict rule's own noise. The CVs come from score.js
-// (ctx.scores); this file only draws them. Sides whose CVs are all null were measured once and are listed,
+// the section, so a dot inside it is as steady as the verdict rule's own noise. The CVs and the noise band come
+// from score.js (ctx.scores.base / sides[].stability, ctx.scores.noise = medianNoise); this file only draws them. Sides whose CVs are all null were measured once and are listed,
 // never drawn at 0.
 
 import { h, clear, showTip, hideTip } from '../ui.js';
@@ -10,22 +10,6 @@ import { sectionName, pct1 } from '../format.js';
 import { tableFallback } from './table.js';
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-
-/**
- * Median `noise` threshold (%) per section over the rows a section score uses, across all compared sides.
- * Helper that should move to score.js (it is median maths over the same rows as usedRows there).
- */
-export function medianNoise(comparison) {
-  const out = {};
-  for (const sec of SECTIONS) {
-    const xs = (comparison.rows || [])
-      .filter((r) => r.section === sec && r.cross_arch === false && isNum(r.base) && r.base > 0 && isNum(r.value) && r.value > 0 && isNum(r.noise))
-      .map((r) => r.noise).sort((a, b) => a - b);
-    const m = xs.length >> 1;
-    out[sec] = xs.length ? (xs.length % 2 ? xs[m] : (xs[m - 1] + xs[m]) / 2) : null;
-  }
-  return out;
-}
 
 /** The sides as chart series: baseline first, with `cv` per section and whether it was measured once. */
 export function seriesOf(scores) {
@@ -55,9 +39,9 @@ const slotClass = (i) => (i === 0 ? 'sum-stab-base' : 'sum-stab-c' + ((i - 1) % 
 
 export function render(el, ctx) {
   const d3 = window.d3;
-  const { scores, comparison } = ctx;
+  const { scores } = ctx;
   const series = seriesOf(scores);
-  const noise = medianNoise(comparison);
+  const noise = scores.noise;
   const drawn = series.filter((s) => !s.measuredOnce);
   const once = series.filter((s) => s.measuredOnce);
   const secs = SECTIONS.filter((sec) => drawn.some((s) => isNum(s.cv[sec])));

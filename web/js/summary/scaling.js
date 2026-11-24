@@ -3,11 +3,11 @@
 // one line per architecture, a dotted linear-scaling reference from the smallest point of each architecture.
 // Hidden unless some architecture has at least two sides with different vCPU counts.
 //
-// The scores come from ctx.scores (score.js); this file only places them. The one number it derives is the
-// efficiency (score / linear expectation) of the table fallback: `efficiency()` below should move to score.js.
+// The scores come from ctx.scores and the efficiency (score / linear expectation) from scalingEfficiency, both
+// in score.js; this file only places them.
 
 import { h, clear, showTip, hideTip } from '../ui.js';
-import { sideVcpu } from '../score.js';
+import { sideVcpu, scalingEfficiency } from '../score.js';
 import { tableFallback } from './table.js';
 
 const HIDE_REASON = 'Scaling: pick sides of one architecture with different vCPU counts (for example a 2 and a 16 vCPU machine) to see it';
@@ -18,12 +18,6 @@ const LINEAR_DASH = '1 4';
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 const sectionName = { cpu: 'CPU', disk: 'disk', mem: 'memory', net: 'network', pg: 'PostgreSQL', web: 'web' };
-
-/** Efficiency in %: the score against the linear expectation from the smallest point (ref) of the same arch. Should move to score.js. */
-export function efficiency(point, ref) {
-  const expected = ref.score * point.vcpu / ref.vcpu;
-  return { expected, percent: 100 * point.score / expected };
-}
 
 /**
  * The points and lines of the chart, no DOM. Sides are the baseline (score 100) and every compared side.
@@ -54,7 +48,7 @@ export function scalingModel(comparison, runs, groups, scores) {
   const arches = [...new Set(points.map((p) => p.arch))].sort().map((arch) => {
     const pts = points.filter((p) => p.arch === arch).sort((a, b) => a.vcpu - b.vcpu);
     const linear = new Set(pts.map((p) => p.vcpu)).size >= 2;
-    if (linear) for (const p of pts) { const e = efficiency(p, pts[0]); p.expected = e.expected; p.efficiency = e.percent; }
+    if (linear) for (const p of pts) { const e = scalingEfficiency(p, pts[0]); p.expected = e.expected; p.efficiency = e.percent; }
     return { arch, points: pts, linear };
   });
   return { points, skipped, arches };

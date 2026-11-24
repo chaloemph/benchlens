@@ -1,10 +1,11 @@
 // Summary block: Price / performance. Scatter of price (x) against the overall score (y, summary) with the
 // Pareto frontier, a bar list of the performance-per-price index, and the sides that cannot be priced.
-// The ratio maths (price of a side, score / price, index) is in ../score.js (sidePrice, pricePerformance);
+// The maths (price of a side, score / price, index, frontier) is in ../score.js (sidePrice, pricePerformance,
+// paretoFrontier);
 // this file only lays the numbers out. Prices, units and labels are untrusted text: textContent only.
 
 import { h, clear, showTip, hideTip } from '../ui.js';
-import { sidePrice, pricePerformance, PROFILES } from '../score.js';
+import { sidePrice, pricePerformance, paretoFrontier, PROFILES } from '../score.js';
 import { tableFallback } from './table.js';
 
 const NOTE = 'Price / performance: add a `price` tag to at least two sides to see it';
@@ -38,16 +39,6 @@ function entriesOf(ctx) {
     entries.push({ key: 'o' + i, label: side.label, score: sc.overall.score, price: sidePrice(side, runs), isBase: false, counts: totalCounts(sc.sections) });
   });
   return entries;
-}
-
-/** Sides no other usable side beats (cheaper or equal AND at least as fast, strictly better in one of them). */
-function frontierKeys(usable) {
-  const out = new Set();
-  for (const e of usable) {
-    const beaten = usable.some((o) => o !== e && o.price <= e.price && o.score >= e.score && (o.price < e.price || o.score > e.score));
-    if (!beaten) out.add(e.key);
-  }
-  return out;
 }
 
 function drawScatter(el, pp, frontier) {
@@ -133,7 +124,7 @@ export function render(el, ctx) {
     ctx.hide(NOTE + (bad.length ? ` (${bad.join('; ')})` : ''));
     return;
   }
-  const frontier = frontierKeys(pp.usable);
+  const frontier = paretoFrontier(pp.usable);
   const prof = ctx.profile.profile;
   const profLabel = prof === 'custom' ? 'custom weights' : PROFILES[prof].label;
   clear(el, h('h2', { text: 'Price / performance' }),
