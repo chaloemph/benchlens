@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sectionScores, sideStability, baseStability, overallScore, PROFILES, SECTIONS, weightsFor } from '../../web/js/score.js';
+import { sectionScores, sideStability, baseStability, medianNoise, overallScore, PROFILES, SECTIONS, weightsFor } from '../../web/js/score.js';
 
 export const ROOT = path.resolve(import.meta.dirname, '../..');
 const EXAMPLES = path.join(ROOT, 'docs/api-examples');
@@ -54,6 +54,8 @@ export function checkAgainstPython(comparison, label) {
   const profiles = { ...Object.fromEntries(Object.entries(PROFILES).map(([k, v]) => [k, v.weights])), custom: weightsFor('custom', CUSTOM).weights };
   const base = baseStability(comparison);
   for (const sec of SECTIONS) close(base[sec], want.base_stability[sec], `${label} base stability ${sec}`);
+  const noise = medianNoise(comparison);
+  for (const sec of SECTIONS) close(noise[sec], want.median_noise[sec], `${label} median noise ${sec}`);
   assert.equal(comparison.others.length, want.sides.length);
   comparison.others.forEach((side, i) => {
     const w = want.sides[i];

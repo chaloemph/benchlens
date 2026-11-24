@@ -3,9 +3,9 @@
 
 Reads a Comparison as `/api/compare` returns it (default: docs/api-examples/compare.json) and recomputes, per
 compared side, the section scores (n, counts, weak), the median CV per section, the overall score of every
-built-in profile and of optional custom weights, plus the baseline's median CV per section. The definitions are
-the ones web/README.md summarises, written here without looking at score.js: geometric means are taken as
-products to a power (score.js uses sums of logarithms).
+built-in profile and of optional custom weights, plus the baseline's median CV and the median noise threshold
+per section. The definitions are the ones web/README.md summarises, written here without looking at score.js:
+geometric means are taken as products to a power (score.js uses sums of logarithms).
 
   python3 tools/score_check.py                  # recompute, run web/js/score.js in node on the same file, compare (1e-9)
   benchlens compare group:x86-high group:arm64-high x86-std-r2 --json > c.json
@@ -93,6 +93,13 @@ def base_stability(cmp):
             for s in SECTIONS}
 
 
+def median_noise(cmp):
+    """Median `noise` per section over the rows the section scores use, every compared side pooled."""
+    rows = [r for i in range(len(cmp["others"])) for r in used_rows(cmp, i)]
+    return {s: median_or_none([r["noise"] for r in rows if r["section"] == s and r.get("noise") is not None])
+            for s in SECTIONS}
+
+
 def parse_weights(text):
     w = {s: 0.0 for s in SECTIONS}
     for part in text.split(","):
@@ -114,11 +121,11 @@ def recompute(cmp, custom=None):
             "stability": side_stability(cmp, i),
             "overall": {name: overall(sc, w) for name, w in profiles.items()},
         })
-    return {"base_stability": base_stability(cmp), "sides": sides}
+    return {"base_stability": base_stability(cmp), "median_noise": median_noise(cmp), "sides": sides}
 
 
 JS_DUMP = """
-import { sectionScores, sideStability, baseStability, overallScore, PROFILES, parseWeights } from %(mod)s;
+import { sectionScores, sideStability, baseStability, medianNoise, overallScore, PROFILES, parseWeights } from %(mod)s;
 const cmp = JSON.parse(%(cmp)s);
 const custom = %(custom)s;
 const profiles = { ...Object.fromEntries(Object.entries(PROFILES).map(([k, v]) => [k, v.weights])) };
@@ -128,7 +135,7 @@ const sides = cmp.others.map((side, i) => {
   return { label: side.label, sections, stability: sideStability(cmp, i),
     overall: Object.fromEntries(Object.entries(profiles).map(([k, w]) => [k, overallScore(sections, w)])) };
 });
-console.log(JSON.stringify({ base_stability: baseStability(cmp), sides }));
+console.log(JSON.stringify({ base_stability: baseStability(cmp), median_noise: medianNoise(cmp), sides }));
 """
 
 

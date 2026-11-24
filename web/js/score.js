@@ -1,6 +1,6 @@
 // Scores of the Summary view: pure functions (no DOM, no fetch) over a Comparison as `/api/compare` returns it,
 // the runs of `/api/runs` and the groups of `/api/groups`. Scores are summaries, not verdicts: they use only
-// rows[].base, value, direction, cv_*, cross_arch and verdict, and never re-judge a metric. tools/score_check.py
+// rows[].base, value, direction, cv_*, noise, cross_arch and verdict, and never re-judge a metric. tools/score_check.py
 // recomputes them independently; tests/score/ checks both agree.
 //
 // Section score: rows of one side and section with cross_arch == false, base > 0 and value > 0; ratio
@@ -73,6 +73,17 @@ export function baseStability(comparison) {
 }
 
 /**
+ * `{section: median noise threshold in % | null}`: the `noise` of the rows the section scores use, pooled over
+ * every compared side (a metric counts once per side). The stability chart draws it as the "within noise" band.
+ */
+export function medianNoise(comparison) {
+  const rows = (comparison.others || []).flatMap((_, i) => usedRows(comparison, i));
+  const out = {};
+  for (const sec of SECTIONS) out[sec] = median(rows.filter((r) => r.section === sec && isNum(r.noise)).map((r) => r.noise));
+  return out;
+}
+
+/**
  * Weighted geometric mean of the section scores that are not null (weights renormalised over them).
  * `{score, incomplete}`: `incomplete` lists sections with weight > 0 and no score; `score` is null when no
  * section with weight > 0 has one. A section missing from `weights` has weight 0.
@@ -108,6 +119,27 @@ export function parseWeights(str) {
   return SECTIONS.some((s) => out[s] > 0) ? out : null;
 }
 
+/**
+ * The six custom weights as typed (`{section: text}`), checked as the profile control allows them: a number from
+ * 0 to 5 in steps of 0.5, at least one above 0. `{weights}` (every section), or `{error, section}` with `section`
+ * the first offending one (null when the error is about all of them). parseWeights reads any link; this is the
+ * stricter check of what the user types.
+ */
+export function checkWeights(texts) {
+  const weights = {};
+  for (const sec of SECTIONS) {
+    const t = String((texts && texts[sec]) ?? '').trim();
+    const v = Number(t);
+    if (!t || !Number.isFinite(v)) return { section: sec, error: 'enter a number from 0 to 5' };
+    if (v < 0) return { section: sec, error: 'a weight cannot be negative' };
+    if (v > 5) return { section: sec, error: 'the largest weight is 5' };
+    if (!Number.isInteger(v * 2)) return { section: sec, error: 'use steps of 0.5' };
+    weights[sec] = v;
+  }
+  if (!SECTIONS.some((s) => weights[s] > 0)) return { section: null, error: 'at least one weight must be above 0' };
+  return { weights };
+}
+
 /** `{section: weight}` to `cpu:1,disk:3,...`, sections in the fixed order; parseWeights reads it back. */
 export function formatWeights(obj) {
   return SECTIONS.map((s) => s + ':' + (isNum(obj && obj[s]) && obj[s] > 0 ? obj[s] : 0)).join(',');
@@ -125,12 +157,13 @@ export function weightsFor(profile, w) {
 }
 
 /**
- * Everything the blocks read, computed once: `{ weights, base: {stability}, sides: [{index, label, sections,
- * stability, overall}] }`. The baseline is 100 by definition.
+ * Everything the blocks read, computed once: `{ weights, noise, base: {label, stability, overall}, sides: [{index,
+ * label, sections, stability, overall}] }` (`noise` = medianNoise). The baseline is 100 by definition.
  */
 export function scoresFor(comparison, weights) {
   return {
     weights,
+    noise: medianNoise(comparison),
     base: { label: comparison.base.label, stability: baseStability(comparison), overall: { score: 100, incomplete: [] } },
     sides: (comparison.others || []).map((side, index) => {
       const sections = sectionScores(comparison, index);
@@ -200,6 +233,19 @@ export function pricePerformance(entries) {
   return { unit, show: usable.length >= 2, usable, problems, indexFrom: ref ? ref.key : null };
 }
 
+/**
+ * Keys of the Pareto frontier of `points` (`{key, price, score}`): the points no other point beats, i.e. none is
+ * at most as expensive and at least as good, and strictly better on one of the two.
+ */
+export function paretoFrontier(points) {
+  const out = new Set();
+  for (const e of points || []) {
+    const beaten = points.some((o) => o !== e && o.price <= e.price && o.score >= e.score && (o.price < e.price || o.score > e.score));
+    if (!beaten) out.add(e.key);
+  }
+  return out;
+}
+
 // ---- scaling ----
 
 /**
@@ -218,4 +264,14 @@ export function sideVcpu(side, runs, groups) {
   if (!distinct.length) return { error: 'none', detail: 'no vCPU count known' };
   if (distinct.length > 1) return { error: 'mixed', detail: distinct.join(', ') + ' vCPU' };
   return { vcpu: distinct[0] };
+}
+
+/**
+ * Scaling efficiency of `point` against `ref`, the smallest point of the same arch (both `{vcpu, score}`):
+ * `expected` = what linear scaling from `ref` gives (`ref.score x point.vcpu / ref.vcpu`), `percent` = the score
+ * against it in % (100 for `ref` itself).
+ */
+export function scalingEfficiency(point, ref) {
+  const expected = ref.score * point.vcpu / ref.vcpu;
+  return { expected, percent: 100 * point.score / expected };
 }

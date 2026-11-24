@@ -11,7 +11,7 @@ benchlens --db benchlens.db serve          # then open http://127.0.0.1:8080
 ## Views
 
 All state is in the query string, so any page can be shared as a link:
-`view` (`summary`, `compare`, `metric`, `runs`, `hardware`), `base` (REF), `other` (REF, repeated), `section`
+`view` (`summary`, the default, `compare`, `metric`, `runs`, `hardware`; a link without `view` opens Summary), `base` (REF), `other` (REF, repeated), `section`
 (`key`, `all`, `cpu`, ...), `metric` (metric id), `run` (run id, repeated, for hardware), the runs filters
 `q`, `arch`, `group`, `tag` (`KEY:VALUE`), and for the Summary view `profile` (`balanced`, `web`, `db`, `compute`,
 `custom`) and `w` (custom section weights, `cpu:1,disk:3,...`). A REF is a run id or `group:NAME`, as in the API.
@@ -27,11 +27,12 @@ All state is in the query string, so any page can be shared as a link:
 Compare, Metric, Runs and Hardware never compute medians, CV, differences or verdicts: every number is shown as
 `/api/compare` returns it, so it equals `benchlens compare --json` for the same sides. The Summary view has
 **one** exception: the scores of `js/score.js`, built only from `rows[].base`, `value`, `direction`, `cv_*`,
-`cross_arch` and `verdict` of `/api/compare` (section score = 100 x geometric mean of the per-metric ratios
-against the baseline; overall score = weighted geometric mean of the sections; median CV per section; price and
-vCPU of a side from the tags and `nproc` of its runs). Scores are summaries, not verdicts: every chart that shows
-one is labelled "score (summary)" and shows the better / worse / within noise counts behind it, and no chart
-re-judges a metric. All of that maths lives in `js/score.js` (pure functions, no DOM); the chart modules call it.
+`noise`, `cross_arch` and `verdict` of `/api/compare` (section score = 100 x geometric mean of the per-metric
+ratios against the baseline; overall score = weighted geometric mean of the sections; median CV and median noise
+threshold per section; price / performance and its Pareto frontier; scaling efficiency; price and vCPU of a side
+from the tags and `nproc` of its runs). Scores are summaries, not verdicts: every chart that shows one is
+labelled "score (summary)" and shows the better / worse / within noise counts behind it, and no chart re-judges
+a metric. All of that maths lives in `js/score.js` (pure functions, no DOM); the chart modules call it.
 `node --test tests/score/` checks it against `tools/score_check.py`, an independent recomputation in Python.
 
 Upload: the header's Upload button opens a dialog (archive, optional tag rows) that posts to `POST /api/runs`

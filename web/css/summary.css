@@ -3,14 +3,145 @@
 
 /* ---- shell ---- */
 
+/* series colours shared by the blocks: compared side i is --sum-c<i> in the radar and the stability chart, the
+   scaling chart uses them per architecture. Colour is never the only cue (each block adds dash, marker or label). */
+#view-summary { --sum-c0: #2f5fb3; --sum-c1: #c2410c; --sum-c2: #0f766e; --sum-c3: #a21caf; --sum-c4: #8a6d00; --sum-c5: #0e7490; }
+@media (prefers-color-scheme: dark) {
+  #view-summary { --sum-c0: #7ea6ef; --sum-c1: #fb923c; --sum-c2: #2dd4bf; --sum-c3: #e879f9; --sum-c4: #e3c56b; --sum-c5: #5fd0da; }
+}
+#sum-body > div:not([hidden]) { margin: 0 0 2rem; }
+#sum-body h2.sum-title { margin: 0 0 .4rem; }
+#sum-body h3 { font-size: .95rem; font-weight: 600; margin: 1rem 0 .3rem; overflow-wrap: anywhere; }
+#sum-body .sum-table { margin-top: .8rem; }
+#sum-body .sum-table summary { cursor: pointer; }
+
 /* ---- board ---- */
+
+.sum-board-control { margin: .6rem 0; }
+.sum-board-profiles { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
+.sum-board-profile { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9rem; }
+.sum-board-profile.on { border-color: var(--accent); background: var(--panel); font-weight: 600; }
+.sum-board-profile input { margin: 0; }
+.sum-board-profile:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sum-board-weights { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; margin-top: 8px; }
+.sum-board-weight { display: flex; flex-direction: column; gap: 2px; font-size: .85rem; color: var(--muted); }
+.sum-board-weight input { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+.sum-board-weight input[aria-invalid="true"] { border-color: var(--bad); border-width: 2px; }
+.sum-board-error { color: var(--bad); font-size: .87rem; margin: .4rem 0 0; }
+.sum-board-error::before { content: "\26A0\FE0E  "; }
+.sum-board-list { list-style: none; margin: .8rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.sum-board-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.sum-board-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.sum-board-value { font-variant-numeric: tabular-nums; font-weight: 600; }
+.sum-board-track { position: relative; height: 16px; margin: 3px 0; background: var(--panel); border-radius: 3px; }
+.sum-board-bar { height: 100%; background: var(--accent); border-radius: 3px; }
+.sum-board-bar.base { background: repeating-linear-gradient(45deg, var(--hatch) 0 4px, var(--neutral) 4px 8px); }
+.sum-board-100 { position: absolute; top: -3px; bottom: -3px; width: 0; border-left: 2px dashed var(--fg); }
+.sum-board-detail { font-size: .82rem; }
+.sum-board-incomplete { font-size: .82rem; color: var(--muted); font-style: italic; }
+.sum-board-incomplete::before { content: "\26A0\FE0E  "; }
 
 /* ---- radar ---- */
 
+.sum-radar-pick { border: 1px solid var(--line); border-radius: var(--radius); margin: 0 0 .6rem; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.sum-radar-pick[hidden] { display: none; }
+.sum-radar-pick label { cursor: pointer; }
+.sum-radar-chart svg.sum-radar-svg { width: 100%; max-width: 520px; margin: 0 auto; }
+.sum-radar-ring { fill: none; stroke: var(--line); stroke-width: 1; }
+.sum-radar-spoke { stroke: var(--line); stroke-width: 1; }
+.sum-radar-base { fill: none; stroke: var(--fg); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.chart text.sum-radar-tick { font-size: 10px; }
+.chart text.sum-radar-label { fill: var(--fg); }
+.chart text.sum-radar-label.faded { fill: var(--muted); opacity: .75; font-style: italic; }
+.sum-radar-s0 { color: var(--sum-c0); }
+.sum-radar-s1 { color: var(--sum-c1); }
+.sum-radar-s2 { color: var(--sum-c2); }
+.sum-radar-s3 { color: var(--sum-c3); }
+.sum-radar-s4 { color: var(--sum-c4); }
+.sum-radar-s5 { color: var(--sum-c5); }
+.sum-radar-fill { fill: currentColor; fill-opacity: .1; stroke: none; }
+.sum-radar-edge { stroke: currentColor; stroke-width: 2; fill: none; }
+.sum-radar-edge.faded { opacity: .4; }
+.sum-radar-marker { fill: currentColor; stroke: var(--bg); stroke-width: 1; }
+.sum-radar-marker.faded { opacity: .5; }
+.sum-radar-marker:focus-visible { outline: 2px solid var(--focus); }
+.sum-radar-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: center; font-size: .87rem; margin-top: 4px; }
+.sum-radar-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.sum-radar-sw line { stroke: currentColor; stroke-width: 2; }
+.sum-radar-swbase { color: var(--fg); }
+.sum-radar-swbase line { stroke-width: 1.5; }
+
 /* ---- price ---- */
+#sum-price .sum-price-chart { max-width: 640px; }
+#sum-price .sum-price-frontier { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 3; }
+#sum-price .sum-price-pt { outline: none; cursor: default; }
+#sum-price .sum-price-pt circle { fill: var(--accent); stroke: var(--bg); stroke-width: 1.5; }
+#sum-price .sum-price-pt rect { fill: var(--bg); stroke: var(--muted); stroke-width: 2; }
+#sum-price .sum-price-pt:focus-visible circle, #sum-price .sum-price-pt:focus-visible rect { stroke: var(--focus); stroke-width: 3; }
+#sum-price .chart text.dim { fill: var(--muted); }
+#sum-price .sum-price-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .5rem; }
+#sum-price .sum-price-list li { display: grid; grid-template-columns: minmax(0, 1fr) 4.5em; gap: 0 .6rem; align-items: center; }
+#sum-price .sum-price-name { grid-column: 1 / -1; overflow-wrap: anywhere; font-weight: 600; font-size: .9rem; }
+#sum-price .sum-price-track { display: block; height: 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+#sum-price .sum-price-bar { display: block; height: 100%; background: var(--neutral); border-right: 3px solid var(--muted); box-sizing: border-box; }
+#sum-price .sum-price-bar.front { background: var(--accent); border-right-color: var(--fg); }
+#sum-price .sum-price-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+#sum-price .sum-price-sub { grid-column: 1 / -1; overflow-wrap: anywhere; }
+#sum-price .sum-price-problems ul { margin: 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
 
 /* ---- scaling ---- */
 
+.sum-sc-s0 { color: var(--sum-c0); }
+.sum-sc-s1 { color: var(--sum-c1); }
+.sum-sc-s2 { color: var(--sum-c2); }
+.sum-sc-s3 { color: var(--sum-c3); }
+#sum-scaling .sum-sc-notes { margin: 0 0 8px; padding-left: 1.2em; font-size: .9rem; }
+#sum-scaling .sum-sc-line { stroke: currentColor; stroke-width: 2.5; fill: none; }
+#sum-scaling .sum-sc-ref { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: .75; fill: none; }
+#sum-scaling .sum-sc-mark { fill: currentColor; stroke: var(--bg); stroke-width: 1.5; cursor: default; }
+#sum-scaling .sum-sc-mark.is-base { fill: var(--bg); stroke: currentColor; stroke-width: 2.2; }
+#sum-scaling .sum-sc-mark:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+#sum-scaling .sum-sc-base { stroke: var(--hatch); stroke-width: 1; stroke-dasharray: 5 4; }
+#sum-scaling .chart text.sum-sc-ptlbl { fill: var(--fg); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
+#sum-scaling .chart text.sum-sc-linlbl { fill: currentColor; font-size: 11px; }
+#sum-scaling .sum-sc-legend { margin: 6px 0; }
+#sum-scaling .sum-sc-legend svg { flex: none; }
+#sum-scaling .sum-sc-legend .sum-sc-mark { stroke: none; }
+
 /* ---- stability ---- */
+#sum-stability .sum-stab-lead { font-weight: 600; margin: .3rem 0; }
+.sum-stab-wrap { margin-top: .5rem; }
+.sum-stab-band { fill: var(--neutral); fill-opacity: .55; stroke: none; }
+.sum-stab-bandedge { stroke: var(--hatch); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.sum-stab-sep { stroke: var(--line); stroke-width: 1; }
+.sum-stab-dot { stroke: var(--bg); stroke-width: 1; }
+.sum-stab-dot:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
+.sum-stab-base { fill: var(--fg); }
+.sum-stab-c0 { fill: var(--sum-c0); }
+.sum-stab-c1 { fill: var(--sum-c1); }
+.sum-stab-c2 { fill: var(--sum-c2); }
+.sum-stab-c3 { fill: var(--sum-c3); }
+.sum-stab-c4 { fill: var(--sum-c4); }
+.sum-stab-c5 { fill: var(--sum-c5); }
+.sum-stab-legend { margin-top: .4rem; }
+.sum-stab-legend svg { flex: none; }
+.sum-stab-once { margin: .5rem 0; padding-left: 1.2rem; color: var(--muted); font-size: .87rem; }
 
 /* ---- verdicts ---- */
+.sum-verdicts-block { margin: 14px 0 18px; }
+.sum-verdicts-block h3 { margin: 0 0 2px; }
+.sum-verdicts-block p { margin: 0 0 4px; }
+.sum-verdicts-side { overflow-x: auto; }
+.sum-verdicts-hit { fill: transparent; }
+.sum-verdicts-row:hover .sum-verdicts-hit, .sum-verdicts-row:focus .sum-verdicts-hit { fill: var(--panel); }
+.sum-verdicts-row:focus { outline: none; }
+.sum-verdicts-row:focus-visible .sum-verdicts-hit { stroke: var(--focus); stroke-width: 2; }
+.sum-verdicts-row.total .sum-verdicts-hit { stroke: var(--line); stroke-width: 0; }
+.sum-verdicts-worse, .sum-verdicts-sw-worse { fill: var(--bad); background: var(--bad); }
+.sum-verdicts-better, .sum-verdicts-sw-better { fill: var(--good); background: var(--good); }
+.sum-verdicts-noise, .sum-verdicts-sw-noise { fill: var(--neutral); background: var(--neutral); }
+.sum-verdicts-sw-worse { background: repeating-linear-gradient(45deg, var(--bad) 0 2px, var(--bg) 2px 4px); }
+.sum-verdicts-hatch { stroke: var(--bg); opacity: 0.55; }
+.sum-verdicts-axis { stroke: var(--fg); stroke-width: 1; }
+.chart text.sum-verdicts-nlabel { fill: var(--fg); font-size: 11px; }
+.sum-verdicts-note { margin-top: 8px; }
