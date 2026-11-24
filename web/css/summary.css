@@ -3,9 +3,20 @@
 
 /* ---- shell ---- */
 
+/* series colours shared by the blocks: compared side i is --sum-c<i> in the radar and the stability chart, the
+   scaling chart uses them per architecture. Colour is never the only cue (each block adds dash, marker or label). */
+#view-summary { --sum-c0: #2f5fb3; --sum-c1: #c2410c; --sum-c2: #0f766e; --sum-c3: #a21caf; --sum-c4: #8a6d00; --sum-c5: #0e7490; }
+@media (prefers-color-scheme: dark) {
+  #view-summary { --sum-c0: #7ea6ef; --sum-c1: #fb923c; --sum-c2: #2dd4bf; --sum-c3: #e879f9; --sum-c4: #e3c56b; --sum-c5: #5fd0da; }
+}
+#sum-body > div:not([hidden]) { margin: 0 0 2rem; }
+#sum-body h2.sum-title { margin: 0 0 .4rem; }
+#sum-body h3 { font-size: .95rem; font-weight: 600; margin: 1rem 0 .3rem; overflow-wrap: anywhere; }
+#sum-body .sum-table { margin-top: .8rem; }
+#sum-body .sum-table summary { cursor: pointer; }
+
 /* ---- board ---- */
 
-#sum-board { margin-bottom: 1.6rem; }
 .sum-board-control { margin: .6rem 0; }
 .sum-board-profiles { display: flex; flex-wrap: wrap; gap: 6px 8px; margin-top: 4px; }
 .sum-board-profile { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; font-size: .9rem; }
@@ -29,14 +40,9 @@
 .sum-board-detail { font-size: .82rem; }
 .sum-board-incomplete { font-size: .82rem; color: var(--muted); font-style: italic; }
 .sum-board-incomplete::before { content: "\26A0\FE0E  "; }
-#sum-board .sum-table { margin-top: .8rem; }
 
 /* ---- radar ---- */
 
-#sum-radar { --sum-radar-c0: #2f5fb3; --sum-radar-c1: #c2410c; --sum-radar-c2: #0f766e; --sum-radar-c3: #a21caf; margin-bottom: 1.5rem; }
-@media (prefers-color-scheme: dark) {
-  #sum-radar { --sum-radar-c0: #7ea6ef; --sum-radar-c1: #fb923c; --sum-radar-c2: #2dd4bf; --sum-radar-c3: #e879f9; }
-}
 .sum-radar-pick { border: 1px solid var(--line); border-radius: var(--radius); margin: 0 0 .6rem; padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .sum-radar-pick[hidden] { display: none; }
 .sum-radar-pick label { cursor: pointer; }
@@ -47,10 +53,12 @@
 .chart text.sum-radar-tick { font-size: 10px; }
 .chart text.sum-radar-label { fill: var(--fg); }
 .chart text.sum-radar-label.faded { fill: var(--muted); opacity: .75; font-style: italic; }
-.sum-radar-s0 { color: var(--sum-radar-c0); }
-.sum-radar-s1 { color: var(--sum-radar-c1); }
-.sum-radar-s2 { color: var(--sum-radar-c2); }
-.sum-radar-s3 { color: var(--sum-radar-c3); }
+.sum-radar-s0 { color: var(--sum-c0); }
+.sum-radar-s1 { color: var(--sum-c1); }
+.sum-radar-s2 { color: var(--sum-c2); }
+.sum-radar-s3 { color: var(--sum-c3); }
+.sum-radar-s4 { color: var(--sum-c4); }
+.sum-radar-s5 { color: var(--sum-c5); }
 .sum-radar-fill { fill: currentColor; fill-opacity: .1; stroke: none; }
 .sum-radar-edge { stroke: currentColor; stroke-width: 2; fill: none; }
 .sum-radar-edge.faded { opacity: .4; }
@@ -64,7 +72,6 @@
 .sum-radar-swbase line { stroke-width: 1.5; }
 
 /* ---- price ---- */
-#sum-price h3 { font-size: .95rem; font-weight: 600; margin: 1rem 0 .3rem; }
 #sum-price .sum-price-chart { max-width: 640px; }
 #sum-price .sum-price-frontier { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 3; }
 #sum-price .sum-price-pt { outline: none; cursor: default; }
@@ -81,20 +88,13 @@
 #sum-price .sum-price-val { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
 #sum-price .sum-price-sub { grid-column: 1 / -1; overflow-wrap: anywhere; }
 #sum-price .sum-price-problems ul { margin: 0; padding-left: 1.2rem; overflow-wrap: anywhere; }
-#sum-price .sum-table { margin-top: .8rem; }
 
 /* ---- scaling ---- */
 
-#sum-scaling {
-  --sum-sc-0: #2f5fb3; --sum-sc-1: #b45a00; --sum-sc-2: #7b4fa8; --sum-sc-3: #13787a;
-}
-@media (prefers-color-scheme: dark) {
-  #sum-scaling { --sum-sc-0: #7ea6ef; --sum-sc-1: #f0a050; --sum-sc-2: #b99be0; --sum-sc-3: #4fc4c4; }
-}
-.sum-sc-s0 { color: var(--sum-sc-0); }
-.sum-sc-s1 { color: var(--sum-sc-1); }
-.sum-sc-s2 { color: var(--sum-sc-2); }
-.sum-sc-s3 { color: var(--sum-sc-3); }
+.sum-sc-s0 { color: var(--sum-c0); }
+.sum-sc-s1 { color: var(--sum-c1); }
+.sum-sc-s2 { color: var(--sum-c2); }
+.sum-sc-s3 { color: var(--sum-c3); }
 #sum-scaling .sum-sc-notes { margin: 0 0 8px; padding-left: 1.2em; font-size: .9rem; }
 #sum-scaling .sum-sc-line { stroke: currentColor; stroke-width: 2.5; fill: none; }
 #sum-scaling .sum-sc-ref { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; opacity: .75; fill: none; }
@@ -107,11 +107,8 @@
 #sum-scaling .sum-sc-legend { margin: 6px 0; }
 #sum-scaling .sum-sc-legend svg { flex: none; }
 #sum-scaling .sum-sc-legend .sum-sc-mark { stroke: none; }
-#sum-scaling .sum-table { margin-top: 8px; }
-#sum-scaling .sum-table summary { cursor: pointer; font-size: .9rem; }
 
 /* ---- stability ---- */
-#sum-stability { margin-top: 1.5rem; }
 #sum-stability .sum-stab-lead { font-weight: 600; margin: .3rem 0; }
 .sum-stab-wrap { margin-top: .5rem; }
 .sum-stab-band { fill: var(--neutral); fill-opacity: .55; stroke: none; }
@@ -120,29 +117,19 @@
 .sum-stab-dot { stroke: var(--bg); stroke-width: 1; }
 .sum-stab-dot:focus-visible { outline: none; stroke: var(--focus); stroke-width: 3; }
 .sum-stab-base { fill: var(--fg); }
-.sum-stab-c0 { fill: #2f5fb3; }
-.sum-stab-c1 { fill: #c8651b; }
-.sum-stab-c2 { fill: #1e8a4c; }
-.sum-stab-c3 { fill: #8e44ad; }
-.sum-stab-c4 { fill: #b8860b; }
-.sum-stab-c5 { fill: #0e8a96; }
-@media (prefers-color-scheme: dark) {
-  .sum-stab-c0 { fill: #7ea6ef; }
-  .sum-stab-c1 { fill: #f0a05a; }
-  .sum-stab-c2 { fill: #3fbf78; }
-  .sum-stab-c3 { fill: #c79be0; }
-  .sum-stab-c4 { fill: #e3c56b; }
-  .sum-stab-c5 { fill: #5fd0da; }
-}
+.sum-stab-c0 { fill: var(--sum-c0); }
+.sum-stab-c1 { fill: var(--sum-c1); }
+.sum-stab-c2 { fill: var(--sum-c2); }
+.sum-stab-c3 { fill: var(--sum-c3); }
+.sum-stab-c4 { fill: var(--sum-c4); }
+.sum-stab-c5 { fill: var(--sum-c5); }
 .sum-stab-legend { margin-top: .4rem; }
 .sum-stab-legend svg { flex: none; }
 .sum-stab-once { margin: .5rem 0; padding-left: 1.2rem; color: var(--muted); font-size: .87rem; }
-#sum-stability .sum-table { margin-top: .6rem; }
 
 /* ---- verdicts ---- */
-#sum-verdicts { margin-top: 24px; }
 .sum-verdicts-block { margin: 14px 0 18px; }
-.sum-verdicts-block h3 { margin: 0 0 2px; font-size: 1rem; overflow-wrap: anywhere; }
+.sum-verdicts-block h3 { margin: 0 0 2px; }
 .sum-verdicts-block p { margin: 0 0 4px; }
 .sum-verdicts-side { overflow-x: auto; }
 .sum-verdicts-hit { fill: transparent; }

@@ -111,7 +111,7 @@ function draw(box, model, profileName) {
   svg.append('g').attr('class', 'axis').attr('transform', `translate(${mg.l},0)`)
     .call(d3.axisLeft(y).ticks(5)).call((g) => g.select('.domain').remove());
   svg.append('text').attr('x', (mg.l + W - mg.r) / 2).attr('y', H - 8).attr('text-anchor', 'middle').text('vCPU');
-  svg.append('text').attr('transform', `translate(12,${(mg.t + H - mg.b) / 2}) rotate(-90)`).attr('text-anchor', 'middle').text('score (summary)');
+  svg.append('text').attr('transform', `translate(12,${(mg.t + H - mg.b) / 2}) rotate(-90)`).attr('text-anchor', 'middle').text('Score (summary)');
   svg.append('line').attr('class', 'sum-sc-base').attr('x1', mg.l).attr('x2', W - mg.r).attr('y1', y(100)).attr('y2', y(100));
   svg.append('text').attr('class', 'sum-sc-baselbl').attr('x', W - mg.r - 2).attr('y', y(100) - 4).attr('text-anchor', 'end').text('baseline = 100');
 

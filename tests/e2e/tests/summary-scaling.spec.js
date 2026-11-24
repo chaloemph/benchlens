@@ -59,7 +59,7 @@ for (const profile of ['balanced', 'db']) {
     // x axis ticks at the real vCPU counts only
     const ticks = await block.locator('svg g.axis').first().locator('.tick text').allTextContents();
     expect([...new Set(ticks)].sort()).toEqual([...new Set([small.nproc[0], big.nproc[0]].map(String))].sort());
-    await expect(block).toContainText('score (summary)');
+    await expect(block.locator('svg').first()).toContainText('Score (summary)');
 
     const rows = await tableRows(page);
     expect(Object.keys(rows)).toHaveLength(3);

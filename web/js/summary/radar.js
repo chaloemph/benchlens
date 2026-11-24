@@ -107,7 +107,7 @@ function draw(el, ctx, sides) {
 
   // sides
   sides.forEach((side, k) => {
-    const cls = 'sum-radar-s' + k;
+    const cls = 'sum-radar-s' + (side.index % 6); // colour of the side in every block; dash and marker by k
     const cells = SECTIONS.map((sec) => side.sections[sec]);
     const pt = (i) => axisPoint(i, n, rad(cells[i].score));
     const { closed, runs } = outlineRuns(cells.map((c) => c.score != null));
@@ -153,7 +153,7 @@ function legend(sides) {
   };
   return h('div', { class: 'sum-radar-legend' },
     h('span', {}, sw('sum-radar-swbase', '4 3', null), 'baseline = 100'),
-    ...sides.map((s, k) => h('span', {}, sw('sum-radar-s' + k, DASHES[k % DASHES.length], SHAPES[k % SHAPES.length]), s.label)));
+    ...sides.map((s, k) => h('span', {}, sw('sum-radar-s' + (s.index % 6), DASHES[k % DASHES.length], SHAPES[k % SHAPES.length]), s.label)));
 }
 
 /** Fill `el` (the block's slot) from `ctx` = { comparison, runs, groups, state, profile, scores, hide } (see index.js). */
