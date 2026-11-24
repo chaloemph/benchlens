@@ -476,14 +476,14 @@ with the same selection. Pick a baseline and at least one other side first.
 ![Summary view of the POC data: leaderboard and radar of x86-high, arm64-high and x86-std](img/summary.png)
 
 *Summary of `group:x86-high` against `group:arm64-high` and `group:x86-std` (the first two blocks). Prices in
-the lower blocks, not visible here, are example prices (4500, 3900 and 1200 THB/month) set through the
-registry on the POC data; they are not measurements.*
+the lower blocks, not visible here, are example prices (4500, 3900 and 1200 THB/month) set through a copy of
+the POC registry (see [Price tags](#price-tags) below); they are not measurements.*
 
 | Block | Question | Shown |
 |---|---|---|
 | **Leaderboard** | Which machine for our workload? | always |
 | **Section scores** (radar) | Where is each machine strong or weak? | always |
-| **Price / performance** | Is it worth the money? | at least two sides have a usable `price` |
+| **Price / performance** | Is it worth the money? | at least two sides have a usable `price` in the same unit |
 | **Scaling with vCPUs** | Twice the vCPUs, twice the speed? | two sides of one architecture with different vCPU counts |
 | **Stability** | Which machine is noisy? | always |
 | **Verdicts by section** | How many results are really better or worse? | always |
@@ -552,7 +552,9 @@ score_check: score.js agrees with the recomputation (89 numbers, tolerance 1e-09
 The tallies of the same file are `23 / 37 / 5` for arm64-high and `7 / 34 / 26` for x86-std (better / worse /
 within noise), the numbers under the leaderboard bars.
 
-**Price tags.** Prices are your input, not measurements, so benchlens reads them from tags on the runs:
+#### Price tags
+
+Prices are your input, not measurements, so benchlens reads them from tags on the runs:
 
 - `price`: a positive number with `.` as the decimal point and no thousands separator (`4500`, `0.096`).
   Anything else (`1,200`, `4.500,00`, `free`) is shown as "invalid price" and not used.
@@ -610,10 +612,10 @@ To share a comparison with someone who has no benchlens:
 
 ```text
 $ benchlens export html --base group:x86-high --other group:arm64-high -o report.html --title "POC high: x86 vs ARM64"
-wrote report.html (752 KB): 2 sides, 6 runs, 568 values
+wrote report.html (849 KB): 2 sides, 6 runs, 568 values
 ```
 
-The file opens from disk with no server and no network (about 230 KB gzipped for these two groups). It
+The file opens from disk with no server and no network (about 255 KB gzipped for these two groups). It
 inlines the web UI's summary, compare, metric and hardware views, d3, the WebAssembly build of the verdict rule and the
 values of the exported sides. It opens on the Summary view: the six blocks (or the notes saying why a block
 is hidden), computed in the page from the same comparison, with profiles and custom weights also working

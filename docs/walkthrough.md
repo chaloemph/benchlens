@@ -172,9 +172,9 @@ arm64-high and x86-std:
 
 ![Summary view: leaderboard and radar for x86-high, arm64-high and x86-std](img/summary.png)
 
-*Example prices (4500, 3900 and 1200 THB/month, set through the registry on the POC data; they are not
-measurements) make the price / performance block appear below the radar. Without a `price` tag on at least
-two sides it is hidden and a muted line says how to get it.*
+*Example prices (4500, 3900 and 1200 THB/month, set through a copy of the POC registry, see the
+[guide](guide.md#price-tags); they are not measurements) make the price / performance block appear below the
+radar. Without a `price` tag on at least two sides it is hidden and a muted line says how to get it.*
 
 For "Balanced" x86-high leads; arm64-high scores 81.6 (better 23, worse 37, within noise 5, the same counts as
 `benchlens compare`) and x86-std 55.4. Pick "Database" and arm64-high moves to 110 on the strength of its disk and
@@ -187,7 +187,7 @@ Stop the server with Ctrl-C.
 
 ```text
 $ benchlens export html --base group:x86-high --other group:arm64-high --other group:x86-std -o poc-high.html
-wrote poc-high.html (786 KB): 3 sides, 7 runs, 709 values
+wrote poc-high.html (883 KB): 3 sides, 7 runs, 709 values
 ```
 
 Send `poc-high.html` to anyone: it opens from disk in a browser with no server and no network, opens on the
