@@ -435,9 +435,12 @@ status 141
 
 ### Web UI
 
-`benchlens serve` and open <http://127.0.0.1:8080>. Four views, all state in the URL (any page can be shared
-as a link):
+`benchlens serve` and open <http://127.0.0.1:8080>. Five views, all state in the URL (any page can be shared
+as a link; a link without `view` opens Summary):
 
+- **Summary**: charts for someone who has to decide, not read 98 metrics: a leaderboard with workload
+  profiles, a radar per section, price / performance, scaling with vCPUs, stability and verdicts by section.
+  It uses the same sides as Compare, which is where they are picked. See [Summary view](#summary-view).
 - **Compare**: baseline picker, "compare with" checkboxes for groups and single runs, quick picks derived from
   the data (such as "x86 vs ARM64 · high" or "Round 1 vs 2 · x86-high"), a takeaway sentence, the tally table
   per section, and a heatmap of every metric (key metrics or one section; sysbench across architectures
@@ -454,14 +457,152 @@ as a link):
   flags for failed stages, excluded stages and missing metric tables.
 - **Hardware**: `hardware.json` of the selected runs side by side, differing rows highlighted.
 
-The URL keys are `view`, `base`, `other` (repeated), `section`, `metric`, `run`, and the runs filters `q`,
-`arch`, `group`, `tag`; for example
+The URL keys are `view`, `base`, `other` (repeated), `section`, `metric`, `run`, the runs filters `q`,
+`arch`, `group`, `tag`, and for Summary `profile` and `w`; for example
 `/?view=compare&base=group:x86-high&other=group:arm64-high&section=key`. The UI computes no numbers itself:
-everything comes from `/api/compare` and equals `benchlens compare --json`. Screenshots are in
+everything comes from `/api/compare` and equals `benchlens compare --json`; the one exception is the scores of the Summary view,
+which are marked as summaries (next section). Screenshots are in
 [walkthrough.md](walkthrough.md#5-the-web-ui).
 
 `group:NAME@KEY=VALUE` sides come from the split control above, the "Round 1 vs 2 · ..." quick picks, or a
 link with `base=` / `other=` in the URL.
+
+### Summary view
+
+`/?view=summary` (the view a link without `view` opens) turns one comparison into six blocks, top to bottom.
+Its sides are those of Compare (`base`, `other`); the "Sides: ... · change" line under the title leads there
+with the same selection. Pick a baseline and at least one other side first.
+
+![Summary view of the POC data: leaderboard and radar of x86-high, arm64-high and x86-std](img/summary.png)
+
+*Summary of `group:x86-high` against `group:arm64-high` and `group:x86-std` (the first two blocks). Prices in
+the lower blocks, not visible here, are example prices (4500, 3900 and 1200 THB/month) set through the
+registry on the POC data; they are not measurements.*
+
+| Block | Question | Shown |
+|---|---|---|
+| **Leaderboard** | Which machine for our workload? | always |
+| **Section scores** (radar) | Where is each machine strong or weak? | always |
+| **Price / performance** | Is it worth the money? | at least two sides have a usable `price` |
+| **Scaling with vCPUs** | Twice the vCPUs, twice the speed? | two sides of one architecture with different vCPU counts |
+| **Stability** | Which machine is noisy? | always |
+| **Verdicts by section** | How many results are really better or worse? | always |
+
+A block without its data is not drawn at all. One muted line at the end of the page says why, for example
+`Price / performance: add a "price" tag to the runs of at least two sides to see it`. Every chart has a
+**Show as table** fallback with the same numbers, and the page works in light and dark themes and on a phone.
+
+**What a score is, and is not.** Scores are summaries, not verdicts: they put the numbers of a comparison in one
+figure so a chart can be drawn. Verdicts stay vmbench's: whether a result is better, worse or within noise is
+decided by the rule of [Verdict](#concepts) and printed by `benchlens compare`; no chart judges a metric again.
+Every chart that shows a score says "score (summary)" and shows the better / worse / within noise counts
+behind it, next to the number or in its tooltip. The formulas are in [contract.md](contract.md#scores). In
+short: for each result, the ratio to the baseline (so above 1 is always better, whatever the direction); a
+**section score** is 100 times the geometric mean of those ratios, so the baseline is 100 on every axis and
+one metric that is five times off cannot dominate. Rows not counted across architectures (sysbench) and rows
+without a positive value on both sides are left out.
+
+- **Leaderboard.** One bar per side, the baseline at 100, best first, with the counts under each bar. The
+  profile says how much each section matters: Balanced (all equal), Web app, Database, Compute, or Custom with
+  six weights (0 to 5). The **overall score** is the weighted geometric mean of the section scores. A section
+  with no results shows "no data" and, if the profile needs it, the side is marked "incomplete: no web
+  results". The profile and the weights are in the URL (`profile=db`, or `profile=custom&w=cpu:3,disk:1,mem:0,net:1,pg:2,web:0`),
+  so a link shares them; nothing is stored on a server. Changing the profile redraws every block.
+- **Radar.** One axis per section in a fixed order (CPU, Disk, Memory, Network, PostgreSQL, Web), the baseline
+  as a dashed ring at 100, up to four sides at a time (more sides get a selector). An axis with no data is a
+  gap, never 0; an axis with fewer than three results is faded and labelled "few results". The number in
+  brackets on an axis label is how many results are behind it.
+- **Price / performance.** Overall score against price, the sides no other side beats on both (cheaper and
+  faster) joined as a frontier, and a bar list of score per price as an index (the baseline, or the cheapest
+  side, is 100). Sides with a problem are listed under the chart (no price, invalid, inconsistent, different
+  unit). Prices come from tags, see below.
+- **Scaling.** Overall score against the vCPU count of each side (from the runs' `nproc`), one line per
+  architecture, with a dotted line for perfect linear scaling from the smallest size. The table adds the
+  efficiency: score divided by what linear scaling would give. A side whose runs mix vCPU counts or
+  architectures is skipped.
+- **Stability.** Median CV (spread between repeated runs, in %) per section and side; lower is steadier. A
+  shaded band is the noise threshold of the section. A side measured only once has no CV and is listed as
+  "measured once: no stability data".
+- **Verdicts by section.** Diverging bars per side and section: better to the right, worse to the left, within
+  noise grey in the middle. These counts are the `tallies` of `/api/compare`, the same numbers as
+  `benchlens compare`, with no maths of the page in between.
+
+**Counts in the tooltips and in the verdicts block.** The section counts in the radar and stability tooltips are
+the results behind the section score. The verdicts block shows `by_section` of the tallies. The two agree when
+every result has a positive value on both sides, as on the example data. They differ when a section has a
+result with a null or non-positive value on either side: the verdicts block still counts it, the score leaves it
+out.
+
+On the example data (`benchlens compare group:x86-high group:arm64-high group:x86-std --json`, then
+`python3 tools/score_check.py --compare c3.json`, an independent recomputation in Python that also runs
+`web/js/score.js` and checks both agree), the leaderboard's 81.6 and 55.4 for arm64-high and x86-std are:
+
+```text
+$ python3 tools/score_check.py --compare c3.json
+arm64-high
+  cpu   score   74.6844  n=29  better 4 worse 25 within noise 0
+  ...
+  overall balanced 81.5716, web 63.7664, db 110.0445, compute 77.0989
+x86-std
+  ...
+  overall balanced 55.3578, web 45.8081, db 67.7693, compute 43.6270
+score_check: score.js agrees with the recomputation (89 numbers, tolerance 1e-09)
+```
+
+The tallies of the same file are `23 / 37 / 5` for arm64-high and `7 / 34 / 26` for x86-std (better / worse /
+within noise), the numbers under the leaderboard bars.
+
+**Price tags.** Prices are your input, not measurements, so benchlens reads them from tags on the runs:
+
+- `price`: a positive number with `.` as the decimal point and no thousands separator (`4500`, `0.096`).
+  Anything else (`1,200`, `4.500,00`, `free`) is shown as "invalid price" and not used.
+- `price_unit` (optional): free text such as `THB/month` or `USD/hour`. Sides are compared on price only when
+  their unit is the same (no unit on both counts as the same); the unit shared by most priced sides is used,
+  the baseline's winning a tie, and the others are listed as "different unit".
+- A side's price comes from its runs: all runs of a group must carry the same `price` and `price_unit`,
+  otherwise the side is "inconsistent" (the runs that differ are named) and not used.
+
+Set them the way you set any tag; the prices below are example prices:
+
+```text
+$ benchlens --db price.db import x86-std-r2.tar.gz --tag price=1300 --tag price_unit=THB/month
+imported  7969870900abc86d  x86-std-r2-20261119-103253  141 values, vmbench v0.2.3
+1 imported, 0 already present, 0 would import, 0 failed, 0 refused
+$ benchlens --db price.db runs --json | grep -A3 '"tags"'
+    "tags": {
+      "price": "1300",
+      "price_unit": "THB/month"
+    },
+$ benchlens --db price.db tag x86-std-r2 price=1,200
+tags set on 7969870900abc86d
+$ benchlens --db price.db runs --json | grep -A3 '"tags"'
+    "tags": {
+      "price": "1,200",
+      "price_unit": "THB/month"
+    },
+```
+
+The second one is accepted as a tag (any text is) and shown as an invalid price in Summary. Every route that
+sets tags works:
+
+- **Runs view**: edit the tags of the run inline, add `price` and `price_unit` rows.
+- **`--tag`** on `import` (as above), or `benchlens tag RUN price=4500 price_unit=THB/month` afterwards.
+- **Registry**: add `price` and `price_unit` columns to the TSV (an empty cell is skipped). A registry with
+  `price` 4500 for the `x86-high` runs, 3900 for `arm64-high` and 1200 for `x86-std`, all `THB/month`, tags
+  the example data (the file is a copy of the POC registry with two columns added):
+
+  ```text
+  run	group	set	size	round	host	exclude	note	price	price_unit
+  x86-std-20261118-233315	x86-std	poc-x86	std	1	proxmox	web	web failed (CPU pinning), rerun in x86-std-web	1200	THB/month
+  ```
+- **`benchlens-tags.json`** in the result folder: `{"price": "1200", "price_unit": "THB/month"}` (a `--tag`
+  of the same key wins over it).
+- **Upload**: tag rows of the upload dialog, or `-F tag=price=1100 -F tag=price_unit=THB/month` on
+  `POST /api/runs` (a run that is already there gets the tags: `already imported; tags updated`).
+- **API**: `curl -X PATCH -H 'Content-Type: application/json' -d '{"price":"1200","price_unit":"THB/month"}' http://127.0.0.1:8080/api/runs/RUN_ID/tags`.
+
+Do not enter prices on shared example data; the repository's registry (`examples/poc-2026-11/registry.tsv`)
+has none.
 
 ## Exporting
 
@@ -473,8 +614,10 @@ wrote report.html (752 KB): 2 sides, 6 runs, 568 values
 ```
 
 The file opens from disk with no server and no network (about 230 KB gzipped for these two groups). It
-inlines the web UI's compare, metric and hardware views, d3, the WebAssembly build of the verdict rule and the
-values of the exported sides. In the page the reader can:
+inlines the web UI's summary, compare, metric and hardware views, d3, the WebAssembly build of the verdict rule and the
+values of the exported sides. It opens on the Summary view: the six blocks (or the notes saying why a block
+is hidden), computed in the page from the same comparison, with profiles and custom weights also working
+offline (`?profile=db` after the file name). In the page the reader can:
 
 - pick any exported side, or any single run of one, as the baseline or a compared side (a group exported as a
   side can be split into its runs, not into runs of other groups);

@@ -6,7 +6,29 @@ automatically, see [docs/guide.md](docs/guide.md#upgrading)).
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+
+- **Summary view** (`?view=summary`, first in the menu): a comparison as six charts for decision makers, using
+  the sides of Compare: a leaderboard with workload profiles (balanced, web app, database, compute, or custom
+  weights in the URL as `profile` and `w`), a radar of the six sections, price / performance, scaling with
+  vCPUs, stability (median CV) and verdicts by section. Price / performance needs `price` (and optionally
+  `price_unit`) tags on the runs of at least two sides, scaling needs two sizes of one architecture; a block
+  without data hides itself and says why. Scores (section score: 100 times the geometric mean of the ratios
+  to the baseline) are summaries, labelled as such, with the verdict counts next to them; verdicts and the
+  API are unchanged. Every chart has a "Show as table" fallback. See the guide, the contract and the
+  walkthrough.
+- The static HTML export opens on the Summary view, also offline, with profiles and custom weights in the link.
+- Docs: guide section "Summary view" (including the price tags), contract section "Scores", a Summary step in
+  the walkthrough.
+
+### Changed
+
+- A bookmark or link without `view` now opens the Summary view (before: Compare). Links that name a view are
+  unchanged, and the links the UI makes to Compare now carry `view=compare`.
+
+### Fixed
+
+- The static HTML export inlines its own stylesheet once, not after every stylesheet.
 
 ## [0.1.4] - 2026-11-21
 
