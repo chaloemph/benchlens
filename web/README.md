@@ -11,7 +11,7 @@ benchlens --db benchlens.db serve          # then open http://127.0.0.1:8080
 ## Views
 
 All state is in the query string, so any page can be shared as a link:
-`view` (`summary`, `compare`, `metric`, `runs`, `hardware`), `base` (REF), `other` (REF, repeated), `section`
+`view` (`summary`, the default, `compare`, `metric`, `runs`, `hardware`; a link without `view` opens Summary), `base` (REF), `other` (REF, repeated), `section`
 (`key`, `all`, `cpu`, ...), `metric` (metric id), `run` (run id, repeated, for hardware), the runs filters
 `q`, `arch`, `group`, `tag` (`KEY:VALUE`), and for the Summary view `profile` (`balanced`, `web`, `db`, `compute`,
 `custom`) and `w` (custom section weights, `cpu:1,disk:3,...`). A REF is a run id or `group:NAME`, as in the API.

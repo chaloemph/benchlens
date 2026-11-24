@@ -4,14 +4,14 @@
 //   profile=balanced|web|db|compute|custom  w=cpu:1,disk:3,... (custom section weights; summary view)
 
 const LISTS = ['other', 'run'];
-const DEFAULTS = { view: 'compare', base: '', section: 'key', metric: '', q: '', arch: '', group: '', tag: '', profile: 'balanced', w: '' };
+const DEFAULTS = { view: 'summary', base: '', section: 'key', metric: '', q: '', arch: '', group: '', tag: '', profile: 'balanced', w: '' };
 
 export function readState() {
   const p = new URLSearchParams(location.search);
   const s = {};
   for (const [k, d] of Object.entries(DEFAULTS)) s[k] = p.get(k) ?? d;
   for (const k of LISTS) s[k] = p.getAll(k).filter(Boolean);
-  if (!['summary', 'compare', 'metric', 'runs', 'hardware'].includes(s.view)) s.view = 'compare';
+  if (!['summary', 'compare', 'metric', 'runs', 'hardware'].includes(s.view)) s.view = 'summary';
   return s;
 }
 

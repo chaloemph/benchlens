@@ -12,7 +12,7 @@ for (const i of [0, 1]) {
       const cmp = comparisons[i];
       test.info().annotations.push({ type: 'comparison', description: `${cmp.name}: ${sidesQuery(cmp)}` });
       const c = await api(request, 'api/compare?' + sidesQuery(cmp));
-      await openView(page, '?' + sidesQuery(cmp));
+      await openView(page, '?view=compare&' + sidesQuery(cmp));
 
       const rows = await page.$$eval('#tally tbody tr', (trs) => trs.map((tr) => ({
         cells: [...tr.children].slice(0, 4).map((td) => td.textContent),
@@ -35,7 +35,7 @@ for (const i of [0, 1]) {
     test('every heatmap cell: verdict and percentage equal /api/compare', async ({ page, request }) => {
       const cmp = comparisons[i];
       const c = await api(request, 'api/compare?' + sidesQuery(cmp));
-      await openView(page, '?' + sidesQuery(cmp) + '&section=all');
+      await openView(page, '?view=compare&' + sidesQuery(cmp) + '&section=all');
 
       const heat = await page.$$eval('#heat tbody tr', (trs) => trs.filter((tr) => tr.querySelector('th button')).map((tr) => ({
         title: tr.querySelector('th button').title,

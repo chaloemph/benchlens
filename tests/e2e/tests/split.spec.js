@@ -48,7 +48,7 @@ test('compare: split a group by tag adds one side per value, labelled, and they 
   const groups = await api(request, 'api/groups');
   const base = 'group:' + groups.map((g) => g.group).find((g) => g !== sp.group);
   // a baseline alone: nothing compared yet
-  await page.goto('?base=' + encodeURIComponent(base));
+  await page.goto('?view=compare&base=' + encodeURIComponent(base));
   await expect(page.locator('#compare-status .state.empty')).toBeVisible();
   await chooseSplit(page, sp);
   await page.locator('#split-add').focus();
@@ -82,7 +82,7 @@ test('compare: split a group by tag adds one side per value, labelled, and they 
 test('compare: split with the first value as the baseline; at 400 px nothing is cut off', async ({ page, request }) => {
   const sp = await pickSplit(request);
   await page.setViewportSize({ width: 400, height: 900 });
-  await openView(page, '?');
+  await openView(page, '?view=compare');
   await chooseSplit(page, sp);
   await page.locator('#split-as-base').check();
   await page.locator('#split-add').click();
