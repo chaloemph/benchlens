@@ -4,10 +4,12 @@
 Reads a Comparison as `/api/compare` returns it (default: docs/api-examples/compare.json) and recomputes, per
 compared side, the section scores (n, counts, weak), the median CV per section, the overall score of every
 built-in profile and of optional custom weights, plus the baseline's median CV per section. The definitions are
-the ones in docs/contract.md "Scores", written here without looking at score.js: geometric means are taken as
+the ones web/README.md summarises, written here without looking at score.js: geometric means are taken as
 products to a power (score.js uses sums of logarithms).
 
   python3 tools/score_check.py                  # recompute, run web/js/score.js in node on the same file, compare (1e-9)
+  benchlens compare group:x86-high group:arm64-high x86-std-r2 --json > c.json
+  python3 tools/score_check.py --compare c.json # the same on a whole comparison (docs/api-examples cut long lists)
   python3 tools/score_check.py --json           # print the recomputed numbers as JSON (tests/score uses this)
   options: --compare FILE   --weights cpu:1,disk:3,...   --tol 1e-9
 """
