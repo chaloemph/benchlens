@@ -50,7 +50,8 @@ is untouched. The maths is in `web/js/score.js` (pure functions) and is recomput
 **Section score** of one compared side and one section (`cpu`, `disk`, `mem`, `net`, `pg`, `web`): take the
 rows of that side and section with `cross_arch == false`, `base > 0` and `value > 0` (nulls are skipped). The
 ratio of a row is `r = value / base` when `direction` is `higher` and `r = base / value` when it is `lower`, so
-`r > 1` always means better than the baseline. Rows with direction `none` have no ratio and are not used.
+`r > 1` always means better than the baseline. (Metrics with direction `none` are never judged and have no row
+in a comparison, so they never count.)
 
 ```text
 section score = 100 x exp(mean(ln r))        (the geometric mean of r, times 100)
@@ -68,7 +69,8 @@ section scores that are not `null`, with the weights renormalised over those sec
 overall = exp( sum(w_s x ln score_s) / sum(w_s) )     over sections s with score_s != null
 ```
 
-If a section with weight above 0 has no score, the result lists it as `incomplete`. Built-in profiles:
+If a section with weight above 0 has no score, the result lists it as `incomplete`; when no section with weight
+above 0 has a score, the overall score is `null`. A section's weight of 0 leaves it out. Built-in profiles:
 
 | Profile | cpu | disk | mem | net | pg | web |
 |---|---|---|---|---|---|---|
@@ -77,7 +79,9 @@ If a section with weight above 0 has no score, the result lists it as `incomplet
 | `db` (database) | 1 | 3 | 2 | 0.5 | 3 | 0 |
 | `compute` (batch) | 3 | 0.5 | 2 | 0 | 0 | 0 |
 
-Custom weights travel in the URL (`profile=custom&w=cpu:1,disk:3,...`); nothing is stored on the server.
+Custom weights travel in the URL (`profile=custom&w=cpu:1,disk:3,...`, a section left out has weight 0); nothing
+is stored on the server. An unknown profile, or custom weights that cannot be read or are all 0, fall back to
+`balanced`.
 
 **Stability**: per side and section, the median of `cv_value` over the rows used for the section score (nulls
 skipped); the baseline uses `cv_base`. In %, lower is better. When every CV of a side is null (measured once)
@@ -86,15 +90,17 @@ there is no stability figure.
 **Price**: tags on runs. `price` is a positive decimal number with `.` as the decimal point and no thousands
 separator (`4500`, `0.096`); anything else is an invalid price (shown, not used). `price_unit` is optional free
 text. The price of a side needs every run of the side to carry the same `price` and `price_unit`, otherwise it is
-inconsistent and not used. Sides are compared only with an identical unit (the unit of most priced sides, the
-baseline's on a tie). **Performance per price** = overall score divided by price, shown as an index with the
-baseline (or, without a usable baseline price, the cheapest priced side) at 100. The price block needs at least
-two sides with a usable price in the same unit.
+inconsistent and not used; a side where no run has a `price` has no price. Sides are compared only with an
+identical unit, no unit on both counting as identical (the unit of most priced sides, the baseline's on a tie);
+the others are listed as "different unit". **Performance per price** = overall score divided by price, shown as
+an index with the baseline (or, without a usable baseline price, the cheapest priced side) at 100. The price
+block needs at least two sides with a usable price in the same unit.
 
-**Scaling**: the vCPU count of a side is `nproc` of its group or runs (a side mixing counts is skipped), its
-architecture the side's `archs` (mixed sides are skipped). Points are x = vCPU, y = overall score; the dotted
-reference is the smallest point of an architecture scaled linearly (`y x vCPU / vCPU0`); efficiency is the score
-divided by that reference. The block needs an architecture with at least two sides of different vCPU counts.
+**Scaling**: the vCPU count of a side is `nproc` of its runs, or of its group when no run has one (a side mixing
+counts is skipped), its architecture the side's `archs` (mixed sides are skipped). Points are x = vCPU, y =
+overall score (the baseline included, at 100); the dotted reference is the smallest point of an architecture
+scaled linearly (`y x vCPU / vCPU0`); efficiency is the score divided by that reference. The block needs an
+architecture with at least two sides of different vCPU counts.
 
 ## When vmbench changes its format
 
