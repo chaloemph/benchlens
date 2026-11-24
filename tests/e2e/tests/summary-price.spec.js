@@ -76,7 +76,7 @@ test('price: hidden with no price and with one price, shown with two (example pr
     await openSummary(page, url(cmp));
     await expect(page.locator('#sum-price')).toBeHidden();
     await expect(page.locator('#sum-price')).toBeEmpty();
-    await expect(page.locator('#sum-hidden-notes')).toContainText('Price / performance: add a `price` tag to at least two sides');
+    await expect(page.locator('#sum-hidden-notes')).toContainText('Price / performance: add a "price" tag to the runs of at least two sides');
 
     await prices.set(await runIdsOf(request, cmp, a), { price: '4000', price_unit: 'THB/month' });
     await openSummary(page, url(cmp));
@@ -104,13 +104,13 @@ test('price: points, scores, counts and index equal the independent values; the 
     await prices.set(await runIdsOf(request, cmp, b), { price: '6000', price_unit: 'THB/month' });
     await openSummary(page, url(cmp, `&profile=${profile}`));
 
-    // expected: overall score of the profile from score.js; counts summed from its section counts; the index
-    // is score per price against the baseline (100), plain arithmetic
+    // expected: overall score of the profile from score.js; counts from the side's tally (as every block shows
+    // them); the index is score per price against the baseline (100), plain arithmetic
     const c = await api(request, 'api/compare?' + sidesQuery(cmp));
     const sc = score.scoresFor(c, score.PROFILES[profile].weights);
     const side = sc.sides[0];
-    const counts = { better: 0, worse: 0, not_clear: 0 };
-    for (const s of Object.values(side.sections)) for (const k of Object.keys(counts)) counts[k] += s.counts[k];
+    const { better, worse, not_clear } = c.tallies[0];
+    const counts = { better, worse, not_clear };
     const pb = 4000, po = 6000;
     const expBase = { price: String(pb), score: f1(100), index: f1(100) };
     const expOther = { price: String(po), score: f1(side.overall.score), index: f1(100 * (side.overall.score / po) / (100 / pb)) };

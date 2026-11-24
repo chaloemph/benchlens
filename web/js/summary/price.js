@@ -8,7 +8,7 @@ import { h, clear, showTip, hideTip } from '../ui.js';
 import { sidePrice, pricePerformance, paretoFrontier, PROFILES } from '../score.js';
 import { tableFallback } from './table.js';
 
-const NOTE = 'Price / performance: add a `price` tag to at least two sides to see it';
+const NOTE = 'Price / performance: add a "price" tag to the runs of at least two sides to see it';
 const REASONS = {
   none: 'no price tag',
   invalid: 'invalid price (a positive number with a decimal point is expected)',
@@ -22,21 +22,19 @@ const fmtPrice = (p) => String(+p.toPrecision(6));
 const unitText = (u) => u || 'no unit';
 const trim = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
-/** Better / worse / within noise counts of a side, summed over its sections (verdicts as vmbench judged them). */
-function totalCounts(sections) {
-  const t = { better: 0, worse: 0, not_clear: 0 };
-  for (const s of Object.values(sections || {})) for (const k of Object.keys(t)) t[k] += s.counts[k];
-  return t;
-}
 const countsText = (c) => (c ? `better ${c.better} · worse ${c.worse} · within noise ${c.not_clear}` : 'baseline: 100 by definition');
 
 /** Entries for pricePerformance: the baseline (score 100) and every compared side, with their prices. */
 function entriesOf(ctx) {
   const { comparison, runs, scores } = ctx;
+  const tallies = comparison.tallies || [];
   const entries = [{ key: 'base', label: comparison.base.label, score: scores.base.overall.score, price: sidePrice(comparison.base, runs), isBase: true, counts: null }];
   comparison.others.forEach((side, i) => {
     const sc = scores.sides[i];
-    entries.push({ key: 'o' + i, label: side.label, score: sc.overall.score, price: sidePrice(side, runs), isBase: false, counts: totalCounts(sc.sections) });
+    // verdict counts as the other blocks show them: the comparison's tally of the side
+    const t = tallies[i] || {};
+    const counts = { better: t.better || 0, worse: t.worse || 0, not_clear: t.not_clear || 0 };
+    entries.push({ key: 'o' + i, label: side.label, score: sc.overall.score, price: sidePrice(side, runs), isBase: false, counts });
   });
   return entries;
 }
