@@ -1,6 +1,17 @@
 // Summary view: charts for decision makers, from the same comparison as the Compare view. This module only
 // loads the data and hands every block its slot; the blocks are in the files next to it and the score maths
 // is in ../score.js.
+//
+// Each block exports `render(el, ctx)` (may be async): `el` is its slot, emptied and shown before the call;
+// `ctx` = { comparison, runs, groups, state, profile, scores, hide }:
+// - comparison: the Comparison of /api/compare for the sides of the URL (same cache as Compare);
+// - runs, groups: RunSummary[] and GroupSummary[] of /api/runs and /api/groups;
+// - state: the URL state (readState), incl. `profile` and `w` as written;
+// - profile: weightsFor(state.profile, state.w) = { profile, weights, invalid } (invalid custom weights or an
+//   unknown profile fall back to balanced, with invalid = true);
+// - scores: scoresFor(comparison, profile.weights), computed once per render;
+// - hide(reason): empties and hides the slot and adds `reason` (one line, plain text) to #sum-hidden-notes.
+// A block that throws gets an error box in its slot; the other blocks still render.
 
 import { store, sideInfo } from '../data.js';
 import { getComparison } from '../compare.js';
@@ -56,18 +67,21 @@ export function renderSummary(s) {
     clear(status);
     body.hidden = false;
     const notes = clear(document.getElementById('sum-hidden-notes'));
-    const { weights } = weightsFor(s.profile, s.w);
-    const scores = scoresFor(comparison, weights);
+    const profile = weightsFor(s.profile, s.w);
+    const scores = scoresFor(comparison, profile.weights);
     for (const [id, render] of BLOCKS) {
       const el = clear(document.getElementById(id));
       el.hidden = false;
+      let hidden = false;
       const hide = (reason) => {
+        if (hidden || seq !== renderSeq) return; // once per block, never from a superseded render
+        hidden = true;
         clear(el);
         el.hidden = true;
         notes.append(h('span', { class: 'sum-note', text: reason }), ' ');
       };
       try {
-        await render(el, { comparison, runs: store.runs, groups: store.groups, state: s, scores, hide });
+        await render(el, { comparison, runs: store.runs, groups: store.groups, state: s, profile, scores, hide });
       } catch (err) {
         if (seq === renderSeq) clear(el, errorBlock(err, 'Cannot draw this block'));
       }
