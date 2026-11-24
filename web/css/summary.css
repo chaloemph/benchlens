@@ -140,3 +140,21 @@
 #sum-stability .sum-table { margin-top: .6rem; }
 
 /* ---- verdicts ---- */
+#sum-verdicts { margin-top: 24px; }
+.sum-verdicts-block { margin: 14px 0 18px; }
+.sum-verdicts-block h3 { margin: 0 0 2px; font-size: 1rem; overflow-wrap: anywhere; }
+.sum-verdicts-block p { margin: 0 0 4px; }
+.sum-verdicts-side { overflow-x: auto; }
+.sum-verdicts-hit { fill: transparent; }
+.sum-verdicts-row:hover .sum-verdicts-hit, .sum-verdicts-row:focus .sum-verdicts-hit { fill: var(--panel); }
+.sum-verdicts-row:focus { outline: none; }
+.sum-verdicts-row:focus-visible .sum-verdicts-hit { stroke: var(--focus); stroke-width: 2; }
+.sum-verdicts-row.total .sum-verdicts-hit { stroke: var(--line); stroke-width: 0; }
+.sum-verdicts-worse, .sum-verdicts-sw-worse { fill: var(--bad); background: var(--bad); }
+.sum-verdicts-better, .sum-verdicts-sw-better { fill: var(--good); background: var(--good); }
+.sum-verdicts-noise, .sum-verdicts-sw-noise { fill: var(--neutral); background: var(--neutral); }
+.sum-verdicts-sw-worse { background: repeating-linear-gradient(45deg, var(--bad) 0 2px, var(--bg) 2px 4px); }
+.sum-verdicts-hatch { stroke: var(--bg); opacity: 0.55; }
+.sum-verdicts-axis { stroke: var(--fg); stroke-width: 1; }
+.chart text.sum-verdicts-nlabel { fill: var(--fg); font-size: 11px; }
+.sum-verdicts-note { margin-top: 8px; }
