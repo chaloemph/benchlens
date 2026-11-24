@@ -200,8 +200,16 @@ fn build_assets() -> anyhow::Result<Assets> {
     let mut head = String::new();
     let mut middle = String::new();
     let mut in_head = true;
-    let mut saw = (false, false, false); // title, module entry, </body>
-    for line in index.lines() {
+    // title, module entry, </body>
+    let mut saw = (false, false, false);
+    // export/export.css is inlined once, after the last stylesheet of index.html
+    let last_css = index
+        .lines()
+        .enumerate()
+        .filter(|(_, l)| l.trim().starts_with("<link rel=\"stylesheet\""))
+        .map(|(n, _)| n)
+        .last();
+    for (n, line) in index.lines().enumerate() {
         let t = line.trim();
         let out = if in_head { &mut head } else { &mut middle };
         if t.starts_with("<title>") {
@@ -216,7 +224,11 @@ fn build_assets() -> anyhow::Result<Assets> {
             continue;
         } else if t.starts_with("<link rel=\"stylesheet\"") {
             let href = attr(t, "href")?;
-            let css = web_text(href)? + "\n" + &web_text("export/export.css")?;
+            let mut css = web_text(href)?;
+            if Some(n) == last_css {
+                css.push('\n');
+                css.push_str(&web_text("export/export.css")?);
+            }
             check_inline(href, &css)?;
             out.push_str("<style>\n");
             out.push_str(&css);
@@ -781,6 +793,29 @@ mod tests {
         assert!(pos("wasm/benchlens_wasm.js") < pos(ENTRY));
         // the live UI's own entry bundles too (every module of web/js is in the supported style)
         bundle("js/app.js").unwrap();
+    }
+
+    #[test]
+    fn export_css_is_inlined_once_after_the_stylesheets() {
+        let assets = static_assets().as_ref().unwrap();
+        let page = format!("{}{}", assets.head, assets.middle);
+        let export_css = web_text("export/export.css").unwrap();
+        assert_eq!(page.matches(export_css.trim()).count(), 1);
+        // the Summary view's stylesheet is in the file, and before export.css (which may override it)
+        let summary = web_text("css/summary.css").unwrap();
+        let at = page.find(summary.trim()).expect("css/summary.css");
+        assert!(at < page.find(export_css.trim()).unwrap());
+    }
+
+    #[test]
+    fn summary_modules_are_bundled() {
+        let code = bundle(ENTRY).unwrap();
+        for m in ["js/summary/index.js", "js/summary/board.js", "js/score.js"] {
+            assert!(
+                code.contains(&format!("__benchlens_modules[\"{m}\"] =")),
+                "{m}"
+            );
+        }
     }
 
     #[test]

@@ -23,13 +23,21 @@ bl() { "$bin" --db "$out/poc.db" "$@"; }
 
 bl import tests/fixtures/v0.2.1 tests/fixtures/v0.2.3 --registry examples/poc-2026-11/registry.tsv >/dev/null
 X=group:x86-high A=group:arm64-high
+# the same sides before any price is set: its Summary has no price block
+bl export html --base $X --other $A -o "$out/plain.html"
+# example prices (user input, not measurements): one price per group, set on every run of the group
+printf '{"x86-high":4000,"arm64-high":3000}\n' >"$out/prices.json"
+bl runs --json | node -e '
+  const prices = { "x86-high": "4000", "arm64-high": "3000" };
+  for (const r of JSON.parse(require("fs").readFileSync(0))) if (prices[r.group]) console.log(r.run_id, prices[r.group]);' |
+  while read -r id price; do bl tag "$id" "price=$price" "price_unit=THB/month" >/dev/null; done
 bl export html --base $X --other $A -o "$out/report.html"
 bl compare $X $A --json >"$out/exported.json"
 bl compare $A $X --json >"$out/swapped.json"
 run=$(bl runs --json | node -e 'const r=JSON.parse(require("fs").readFileSync(0));console.log(r.find(x=>x.label==="x86-high-r2").run_id)')
 bl compare "$run" $A --json >"$out/run.json"
 node tests/export/offline.mjs "$out/report.html" "$out/exported.json" "$out/swapped.json" \
-  "base=$run&other=$A" "$out/run.json"
+  "base=$run&other=$A" "$out/run.json" "--prices=$out/prices.json" "--no-price=$out/plain.html"
 
 # hostile group name: move one ARM run into a group whose name tries to break out of the page
 evil='</script><img src=x onerror="window.__benchlens_pwned=true"><!--'
