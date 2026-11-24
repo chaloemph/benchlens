@@ -4,25 +4,13 @@
 
 import { h, clear } from '../ui.js';
 import { setState } from '../state.js';
-import { PROFILES, SECTIONS, formatWeights, checkWeights } from '../score.js';
+import { SECTIONS, formatWeights, checkWeights } from '../score.js';
+import { sectionName } from '../format.js';
 import { tableFallback } from './table.js';
+import { blockTitle, fmtScore, countsText, incompleteText, profileName as profileLabel } from './common.js';
 
-const SECTION_NAMES = { cpu: 'CPU', disk: 'disk', mem: 'memory', net: 'network', pg: 'PostgreSQL', web: 'web' };
 const PROFILE_ORDER = ['balanced', 'web', 'db', 'compute', 'custom'];
-const profileLabel = (p) => (p === 'custom' ? 'Custom' : PROFILES[p].label);
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-
-/** Score as text: one decimal close to the baseline (where whole numbers would hide the gap), else whole. */
-export function fmtScore(v) {
-  if (!isNum(v)) return 'no score';
-  return window.d3.format(Math.abs(v - 100) < 10 ? '.1f' : '.0f')(v);
-}
-
-/** "incomplete: no web, disk results" or '' */
-export function incompleteText(overall) {
-  const miss = overall && overall.incomplete ? overall.incomplete : [];
-  return miss.length ? 'incomplete: no ' + miss.map((s) => SECTION_NAMES[s] || s).join(', ') + ' results' : '';
-}
 
 /**
  * Entries of the board, best first (no score last, ties keep the URL order, the baseline before the others
@@ -124,7 +112,7 @@ function customInputs(weights) {
     const res = checkWeights(texts);
     for (const s of SECTIONS) inputs[s].setAttribute('aria-invalid', String(res.section === s));
     if (res.error) {
-      err.textContent = res.section ? `${SECTION_NAMES[res.section]}: ${res.error}.` : res.error[0].toUpperCase() + res.error.slice(1) + '.';
+      err.textContent = res.section ? `${sectionName(res.section)}: ${res.error}.` : res.error[0].toUpperCase() + res.error.slice(1) + '.';
       err.hidden = false;
       return;
     }
@@ -138,7 +126,7 @@ function customInputs(weights) {
     const input = h('input', { type: 'number', min: '0', max: '5', step: '0.5', value: String(weights[sec]), id: 'sum-w-' + sec });
     input.addEventListener('change', apply);
     inputs[sec] = input;
-    grid.append(h('label', { class: 'sum-board-weight', for: 'sum-w-' + sec }, h('span', { text: SECTION_NAMES[sec] }), input));
+    grid.append(h('label', { class: 'sum-board-weight', for: 'sum-w-' + sec }, h('span', { text: sectionName(sec) }), input));
   }
   const box = h('div', { class: 'sum-board-custom' }, grid, err);
   return box;
@@ -157,8 +145,8 @@ function bars(entries, profileName) {
       h('div', { class: 'sum-board-100', style: `left:${x(100)}%` }));
     const detail = e.baseline
       ? 'baseline'
-      : `better ${e.counts.better} · worse ${e.counts.worse} · within noise ${e.counts.not_clear}`;
-    const inc = incompleteText(e.overall);
+      : countsText(e.counts);
+    const inc = incompleteText(e.overall.incomplete);
     list.append(h('li', { class: 'sum-board-row', 'data-baseline': e.baseline ? 'true' : null },
       h('div', { class: 'sum-board-head' },
         h('span', { class: 'sum-board-name', text: e.name + (e.baseline ? ' (baseline)' : '') }),
@@ -176,7 +164,7 @@ export function render(el, ctx) {
   const name = profileLabel(ctx.profile.profile);
   const entries = boardEntries(ctx);
   clear(el,
-    h('h2', { text: 'Leaderboard' }),
+    blockTitle('Leaderboard'),
     h('p', { class: 'lede sum-board-takeaway', text: takeaway(entries, name) }),
     profileControl(ctx),
     h('p', { class: 'muted', text: `Overall score (summary) for ${name}: weighted geometric mean of the section scores, baseline = 100. A score is a summary, not a verdict; the counts below each bar are vmbench's verdicts.` }),
@@ -187,7 +175,7 @@ export function render(el, ctx) {
       rows: entries.map((e) => [
         e.name + (e.baseline ? ' (baseline)' : ''), fmtScore(e.score),
         e.counts ? e.counts.better : '', e.counts ? e.counts.worse : '', e.counts ? e.counts.not_clear : '',
-        e.baseline ? 'baseline' : incompleteText(e.overall),
+        e.baseline ? 'baseline' : incompleteText(e.overall.incomplete),
       ]),
     }));
   restoreFocus(el);

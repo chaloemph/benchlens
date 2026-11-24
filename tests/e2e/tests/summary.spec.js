@@ -37,6 +37,11 @@ test('summary: opens with the six slots in order, Summary first in the nav', asy
   const hidden = await page.evaluate((ids) => ids.filter((id) => document.getElementById(id).hidden), SLOTS);
   for (const id of hidden) await expect(page.locator(`#${id}`)).toBeEmpty();
   await expect(page.locator('#sum-hidden-notes .sum-note')).toHaveCount(hidden.length);
+  // every shown block starts with one heading of the same kind
+  for (const id of SLOTS.filter((x) => !hidden.includes(x))) {
+    await expect(page.locator(`#${id} h2`), id).toHaveCount(1);
+    await expect(page.locator(`#${id} > h2.sum-title:first-child`), id).toHaveCount(1);
+  }
 });
 
 test('summary: sides line names the sides and links to Compare with the same state', async ({ page, request }) => {

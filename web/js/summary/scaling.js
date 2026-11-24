@@ -9,6 +9,7 @@
 import { h, clear, showTip, hideTip } from '../ui.js';
 import { sideVcpu, scalingEfficiency } from '../score.js';
 import { tableFallback } from './table.js';
+import { blockTitle, fmtScore, countsText, incompleteText as missing, profileName } from './common.js';
 
 const HIDE_REASON = 'Scaling: pick sides of one architecture with different vCPU counts (for example a 2 and a 16 vCPU machine) to see it';
 const SYMBOLS = ['Circle', 'Square', 'Triangle', 'Diamond'];
@@ -17,7 +18,6 @@ const SERIES = DASHES.length;
 const LINEAR_DASH = '1 4';
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
-const sectionName = { cpu: 'CPU', disk: 'disk', mem: 'memory', net: 'network', pg: 'PostgreSQL', web: 'web' };
 
 /**
  * The points and lines of the chart, no DOM. Sides are the baseline (score 100) and every compared side.
@@ -54,13 +54,13 @@ export function scalingModel(comparison, runs, groups, scores) {
   return { points, skipped, arches };
 }
 
-const fmt1 = (v) => (isNum(v) ? v.toFixed(1) : '');
+const fmt1 = (v) => (isNum(v) ? fmtScore(v) : '');
 const fmtPct = (v) => (isNum(v) ? v.toFixed(0) + '%' : '');
-const incompleteText = (p) => (p.incomplete && p.incomplete.length ? 'incomplete: no ' + p.incomplete.map((s) => sectionName[s] || s).join(', ') + ' results' : '');
+const incompleteText = (p) => missing(p.incomplete);
 
 function tipLines(p, profileName) {
   const lines = [p.label + (p.isBase ? ' (baseline)' : ''), `${p.arch}, ${p.vcpu} vCPU`, `score (summary): ${fmt1(p.score)}${p.isBase ? ' (baseline = 100)' : ''}`];
-  if (p.counts) lines.push(`better ${p.counts.better} · worse ${p.counts.worse} · within noise ${p.counts.not_clear}`);
+  if (p.counts) lines.push(countsText(p.counts));
   if (p.efficiency != null) lines.push(`linear expectation ${fmt1(p.expected)}, efficiency ${fmtPct(p.efficiency)}`);
   const inc = incompleteText(p);
   if (inc) lines.push(inc);
@@ -162,7 +162,7 @@ export function render(el, ctx) {
   const model = scalingModel(ctx.comparison, ctx.runs, ctx.groups, ctx.scores);
   if (!model.arches.some((a) => a.linear)) { ctx.hide(HIDE_REASON); return; }
 
-  const profileName = ctx.profile.profile;
+  const profile = profileName(ctx.profile.profile);
   const box = h('div', { class: 'chart sum-sc-chart' });
   const lines = model.arches.filter((a) => a.linear).map((a) => {
     const first = a.points[0];
@@ -176,8 +176,8 @@ export function render(el, ctx) {
   }));
 
   clear(el,
-    h('h2', { text: 'Does it scale with vCPUs?' }),
-    h('p', { class: 'muted', text: `Score (summary) of each side against its vCPU count, profile ${profileName}, baseline = 100. A dotted line shows what perfectly linear scaling from the smallest size would give.` }),
+    blockTitle('Scaling with vCPUs'),
+    h('p', { class: 'muted', text: `Score (summary) of each side against its vCPU count, profile ${profile}, baseline = 100. A dotted line shows what perfectly linear scaling from the smallest size would give.` }),
     h('ul', { class: 'sum-sc-notes' }, ...lines),
     box,
     legend(model),
@@ -188,7 +188,7 @@ export function render(el, ctx) {
       rows,
     }));
 
-  draw(box, model, profileName);
+  draw(box, model, profile);
   // redraw when the slot changes width (window resize, rotation); stops once the chart is replaced
   if (typeof ResizeObserver === 'function') {
     let width = box.clientWidth;
@@ -196,7 +196,7 @@ export function render(el, ctx) {
       if (!box.isConnected) { ro.disconnect(); return; }
       if (Math.abs(box.clientWidth - width) < 8) return;
       width = box.clientWidth;
-      draw(box, model, profileName);
+      draw(box, model, profile);
     });
     ro.observe(box);
   }

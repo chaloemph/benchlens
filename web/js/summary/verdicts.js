@@ -7,6 +7,7 @@
 import { h, clear, showTip, hideTip } from '../ui.js';
 import { sortSections, sectionName } from '../format.js';
 import { tableFallback } from './table.js';
+import { blockTitle, countsText as counts } from './common.js';
 
 const SVGNS = 'http://www.w3.org/2000/svg';
 const LABEL_W = 92;   // section name column
@@ -33,7 +34,7 @@ export function verdictRows(tally) {
   return rows;
 }
 
-const countsText = (r) => `better ${r.better} · worse ${r.worse} · within noise ${r.notClear}`;
+const countsText = (r) => counts({ better: r.better, worse: r.worse, not_clear: r.notClear });
 
 function svgEl(parent, tag, attrs) {
   const el = document.createElementNS(SVGNS, tag);
@@ -115,7 +116,7 @@ export function render(el, ctx) {
     h('span', {}, h('i', { class: 'sw sum-verdicts-sw-better' }), ' better'));
 
   const parts = [
-    h('h2', { text: 'Verdicts by section' }),
+    blockTitle('Verdicts by section'),
     h('p', { class: 'muted', text: 'Results counted as better, worse or within noise against the baseline '
       + (cmp.base ? cmp.base.label : '') + ', as vmbench judges them. Bars share one scale.' }),
     legend,

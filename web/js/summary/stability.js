@@ -8,6 +8,7 @@ import { h, clear, showTip, hideTip } from '../ui.js';
 import { SECTIONS } from '../score.js';
 import { sectionName, pct1 } from '../format.js';
 import { tableFallback } from './table.js';
+import { blockTitle, countsText as counts } from './common.js';
 
 const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
@@ -21,7 +22,6 @@ export function seriesOf(scores) {
     ...scores.sides.map((s) => mk(s.label, s.stability, s.sections, false))];
 }
 
-const counts = (c) => `better ${c.better} · worse ${c.worse} · within noise ${c.not_clear}`;
 
 /** Tooltip / table text of one dot. */
 function describe(series, sec) {
@@ -50,7 +50,7 @@ export function render(el, ctx) {
   let top = null;
   for (const s of drawn) for (const sec of secs) if (isNum(s.cv[sec]) && (!top || s.cv[sec] > top.v)) top = { s, sec, v: s.cv[sec] };
 
-  const head = [h('h2', { text: 'Stability' })];
+  const head = [blockTitle('Stability')];
   head.push(h('p', { class: 'sum-stab-lead', text: top
     ? `Noisiest: ${top.s.label}${top.s.isBase ? ' (baseline)' : ''} in ${sectionName(top.sec)}, median CV ${pct1(top.v)}.`
     : 'No side has repeated measurements, so there is no stability data to compare.' }));

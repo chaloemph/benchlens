@@ -6,6 +6,7 @@ import { h, clear, showTip, hideTip } from '../ui.js';
 import { SECTION_NAMES } from '../format.js';
 import { SECTIONS } from '../score.js';
 import { tableFallback } from './table.js';
+import { blockTitle, fmtScore, countsText } from './common.js';
 
 export const MAX_SIDES = 4;
 
@@ -13,7 +14,6 @@ export const MAX_SIDES = 4;
 const DASHES = ['', '8 3', '2 3', '10 3 2 3'];
 const SHAPES = ['circle', 'square', 'triangle', 'diamond'];
 
-const fmt = (v) => v.toFixed(1);
 const secName = (s) => SECTION_NAMES[s] || s;
 
 /** Radial scale top: 160 or the next multiple of 20 above the largest drawn score. */
@@ -57,9 +57,8 @@ function symbolType(shape) {
 function tooltipLines(side, sec, cell) {
   return [
     side.label,
-    secName(sec) + ': score (summary) ' + (cell.score == null ? 'no data' : fmt(cell.score)),
-    cell.n + ' results: better ' + cell.counts.better + ' · worse ' + cell.counts.worse + ' · within noise ' + cell.counts.not_clear
-      + (cell.weak && cell.n ? ' · few results' : ''),
+    secName(sec) + ': score (summary) ' + (cell.score == null ? 'no data' : fmtScore(cell.score)),
+    cell.n + ' results: ' + countsText(cell.counts) + (cell.weak && cell.n ? ' · few results' : ''),
   ];
 }
 
@@ -173,7 +172,7 @@ export function render(el, ctx) {
     for (const side of all) {
       for (const sec of SECTIONS) {
         const c = side.sections[sec];
-        rows.push([side.label, secName(sec), c.score == null ? 'no data' : fmt(c.score), c.n, c.counts.better, c.counts.worse, c.counts.not_clear, c.weak && c.n ? 'few results' : '']);
+        rows.push([side.label, secName(sec), c.score == null ? 'no data' : fmtScore(c.score), c.n, c.counts.better, c.counts.worse, c.counts.not_clear, c.weak && c.n ? 'few results' : '']);
       }
     }
     return tableFallback({ label: 'Section scores (summary) per side', columns: ['Side', 'Section', 'Score (summary)', 'Results', 'Better', 'Worse', 'Within noise', 'Note'], rows });
@@ -211,5 +210,5 @@ export function render(el, ctx) {
 
   redraw();
   tableSlot.append(table());
-  clear(el, h('h2', { text: 'Strengths and weaknesses by section' }), hint, selector, chart, tableSlot);
+  clear(el, blockTitle('Section scores'), hint, selector, chart, tableSlot);
 }

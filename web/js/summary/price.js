@@ -5,8 +5,9 @@
 // this file only lays the numbers out. Prices, units and labels are untrusted text: textContent only.
 
 import { h, clear, showTip, hideTip } from '../ui.js';
-import { sidePrice, pricePerformance, paretoFrontier, PROFILES } from '../score.js';
+import { sidePrice, pricePerformance, paretoFrontier } from '../score.js';
 import { tableFallback } from './table.js';
+import { blockTitle, fmtScore, countsText as counts, profileName } from './common.js';
 
 const NOTE = 'Price / performance: add a "price" tag to the runs of at least two sides to see it';
 const REASONS = {
@@ -17,12 +18,12 @@ const REASONS = {
   'no score': 'no score',
 };
 
-const num = (v) => (v == null ? '' : v.toFixed(1));
+const num = (v) => (v == null ? '' : fmtScore(v));
 const fmtPrice = (p) => String(+p.toPrecision(6));
 const unitText = (u) => u || 'no unit';
 const trim = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
-const countsText = (c) => (c ? `better ${c.better} · worse ${c.worse} · within noise ${c.not_clear}` : 'baseline: 100 by definition');
+const countsText = (c) => (c ? counts(c) : 'baseline: 100 by definition');
 
 /** Entries for pricePerformance: the baseline (score 100) and every compared side, with their prices. */
 function entriesOf(ctx) {
@@ -123,9 +124,8 @@ export function render(el, ctx) {
     return;
   }
   const frontier = paretoFrontier(pp.usable);
-  const prof = ctx.profile.profile;
-  const profLabel = prof === 'custom' ? 'custom weights' : PROFILES[prof].label;
-  clear(el, h('h2', { text: 'Price / performance' }),
+  const profLabel = profileName(ctx.profile.profile);
+  clear(el, blockTitle('Price / performance'),
     h('p', { class: 'muted', text: `Overall score (summary, profile: ${profLabel}) against price in ${unitText(pp.unit)}. Circles joined by the line are not beaten by any side that is both cheaper and faster; hollow squares are.` }));
   const chart = h('div', { class: 'chart sum-price-chart' });
   el.append(chart);
