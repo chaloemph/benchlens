@@ -98,7 +98,7 @@ async function checkAgainst(what, cliPath) {
 
 const SLOTS = ['sum-board', 'sum-radar', 'sum-price', 'sum-scaling', 'sum-stability', 'sum-verdicts'];
 const SECTION = { cpu: 'CPU', mem: 'Memory', disk: 'Disk', pg: 'PostgreSQL', net: 'Network', web: 'Web' };
-const f1 = (x) => x.toFixed(1);
+const f1 = (x) => x.toFixed(1); // as the page writes a score (summary/common.js fmtScore)
 
 /**
  * The Summary view of the open page against a CLI Comparison: six slots, each drawn or hidden with its reason
@@ -142,7 +142,7 @@ async function checkSummary(what, cliPath, { profile = 'balanced', w = '', price
   got.forEach((g, i) => {
     const e = want.find((x) => x.name === g.name);
     if (!e) return;
-    if (e.score == null ? g.value !== 'no score' : Math.abs(Number(g.value) - e.score) > 0.051 + (Math.abs(e.score - 100) < 10 ? 0 : 0.5)) problems.push(`${what}: board ${g.name}: ${g.value}, score.js ${e.score}`);
+    if (e.score == null ? g.value !== 'no score' : g.value !== f1(e.score)) problems.push(`${what}: board ${g.name}: ${g.value}, score.js ${e.score}`);
     if (e.detail && g.detail !== e.detail) problems.push(`${what}: board ${g.name}: ${g.detail}, want ${e.detail}`);
   });
 
@@ -172,7 +172,7 @@ async function checkPriceBlock(what, c, scores, prices) {
     const p = prices[sd.label.replace(' (baseline)', '')];
     if (!row) { problems.push(`${what}: price table has no row for ${sd.label}`); continue; }
     if (row[1] !== String(p)) problems.push(`${what}: ${sd.label} price ${row[1]}, example price ${p}`);
-    if (Math.abs(Number(row[2]) - sd.score) > 0.051 + (Math.abs(sd.score - 100) < 10 ? 0 : 0.5)) problems.push(`${what}: ${sd.label} score ${row[2]}, score.js ${f1(sd.score)}`);
+    if (row[2] !== f1(sd.score)) problems.push(`${what}: ${sd.label} score ${row[2]}, score.js ${f1(sd.score)}`);
   }
   console.log(`${what}: price block with ${rows.length} priced sides checked`);
 }
