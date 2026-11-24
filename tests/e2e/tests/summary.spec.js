@@ -1,16 +1,25 @@
-// Summary view shell: the view opens, the six block slots exist (placeholders until the blocks are built), the
-// sides line leads to Compare with the same state, and `profile` and `w` survive a reload and the nav.
+// Summary view shell: the view opens, the six block slots exist in order and each is either filled or hidden
+// with its reason in #sum-hidden-notes, the sides line leads to Compare with the same state, and `profile` and
+// `w` survive a reload and the nav. The checks hold for the stubs and for the finished blocks, so the blocks'
+// own specs (summary-<name>.spec.js) never need to change this file.
 
 import { test, expect, pickComparisons, sidesQuery, openView, sidewaysOverflow } from './helpers.js';
 
 const SLOTS = ['sum-board', 'sum-radar', 'sum-price', 'sum-scaling', 'sum-stability', 'sum-verdicts'];
 const params = (page) => new URL(page.url()).searchParams;
 
+/** Every slot has content or is hidden (a block without its data hides itself), once the blocks are drawn. */
+const slotsSettled = (page) => page.evaluate((ids) => ids.every((id) => {
+  const el = document.getElementById(id);
+  return el && (el.hidden || el.childElementCount > 0);
+}), SLOTS);
+
 async function openSummary(page, query) {
   await page.goto(query);
   await expect(page.locator('#view-summary')).toBeVisible();
   await expect(page.locator('#sum-status .state')).toHaveCount(0);
-  for (const id of SLOTS) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator('#sum-body')).toBeVisible();
+  await expect.poll(() => slotsSettled(page)).toBe(true);
 }
 
 test('summary: opens with the six slots in order, Summary first in the nav', async ({ page, request }) => {
@@ -23,7 +32,11 @@ test('summary: opens with the six slots in order, Summary first in the nav', asy
   const ids = await page.locator('#sum-body > *').evaluateAll((els) => els.map((e) => e.id));
   expect(ids).toEqual([...SLOTS, 'sum-hidden-notes']);
   await expect(page.locator('#sum-hidden-notes')).toHaveClass(/muted/);
-  for (const id of SLOTS) await expect(page.locator(`#${id} .sum-placeholder`)).toHaveCount(1);
+  // the leaderboard is always shown; a hidden block leaves no empty box and one note saying why
+  await expect(page.locator('#sum-board')).toBeVisible();
+  const hidden = await page.evaluate((ids) => ids.filter((id) => document.getElementById(id).hidden), SLOTS);
+  for (const id of hidden) await expect(page.locator(`#${id}`)).toBeEmpty();
+  await expect(page.locator('#sum-hidden-notes .sum-note')).toHaveCount(hidden.length);
 });
 
 test('summary: sides line names the sides and links to Compare with the same state', async ({ page, request }) => {
